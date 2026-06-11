@@ -1,0 +1,44 @@
+---
+description: Security rules — always applied
+alwaysApply: true
+---
+
+# Security Rules — Non-Negotiable
+
+## Credentials & Secrets
+- Zero hardcoded secrets in code — AWS Secrets Manager or env vars only
+- .env files never committed — .env.example with placeholders only
+- API keys hashed (SHA-256) before storing in DB — never store plain
+- JWT private key stored in Secrets Manager — never in code or env file
+- Rotate secrets every 30 days via automated Secrets Manager rotation
+
+## PII Protection (TCPA Compliance)
+- Caller ANI (phone numbers) encrypted AES-256-GCM before DB storage
+- Store ANI as encrypted blob + SHA-256 hash (for dedup only)
+- Never log ANI, SSN, DOB, or any caller PII in plaintext
+- Call recordings: S3 SSE-KMS, presigned URLs only (15min TTL)
+- PII redaction in transcripts before storing (SSN, credit card patterns)
+
+## Input Validation
+- Sanitize all inputs before DB operations
+- Validate all webhook payloads with Zod before processing
+- Verify HMAC signatures on all platform webhooks (Ringba, Retreaver)
+- Rate limit all public endpoints via Kong gateway
+- Reject oversized payloads (>1MB) at gateway level
+
+## Multi-Tenant
+- Never trust tenant_id from request body — JWT header only
+- PostgreSQL RLS enforced at DB level — not just application layer
+- Redis keys namespaced: {tenant_id}:{key_type}:{id}
+- S3 paths include tenant_id: /recordings/{tenant_id}/...
+
+## Network
+- All internal service traffic over TLS
+- No service directly exposed to internet — Kong gateway only
+- Security groups: each service accepts traffic from specific sources only
+
+## Platform Connectors
+- Verify X-Ringba-Signature HMAC-SHA256 before processing any Ringba webhook
+- Verify signature header for Retreaver webhooks
+- Reject unverified webhook immediately with 401
+- Log all webhook verification failures with IP and payload hash

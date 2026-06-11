@@ -1,0 +1,55 @@
+---
+description: TypeScript and Node.js rules
+globs: ["**/*.ts", "**/*.js"]
+alwaysApply: false
+---
+
+# TypeScript / Node.js Rules
+
+## Type Safety
+- strict: true in tsconfig — no exceptions
+- Never use 'any' — use 'unknown' and narrow with type guards
+- All function parameters and returns explicitly typed
+- Zod for runtime validation of all webhook payloads from external platforms
+- Enums for all fixed value sets — never raw strings
+- Nullable values typed as T | null — never assume non-null
+
+## OOP in TypeScript
+- Single Responsibility: one class does one thing
+- Dependency injection via constructor — never instantiate deps inside class
+- Repository pattern: all DB access in repository classes only
+- Service layer: all business logic in services, never in controllers
+- Interfaces for all external dependencies (DB, Redis, Kafka, AI)
+
+## Error Handling
+- Try/catch on ALL async operations — never let promises reject silently
+- Custom error classes per domain (PingProcessingError, TranscriptionError)
+- Never throw raw strings — always throw Error instances
+- Global exception filter in NestJS for unhandled errors
+
+## Async Patterns
+- async/await always — never raw .then().catch() chains
+- Promise.all() for parallel operations — never sequential awaits
+- Never block event loop — CPU-heavy work in worker threads
+
+## External API calls (OpenAI, Deepgram, EnrollHere)
+- Exponential backoff on rate limit (429) errors
+- Retry max 3 times with: 1s → 2s → 4s delays
+- Circuit breaker (opossum) on all external calls
+- Log every external call: provider, duration, status, tenant_id
+- Never call OpenAI/Deepgram in the synchronous request path
+
+## Logging
+- pino logger only — never console.log
+- JSON output always
+- Every log: trace_id, tenant_id, service, level, timestamp
+- Never log PII (phone numbers, SSN, email)
+
+## Health Checks
+- GET /healthz → liveness
+- GET /readyz → readiness (DB + Redis connected)
+
+## Environment
+- All secrets via process.env — validated at startup with Zod
+- App crashes at startup if required env vars missing — fail fast
+- .env.example committed to git — .env never committed

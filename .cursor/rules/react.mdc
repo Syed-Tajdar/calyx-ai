@@ -1,0 +1,40 @@
+---
+description: React and Next.js frontend rules
+globs: ["**/*.tsx", "**/*.jsx"]
+alwaysApply: false
+---
+
+# React / Next.js Rules
+
+## Component Design
+- Functional components only — no class components
+- Single responsibility: one component does one thing
+- Custom hooks for all business logic — never in component body
+- Props interfaces explicitly typed — never use 'any'
+
+## State Management
+- Local state: useState for UI-only state
+- Server state: TanStack Query (React Query) for API data
+- Global state: Zustand for cross-component state
+- Never use Redux — overkill for this project
+
+## Real-Time (WebSocket)
+- Socket.io client for all real-time ping/call feed
+- Auto-reconnect with exponential backoff
+- Scoped to tenant room only — never global broadcast
+- Show connection status to user always
+
+## Performance
+- Code split all heavy components (charts, flow builder) — lazy load
+- React.memo for expensive list items
+- useMemo/useCallback only when profiler shows regression
+- Bundle size target: under 200KB gzipped initial load
+
+## Styling
+- Tailwind CSS only — no inline styles, no CSS modules
+- No fixed pixel widths — responsive from mobile up
+
+## Error Handling
+- Error boundaries on all major sections
+- Suspense boundaries for all async components
+- Never let uncaught errors crash the entire dashboard

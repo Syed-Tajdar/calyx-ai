@@ -1,0 +1,45 @@
+---
+description: Testing rules — applied to test files
+globs: ["**/*.test.*", "**/*.spec.*", "**/*_test.go"]
+alwaysApply: false
+---
+
+# Testing Rules
+
+## Coverage Requirements
+- Minimum 80% coverage enforced in CI — PR blocked if below
+- Every new function gets a unit test in the same PR
+- Every API endpoint gets an integration test
+- Critical paths (ping dedup, eRPC scoring, TCPA check): 100% coverage
+
+## Go Testing
+- Use testify for assertions (require.NoError, assert.Equal)
+- testcontainers-go for real PostgreSQL, Redis, Kafka in tests
+- Never mock the database — test against real containers
+- Test concurrent ping ingestion with t.Parallel() and goroutines
+- Benchmark tests for hot path functions (go test -bench=.)
+
+## TypeScript Testing
+- Jest for unit tests
+- testcontainers for integration tests with real DB
+- supertest for API endpoint testing
+- Never mock PostgreSQL or Redis — use real containers
+
+## Test Naming
+- Go: TestFunctionName_Scenario_ExpectedResult
+- TypeScript: describe('FunctionName') → it('should do X when Y')
+
+## What Must Be Tested
+- Ping deduplication with concurrent identical pings
+- eRPC scoring formula with known inputs and expected outputs
+- TCPA compliance check blocking behavior on DNC match
+- Tenant isolation: tenant A cannot read tenant B data
+- Graceful degradation when external service (Deepgram, OpenAI) is down
+- Webhook signature verification — valid and invalid signatures
+
+## Edge Cases Always Test
+- Empty input arrays and null values
+- Maximum payload sizes
+- Expired JWTs and invalid API keys
+- Concurrent requests to same resource
+- Service unavailability (circuit breaker behavior)

@@ -1,0 +1,75 @@
+---
+description: Project context and core rules — always applied
+alwaysApply: true
+---
+
+# Call Loom Intelligence Platform
+Kaliper competitor — pay-per-call analytics & intelligence.
+Part of Call Loom ecosystem. May run standalone or built-in.
+
+## Core Modules
+- Ping Intelligence Engine (ingestion, dedup, search, bid analysis)
+- Call Quality AI (transcription, scoring, sentiment)
+- Financial Analytics (CPA, RPC, P&L, ROI)
+- Coverage Intelligence (geo demand heatmaps)
+- Audience Enrichment (500+ attributes per number)
+- Ask AI (natural language reporting via pgvector + OpenAI)
+- TCPA Compliance Intelligence (our unique moat — nobody has this)
+- Cross-Platform Connectors (Ringba, Retreaver, TrackDrive, CallGrid)
+
+## Tech Stack — Never suggest alternatives
+- Ping ingestion: Go 1.22+
+- API + business logic: Node.js + TypeScript (NestJS or Fastify)
+- Frontend: React + TypeScript (Next.js)
+- Real-time cache: Redis Cluster 7.x
+- Message queue: Apache Kafka (AWS MSK)
+- Operational DB: PostgreSQL 16
+- Analytics DB: ClickHouse
+- Ping search: Elasticsearch
+- Transcription: Deepgram API
+- AI scoring + Ask AI: OpenAI GPT-4 + pgvector
+- Enrichment: EnrollHere API + Whitepages API
+- Infrastructure: AWS EKS + Kubernetes + Terraform
+- Observability: OpenTelemetry + Prometheus + Grafana + Loki
+
+## Architecture Rules
+- Stateless services — all session state in Redis only
+- Go handles ALL real-time ping processing — never Node.js in ping path
+- Kafka for all async post-processing — never block request waiting for analytics
+- ClickHouse for ALL read-heavy analytics — never PostgreSQL for analytics queries
+- Every table must have tenant_id from day one — never retrofit
+- Separate read/write paths — write DB never used for dashboard queries
+- Circuit breaker on all external deps: Go=sony/gobreaker, TS=opossum
+- Multi-tenant: tenant_id on every query, PostgreSQL RLS at DB level
+- Never trust tenant_id from request body — only from JWT header
+
+## Core Principles
+- DRY: extract any duplicated logic immediately
+- SOLID: single responsibility, interfaces over concrete types
+- KISS: simplest solution first, complexity only when performance demands
+- Zero redundancy: if same code appears twice, it's wrong
+- Fail fast: validate at entry point, reject early
+- Fail safe: if compliance check fails → block, never allow through
+
+## Commit Conventions (Conventional Commits)
+- feat: new feature
+- fix: bug fix
+- perf: performance improvement
+- refactor: code change with no feature/fix
+- test: adding tests
+- docs: documentation only
+- chore: tooling, deps, config
+- Keep messages under 72 characters
+
+## What Never To Do
+- Never use 'any' type in TypeScript
+- Never run analytics on PostgreSQL
+- Never use Node.js in ping ingestion hot path
+- Never log caller ANI (phone number) in plaintext
+- Never hardcode API keys or secrets in code
+- Never return unbounded lists from any endpoint
+- Never write blocking I/O inside a Go goroutine
+- Never mix business logic with route handlers
+- Never commit .env files — only .env.example
+- Never skip error handling — no ignored errors ever
+- Never use console.log — structured logger always

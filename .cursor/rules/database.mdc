@@ -1,0 +1,40 @@
+---
+description: Database rules — applied to schema and migration files
+globs: ["**/migrations/**", "**/schema*", "**/*.sql"]
+alwaysApply: false
+---
+
+# Database Rules
+
+## PostgreSQL — Operational Data
+- Every table: id (UUID default gen_random_uuid()), tenant_id (UUID NOT NULL),
+  created_at (TIMESTAMPTZ DEFAULT NOW()), updated_at (TIMESTAMPTZ)
+- RLS on every table: USING (tenant_id = current_setting('app.current_tenant')::uuid)
+- All migrations: zero-downtime expand/contract pattern only
+- New NOT NULL columns: always add DEFAULT first, backfill, then add NOT NULL
+- CREATE INDEX CONCURRENTLY — never plain CREATE INDEX on large tables
+- Foreign keys on all relationship columns
+- Parameterized queries always — never string concatenation
+
+## ClickHouse — Analytics Data
+- Engine: ReplicatedMergeTree for production, MergeTree for dev
+- Always define ORDER BY (low cardinality first, then high)
+- Partition by toYYYYMM(created_at) for time-series tables
+- TTL: set data retention policy on all analytics tables
+- Batch inserts only: buffer-and-flush, minimum 500 rows or 5 seconds
+- Never single-row inserts to ClickHouse
+- No JOINs in real-time dashboard queries — pre-aggregate via materialized views
+
+## Migrations
+- golang-migrate for Go services
+- Prisma Migrate for TypeScript services
+- Every migration: up + down scripts
+- Never drop columns immediately — mark deprecated, remove in next release
+- Test migrations on staging before production always
+
+## Elasticsearch — Ping Search
+- Explicit index mappings always — never dynamic mapping in production
+- keyword type for exact match fields (tenant_id, status, platform)
+- text type for full-text search fields (rejection reason, payload)
+- date type for timestamp fields
+- Index per tenant for enterprise customers, shared index with tenant_id filter for others
