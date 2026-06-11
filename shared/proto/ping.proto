@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package callloom.ping.v1;
+
+option go_package = "github.com/Syed-Tajdar/call-loom-intelligence/shared/proto/ping/v1;pingv1";
+
+// PingEvent is the canonical Kafka message for normalized call pings.
+message PingEvent {
+  string tenant_id = 1;
+  string platform = 2;
+  int64 received_at_unix_ms = 3;
+}
