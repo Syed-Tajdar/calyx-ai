@@ -2,40 +2,78 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
+
+	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/config"
+	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/dedup"
+	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/handlers"
+	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/producer"
+	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/store"
+	redisclient "github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/pkg/redis"
+	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/pkg/kafka"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, _ *http.Request) {
-		// TODO: verify Redis and Kafka connectivity
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Error("config load failed", "service", "ingestion", "error", err)
+		os.Exit(1)
+	}
 
+	redisClient, err := redisclient.NewClient(cfg.RedisURL)
+	if err != nil {
+		logger.Error("redis connect failed", "service", "ingestion", "error", err)
+		os.Exit(1)
+	}
+	defer redisClient.Close()
+
+	integrationStore, err := store.NewIntegrationStore(cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("postgres connect failed", "service", "ingestion", "error", err)
+		os.Exit(1)
+	}
+	defer integrationStore.Close()
+
+	kafkaClient := kafka.NewClient(cfg.KafkaBrokers, cfg.KafkaTopic)
+	defer kafkaClient.Close()
+
+	dedupChecker := dedup.NewChecker(redisClient, cfg.DedupTTL)
+	pingProducer := producer.NewProducer(kafkaClient, cfg.KafkaTopic)
+
+	health := handlers.NewHealthHandler(dedupChecker, pingProducer, integrationStore)
+	ringba := handlers.NewRingbaHandler(cfg, integrationStore, dedupChecker, pingProducer, logger)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", health.Liveness)
+	mux.HandleFunc("GET /readyz", health.Readiness)
+	mux.Handle("GET /webhooks/ringba/", ringba)
+	mux.Handle("POST /webhooks/ringba/", ringba)
+
+	addr := fmt.Sprintf(":%s", cfg.Port)
 	srv := &http.Server{
-		Addr:         ":8080",
+		Addr:         addr,
 		Handler:      mux,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
-		logger.Info("ingestion server starting", "service", "ingestion", "addr", srv.Addr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("server failed", "service", "ingestion", "error", err)
+		defer wg.Done()
+		logger.Info("ingestion server starting", "service", "ingestion", "addr", addr)
+		if serveErr := srv.ListenAndServe(); serveErr != nil && serveErr != http.ErrServerClosed {
+			logger.Error("server failed", "service", "ingestion", "error", serveErr)
 			os.Exit(1)
 		}
 	}()
@@ -45,12 +83,17 @@ func main() {
 	<-quit
 
 	logger.Info("shutdown signal received", "service", "ingestion")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
-		logger.Error("shutdown failed", "service", "ingestion", "error", err)
-		os.Exit(1)
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Error("http shutdown failed", "service", "ingestion", "error", err)
 	}
+
+	if err := pingProducer.Flush(shutdownCtx); err != nil {
+		logger.Error("kafka flush failed", "service", "ingestion", "error", err)
+	}
+
+	wg.Wait()
 	logger.Info("shutdown complete", "service", "ingestion")
 }

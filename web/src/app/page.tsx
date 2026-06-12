@@ -1,8 +1,5 @@
-export default function HomePage(): JSX.Element {
-  return (
-    <main>
-      <h1>Call Loom Intelligence</h1>
-      <p>Dashboard coming in Phase 1.</p>
-    </main>
-  );
+import { redirect } from 'next/navigation';
+
+export default function HomePage(): never {
+  redirect('/login');
 }

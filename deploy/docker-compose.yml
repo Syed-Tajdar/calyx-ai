@@ -9,11 +9,33 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U callloom"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    volumes:
+      - ../db/postgres/migrations:/migrations
+    command:
+      - -path=/migrations
+      - -database=postgres://callloom:callloom_dev@postgres:5432/callloom?sslmode=disable
+      - up
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   redpanda:
     image: redpandadata/redpanda:v24.2.4
@@ -35,14 +57,38 @@ services:
       - PLAINTEXT://redpanda:9092
     ports:
       - "9092:9092"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka-init:
+    image: redpandadata/redpanda:v24.2.4
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - rpk topic create callloom.pings.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+    depends_on:
+      redpanda:
+        condition: service_healthy
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: callloom_dev
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
     ports:
       - "8123:8123"
       - "9000:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+      - ../db/clickhouse/migrations/000001_pings_table.up.sql:/docker-entrypoint-initdb.d/001_pings.sql:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   ingestion:
     build:
@@ -50,11 +96,21 @@ services:
     ports:
       - "8080:8080"
     environment:
+      INGESTION_PORT: "8080"
       REDIS_URL: redis://redis:6379
       KAFKA_BROKER: redpanda:9092
+      KAFKA_TOPIC_PINGS: callloom.pings.v1
+      DATABASE_URL: postgres://callloom:callloom_dev@postgres:5432/callloom?sslmode=disable
+      ANI_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     depends_on:
-      - redis
-      - redpanda
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   consumer:
     build:
@@ -62,11 +118,23 @@ services:
     ports:
       - "8081:8081"
     environment:
+      CONSUMER_PORT: "8081"
       KAFKA_BROKER: redpanda:9092
-      CLICKHOUSE_DSN: clickhouse://clickhouse:9000/default
+      KAFKA_TOPIC_PINGS: callloom.pings.v1
+      KAFKA_CONSUMER_GROUP: callloom-consumer
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: callloom_dev
+      BATCH_SIZE: "10"
+      BATCH_FLUSH_MS: "2000"
     depends_on:
-      - redpanda
-      - clickhouse
+      redpanda:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   api:
     build:
@@ -75,15 +143,21 @@ services:
       - "3000:3000"
     environment:
       API_PORT: "3000"
-      DATABASE_URL: postgres://callloom:callloom_dev@postgres:5432/callloom
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgres://callloom:callloom_dev@postgres:5432/callloom?sslmode=disable
+      JWT_SECRET: callloom_dev_jwt_secret_min_32_chars_long
+      CLICKHOUSE_URL: http://default:callloom_dev@clickhouse:8123
+      CLICKHOUSE_DB: default
     depends_on:
-      - postgres
-      - redis
+      migrate:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
 
   web:
     build:
       context: ../web
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3000
     ports:
       - "3001:3000"
     environment:

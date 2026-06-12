@@ -2,49 +2,56 @@
 
 Pay-per-call analytics and intelligence — Kaliper competitor, part of the Call Loom ecosystem.
 
-## Repository layout
+## Phase 1 — Complete
+
+End-to-end pipeline:
 
 ```
-├── .cursor/rules/          # Cursor AI rules
-├── services/
-│   ├── ingestion/          # Go — webhook ingestion (Phase 1 first build)
-│   ├── api/                # NestJS — REST API
-│   └── consumer/           # Go — Kafka → ClickHouse writer
-├── web/                    # Next.js dashboard
-├── shared/                 # Cross-service schemas and types
-├── db/                     # PostgreSQL and ClickHouse migrations
-├── deploy/                 # docker-compose, Terraform, Kubernetes
-└── scripts/                # Dev helper scripts
+Ringba Pixel → Ingestion (Go) → Kafka → Consumer (Go) → ClickHouse
+                                              ↓
+                                    API (NestJS) → Web (Next.js)
 ```
 
-## Local development
+### Quick start (local)
 
-1. Copy environment template:
+```bash
+# Prerequisites: Docker Desktop, Go 1.22+, Node.js 20+
+cp .env.example .env
+make dev-up
+```
 
-   ```bash
-   cp .env.example .env
-   ```
+| Service   | URL |
+|-----------|-----|
+| Ingestion | http://localhost:8080/healthz |
+| Consumer  | http://localhost:8081/healthz |
+| API       | http://localhost:3000/healthz |
+| Web       | http://localhost:3001 |
 
-2. Start infrastructure and services:
+**Dev login:** `admin@callloom.dev` / `callloom_dev`
 
-   ```bash
-   make dev-up
-   ```
+### Ringba pixel setup
 
-3. Health checks:
+1. In Ringba: **Integrations → Pixels → Add Pixel**
+2. Event: **Incoming** (or Completed)
+3. URL (GET or POST JSON):
 
-   | Service   | URL                        |
-   |-----------|----------------------------|
-   | Ingestion | http://localhost:8080/healthz |
-   | Consumer  | http://localhost:8081/healthz |
-   | API       | http://localhost:3000/healthz |
-   | Web       | http://localhost:3001        |
+```
+http://localhost:8080/webhooks/ringba/dev_ringba_token_change_me?CallID=[Call:InboundCallId]&caller_id=[tag:InboundNumber:Number]&state=[tag:Geo:State]&event=incoming&call_revenue=[Call:ConversionPayout]
+```
 
-## Tech stack
+4. Enable **POST Pixel** with JSON if preferred — same field names supported.
 
-- **Ingestion / Consumer:** Go 1.22+
-- **API:** Node.js + TypeScript (NestJS)
-- **Web:** React + TypeScript (Next.js)
-- **Data:** PostgreSQL 16, ClickHouse, Redis 7, Kafka
+### Smoke test
 
-See `.cursor/rules/project.mdc` for full architecture rules.
+```powershell
+powershell -File scripts/smoke-test.ps1
+```
+
+### Architecture
+
+- **Ingestion:** Ringba parser, Redis dedup, Kafka producer, AES-256-GCM ANI encryption
+- **Consumer:** Batched ClickHouse inserts (min 500 rows or 5s flush)
+- **API:** JWT auth, tenant-scoped ClickHouse queries
+- **Web:** Login + ping dashboard
+
+See `.cursor/rules/` for full architecture rules.
