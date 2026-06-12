@@ -3,11 +3,10 @@ import { JwtService } from '@nestjs/jwt';
 import { PostgresService } from '../database/postgres.service';
 import { JwtPayload } from './jwt-payload.interface';
 
-interface UserRow {
+interface AuthUserRow {
   id: string;
   tenant_id: string;
   email: string;
-  password_hash: string;
   role: string;
 }
 
@@ -19,22 +18,14 @@ export class AuthService {
   ) {}
 
   async login(email: string, password: string): Promise<{ access_token: string }> {
-    const result = await this.postgres.getPool().query<UserRow>(
-      `SELECT id::text, tenant_id::text, email, password_hash, role
-       FROM users WHERE email = $1 LIMIT 1`,
-      [email],
+    const result = await this.postgres.getPool().query<AuthUserRow>(
+      `SELECT id::text, tenant_id::text, email, role
+       FROM authenticate_user($1, $2)`,
+      [email, password],
     );
 
     const user = result.rows[0];
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const pgCrypt = await this.postgres.getPool().query<{ ok: boolean }>(
-      `SELECT (password_hash = crypt($1, password_hash)) AS ok FROM users WHERE id = $2`,
-      [password, user.id],
-    );
-    if (!pgCrypt.rows[0]?.ok) {
       throw new UnauthorizedException('Invalid credentials');
     }
 

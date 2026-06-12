@@ -12,7 +12,13 @@ import (
 	"github.com/Syed-Tajdar/call-loom-intelligence/services/consumer/internal/models"
 	"github.com/Syed-Tajdar/call-loom-intelligence/services/consumer/internal/writer"
 	"github.com/Syed-Tajdar/call-loom-intelligence/services/consumer/pkg/kafka"
+	kafkago "github.com/segmentio/kafka-go"
 )
+
+type pendingEntry struct {
+	ping models.PingMessage
+	msg  kafkago.Message
+}
 
 // Service consumes ping events and batches them to ClickHouse.
 type Service struct {
@@ -20,7 +26,7 @@ type Service struct {
 	reader  *kafka.Reader
 	writer  *writer.BatchWriter
 	logger  *slog.Logger
-	batch   []models.PingMessage
+	batch   []pendingEntry
 	batchMu sync.Mutex
 	wg      sync.WaitGroup
 }
@@ -32,7 +38,7 @@ func NewService(cfg config.Config, reader *kafka.Reader, batchWriter *writer.Bat
 		reader: reader,
 		writer: batchWriter,
 		logger: logger,
-		batch:  make([]models.PingMessage, 0, cfg.BatchSize),
+		batch:  make([]pendingEntry, 0, cfg.BatchSize),
 	}
 }
 
@@ -62,21 +68,25 @@ func (s *Service) Run(ctx context.Context) error {
 
 		var ping models.PingMessage
 		if err := json.Unmarshal(msg.Value, &ping); err != nil {
-			s.logger.Warn("invalid kafka message", "service", "consumer", "error", err)
+			s.logger.Warn("invalid kafka message, committing offset",
+				"service", "consumer", "error", err)
+			if commitErr := s.reader.Commit(ctx, msg); commitErr != nil {
+				return fmt.Errorf("consumer.Run: commit invalid msg: %w", commitErr)
+			}
 			continue
 		}
 
-		if err := s.append(ctx, ping); err != nil {
+		if err := s.append(ctx, pendingEntry{ping: ping, msg: msg}); err != nil {
 			return fmt.Errorf("consumer.Run: %w", err)
 		}
 	}
 }
 
-func (s *Service) append(ctx context.Context, ping models.PingMessage) error {
+func (s *Service) append(ctx context.Context, entry pendingEntry) error {
 	s.batchMu.Lock()
 	defer s.batchMu.Unlock()
 
-	s.batch = append(s.batch, ping)
+	s.batch = append(s.batch, entry)
 	if len(s.batch) >= s.cfg.BatchSize {
 		return s.flushLocked(ctx)
 	}
@@ -114,13 +124,23 @@ func (s *Service) flushLocked(ctx context.Context) error {
 	if len(s.batch) == 0 {
 		return nil
 	}
-	toFlush := make([]models.PingMessage, len(s.batch))
-	copy(toFlush, s.batch)
-	s.batch = s.batch[:0]
 
-	if err := s.writer.InsertBatch(ctx, toFlush); err != nil {
+	pings := make([]models.PingMessage, len(s.batch))
+	msgs := make([]kafkago.Message, len(s.batch))
+	for i, entry := range s.batch {
+		pings[i] = entry.ping
+		msgs[i] = entry.msg
+	}
+
+	if err := s.writer.InsertBatch(ctx, pings); err != nil {
 		return fmt.Errorf("consumer.flushLocked: %w", err)
 	}
-	s.logger.Info("batch flushed", "service", "consumer", "count", len(toFlush))
+
+	if err := s.reader.Commit(ctx, msgs...); err != nil {
+		return fmt.Errorf("consumer.flushLocked: commit: %w", err)
+	}
+
+	s.batch = s.batch[:0]
+	s.logger.Info("batch flushed", "service", "consumer", "count", len(pings))
 	return nil
 }

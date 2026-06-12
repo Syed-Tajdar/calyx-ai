@@ -39,7 +39,9 @@ make dev-up
 http://localhost:8080/webhooks/ringba/dev_ringba_token_change_me?CallID=[Call:InboundCallId]&caller_id=[tag:InboundNumber:Number]&state=[tag:Geo:State]&event=incoming&call_revenue=[Call:ConversionPayout]
 ```
 
-4. Enable **POST Pixel** with JSON if preferred — same field names supported.
+4. **HMAC required:** every request must include `X-Ringba-Signature` (HMAC-SHA256 hex of query string or JSON body, keyed by integration `webhook_secret`). Dev secret: `dev_ringba_hmac_secret_change_me`
+
+5. Enable **POST Pixel** with JSON if preferred — same field names supported.
 
 ### Smoke test
 

@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down build-ingestion build-consumer build-api build-web tidy smoke-test
+.PHONY: dev-up dev-down build-ingestion build-consumer build-api build-web tidy test smoke-test
 
 dev-up:
 	docker compose -f deploy/docker-compose.yml up -d --build
@@ -21,6 +21,11 @@ build-web:
 tidy:
 	cd services/ingestion && go mod tidy
 	cd services/consumer && go mod tidy
+
+test:
+	cd services/ingestion && go test ./...
+	cd services/consumer && go test ./...
+	cd services/api && npm test
 
 smoke-test:
 	powershell -File scripts/smoke-test.ps1

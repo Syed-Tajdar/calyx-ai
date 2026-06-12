@@ -1,11 +1,17 @@
-# Smoke test: send a Ringba pixel to ingestion and verify API returns it.
+# Smoke test: send a signed Ringba pixel to ingestion and verify API returns it.
 $token = "dev_ringba_token_change_me"
+$secret = "dev_ringba_hmac_secret_change_me"
 $callId = [guid]::NewGuid().ToString()
-$url = "http://localhost:8080/webhooks/ringba/$token" +
-  "?CallID=$callId&caller_id=15551234567&state=TX&event=incoming&call_revenue=12.50"
+$query = "CallID=$callId&caller_id=15551234567&state=TX&event=incoming&call_revenue=12.50"
+$url = "http://localhost:8080/webhooks/ringba/$token" + "?" + $query
 
-Write-Host "Sending test ping to $url"
-Invoke-RestMethod -Uri $url -Method GET
+$hmac = New-Object System.Security.Cryptography.HMACSHA256
+$hmac.Key = [Text.Encoding]::UTF8.GetBytes($secret)
+$hash = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($query))
+$signature = -join ($hash | ForEach-Object { $_.ToString("x2") })
+
+Write-Host "Sending signed test ping"
+Invoke-RestMethod -Uri $url -Method GET -Headers @{ "X-Ringba-Signature" = $signature }
 
 Start-Sleep -Seconds 8
 

@@ -2,11 +2,9 @@ package handlers
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -16,16 +14,17 @@ import (
 	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/dedup"
 	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/normalizer"
 	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/producer"
+	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/security"
 	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/store"
 )
 
 // RingbaHandler handles Ringba tracking pixel webhooks.
 type RingbaHandler struct {
-	cfg       config.Config
-	store     *store.IntegrationStore
-	dedup     *dedup.Checker
-	producer  *producer.Producer
-	logger    *slog.Logger
+	cfg      config.Config
+	store    *store.IntegrationStore
+	dedup    *dedup.Checker
+	producer *producer.Producer
+	logger   *slog.Logger
 }
 
 // NewRingbaHandler creates a Ringba webhook handler.
@@ -60,7 +59,7 @@ func (h *RingbaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	integration, err := h.store.LookupByToken(ctx, token)
 	if err != nil {
 		h.logger.Warn("webhook token lookup failed",
-			"service", "ingestion", "error", err)
+			"service", "ingestion", "client_ip", clientIP(r), "error", err)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -71,13 +70,22 @@ func (h *RingbaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if integration.WebhookSecret != "" {
-		if !verifyHMAC(r, body, integration.WebhookSecret) {
-			h.logger.Warn("ringba hmac verification failed",
-				"service", "ingestion", "tenant_id", integration.TenantID)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+	if integration.WebhookSecret == "" {
+		h.logger.Error("integration missing webhook secret",
+			"service", "ingestion", "tenant_id", integration.TenantID)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if !security.VerifyRingbaHMAC(r, body, integration.WebhookSecret) {
+		h.logger.Warn("ringba hmac verification failed",
+			"service", "ingestion",
+			"tenant_id", integration.TenantID,
+			"client_ip", clientIP(r),
+			"payload_hash", security.PayloadHash(body, r.URL.RawQuery),
+		)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	var payload connectors.RingbaPayload
@@ -149,17 +157,13 @@ func (h *RingbaHandler) readBody(r *http.Request) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(r.Body, h.cfg.MaxBodyBytes))
 }
 
-func verifyHMAC(r *http.Request, body []byte, secret string) bool {
-	sig := r.Header.Get("X-Ringba-Signature")
-	if sig == "" {
-		return false
+func clientIP(r *http.Request) string {
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		return strings.TrimSpace(strings.Split(forwarded, ",")[0])
 	}
-	mac := hmac.New(sha256.New, []byte(secret))
-	if len(body) > 0 {
-		mac.Write(body)
-	} else {
-		mac.Write([]byte(r.URL.RawQuery))
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
 	}
-	expected := hex.EncodeToString(mac.Sum(nil))
-	return hmac.Equal([]byte(strings.ToLower(sig)), []byte(expected))
+	return host
 }

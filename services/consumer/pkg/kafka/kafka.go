@@ -22,22 +22,30 @@ func NewReader(brokers []string, topic, group string) *Reader {
 			GroupID:        group,
 			MinBytes:       1,
 			MaxBytes:       10e6,
-			CommitInterval: time.Second,
+			CommitInterval: 0,
 			StartOffset:    kafka.FirstOffset,
 		}),
 	}
 }
 
-// Fetch reads the next Kafka message.
+// Fetch reads the next Kafka message without committing the offset.
 func (r *Reader) Fetch(ctx context.Context) (kafka.Message, error) {
 	msg, err := r.reader.FetchMessage(ctx)
 	if err != nil {
 		return kafka.Message{}, fmt.Errorf("kafka.Fetch: %w", err)
 	}
-	if err := r.reader.CommitMessages(ctx, msg); err != nil {
-		return kafka.Message{}, fmt.Errorf("kafka.Fetch: commit: %w", err)
-	}
 	return msg, nil
+}
+
+// Commit persists offsets for successfully processed messages.
+func (r *Reader) Commit(ctx context.Context, msgs ...kafka.Message) error {
+	if len(msgs) == 0 {
+		return nil
+	}
+	if err := r.reader.CommitMessages(ctx, msgs...); err != nil {
+		return fmt.Errorf("kafka.Commit: %w", err)
+	}
+	return nil
 }
 
 // Ping verifies broker reachability.
