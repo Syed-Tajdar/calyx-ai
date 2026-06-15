@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-loom-bg text-white antialiased;
+  }
+}
+
+@layer components {
+  .loom-input {
+    @apply w-full rounded-xl border border-loom-border/80 bg-[#0a1f1e]/90 px-4 py-3.5 text-sm text-white placeholder:text-loom-muted/70 outline-none transition focus:border-loom-accent focus:ring-1 focus:ring-loom-accent/50;
+  }
+
+  .loom-input-icon-left {
+    @apply loom-input pl-11;
+  }
+
+  .loom-card {
+    @apply rounded-2xl border border-loom-border/60 bg-loom-card/80 backdrop-blur-sm;
+  }
+
+  .loom-metric-card {
+    @apply rounded-xl border border-loom-border/50 bg-[#0a2221]/90 p-4 backdrop-blur-sm;
+  }
+
+  .loom-btn-primary {
+    @apply w-full rounded-full bg-loom-accent py-3.5 text-sm font-semibold text-[#041414] transition hover:bg-loom-accent-hover disabled:opacity-60;
+  }
+
+  .loom-btn-google {
+    @apply flex w-full items-center justify-center gap-3 rounded-full border border-loom-border bg-[#0a1f1e]/80 py-3 text-sm text-white transition hover:border-loom-accent/60;
+  }
+
+  .loom-dashboard-shell {
+    @apply relative mx-auto max-w-5xl rounded-3xl border border-loom-border/40 bg-loom-surface/30 p-4 shadow-loom-glow backdrop-blur-md sm:p-6;
+  }
+}
