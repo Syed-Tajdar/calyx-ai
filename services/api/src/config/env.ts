@@ -1,11 +1,28 @@
 import { z } from 'zod';
 
+const boolFromEnv = z
+  .union([z.string(), z.boolean()])
+  .optional()
+  .transform((v) => {
+    if (v === undefined) return true;
+    if (typeof v === 'boolean') return v;
+    return v !== 'false' && v !== '0';
+  });
+
 const envSchema = z.object({
   API_PORT: z.coerce.number().default(3000),
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(32),
   CLICKHOUSE_URL: z.string().default('http://localhost:8123'),
   CLICKHOUSE_DB: z.string().default('default'),
+  MOCK_MODE: boolFromEnv,
+  KAFKA_BROKER: z.string().default('localhost:9092'),
+  KAFKA_TOPIC_CALL_TRANSCRIPT_READY: z
+    .string()
+    .default('callloom.calls.call_transcript_ready.v1'),
+  DEEPGRAM_CALLBACK_SECRET: z.string().optional(),
+  ADSPEND_SOURCE: z.string().default('mock'),
+  NOTIFICATION_CHANNEL: z.string().default('mock'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
@@ -15,5 +32,15 @@ export function loadEnv(): EnvConfig {
   if (!result.success) {
     throw new Error(`Invalid environment: ${result.error.message}`);
   }
-  return result.data;
+
+  const env = result.data;
+  const mockMode = env.MOCK_MODE ?? true;
+  if (!mockMode) {
+    if (!env.DEEPGRAM_CALLBACK_SECRET) {
+      throw new Error(
+        'DEEPGRAM_CALLBACK_SECRET required when MOCK_MODE=false',
+      );
+    }
+  }
+  return env;
 }

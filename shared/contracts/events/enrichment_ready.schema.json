@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EnrichmentReady",
+  "type": "object",
+  "required": ["schema_version", "event_id", "tenant_id", "ani_hash"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "ani_hash": { "type": "string", "minLength": 1 },
+    "attribute_count": { "type": "integer" },
+    "enriched_at_unix_ms": { "type": "integer" }
+  },
+  "additionalProperties": true
+}

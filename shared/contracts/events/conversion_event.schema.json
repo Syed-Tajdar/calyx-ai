@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConversionEvent",
+  "type": "object",
+  "required": ["schema_version", "event_id", "tenant_id", "call_id", "revenue"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "call_id": { "type": "string", "minLength": 1 },
+    "revenue": { "type": "number" },
+    "payout": { "type": "number" },
+    "converted_at_unix_ms": { "type": "integer" }
+  },
+  "additionalProperties": true
+}

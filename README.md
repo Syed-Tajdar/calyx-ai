@@ -12,22 +12,62 @@ Ringba Pixel → Ingestion (Go) → Kafka → Consumer (Go) → ClickHouse
                                     API (NestJS) → Web (Next.js)
 ```
 
+## Phase 2 — Mock-first intelligence (MOCK_MODE=true)
+
+```
+Ping → Enrichment (Go) → ClickHouse attrs        [pre-bidding]
+Ping → Mock emitter → call_transcript_ready → Scoring (Go) → scores + transcripts
+Deepgram callback → API → Kafka → Scoring consumer
+call_scored → Alert engine (API) → mock notifications
+```
+
 ### Quick start (local)
 
 ```bash
-# Prerequisites: Docker Desktop, Go 1.22+, Node.js 20+
 cp .env.example .env
 make dev-up
 ```
 
-| Service   | URL |
-|-----------|-----|
-| Ingestion | http://localhost:8080/healthz |
-| Consumer  | http://localhost:8081/healthz |
-| API       | http://localhost:3000/healthz |
-| Web       | http://localhost:3001 |
+| Service    | URL |
+|------------|-----|
+| Ingestion  | http://localhost:8080/healthz |
+| Consumer   | http://localhost:8081/healthz |
+| Scoring    | http://localhost:8082/healthz |
+| Enrichment | http://localhost:8083/healthz |
+| API        | http://localhost:3000/healthz |
+| Web        | http://localhost:3001 |
 
 **Dev login:** `admin@callloom.dev` / `callloom_dev`
+
+### MOCK_MODE switch
+
+Default is `MOCK_MODE=true` — no external API keys required.
+
+To go live later:
+
+```env
+MOCK_MODE=false
+TRANSCRIPTION_PROVIDER=deepgram
+AI_PROVIDER=openai
+DEEPGRAM_API_KEY=...
+DEEPGRAM_CALLBACK_SECRET=...
+OPENAI_API_KEY=...
+```
+
+Services **fail fast on boot** if real mode secrets are missing (no silent mock fallback).
+
+### Phase 2 API endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /scoring/scores` | List call scores (tenant-scoped) |
+| `GET /scoring/transcript?callId=` | Get transcript |
+| `POST /scoring/deepgram/callback` | Deepgram → Kafka publish |
+| `GET /enrichment/:aniHash` | Enrichment attributes |
+| `GET /coverage/heatmap` | Geo demand heatmap |
+| `GET /analytics/metrics` | CPA/RPC/ROI |
+| `GET /analytics/pnl` | P&L summary |
+| `GET /alerts/rules` | Alert rules CRUD |
 
 ### Ringba pixel setup
 
@@ -39,21 +79,12 @@ make dev-up
 http://localhost:8080/webhooks/ringba/dev_ringba_token_change_me?CallID=[Call:InboundCallId]&caller_id=[tag:InboundNumber:Number]&state=[tag:Geo:State]&event=incoming&call_revenue=[Call:ConversionPayout]
 ```
 
-4. **HMAC required:** every request must include `X-Ringba-Signature` (HMAC-SHA256 hex of query string or JSON body, keyed by integration `webhook_secret`). Dev secret: `dev_ringba_hmac_secret_change_me`
-
-5. Enable **POST Pixel** with JSON if preferred — same field names supported.
+4. **HMAC required:** every request must include `X-Ringba-Signature`. Dev secret: `dev_ringba_hmac_secret_change_me`
 
 ### Smoke test
 
 ```powershell
-powershell -File scripts/smoke-test.ps1
+powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
 ```
-
-### Architecture
-
-- **Ingestion:** Ringba parser, Redis dedup, Kafka producer, AES-256-GCM ANI encryption
-- **Consumer:** Batched ClickHouse inserts (min 500 rows or 5s flush)
-- **API:** JWT auth, tenant-scoped ClickHouse queries
-- **Web:** Login + ping dashboard
 
 See `.cursor/rules/` for full architecture rules.

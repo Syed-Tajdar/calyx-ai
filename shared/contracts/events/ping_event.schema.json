@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PingEvent",
+  "type": "object",
+  "required": ["schema_version", "event_id", "tenant_id", "call_id", "platform", "received_at_unix_ms"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "call_id": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string" },
+    "ani_hash": { "type": "string" },
+    "campaign_id": { "type": "string" },
+    "publisher_id": { "type": "string" },
+    "event_type": { "type": "string" },
+    "is_duplicate": { "type": "boolean" },
+    "received_at_unix_ms": { "type": "integer" }
+  },
+  "additionalProperties": true
+}

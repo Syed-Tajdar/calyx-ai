@@ -67,9 +67,28 @@ services:
     image: redpandadata/redpanda:v24.2.4
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - rpk topic create callloom.pings.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+      - |
+        rpk topic create callloom.pings.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.calls.call_recording_ready.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.calls.call_transcript_ready.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.calls.call_scored.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.scoring.dlq.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.enrichment.dlq.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
     depends_on:
       redpanda:
+        condition: service_healthy
+
+  clickhouse-init:
+    image: clickhouse/clickhouse-server:24.8
+    volumes:
+      - ../db/clickhouse/migrations/000002_phase2_analytics.up.sql:/init.sql:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until clickhouse-client --host clickhouse --password callloom_dev --query "SELECT 1"; do sleep 2; done
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init.sql || true
+    depends_on:
+      clickhouse:
         condition: service_healthy
 
   clickhouse:
@@ -147,11 +166,90 @@ services:
       JWT_SECRET: callloom_dev_jwt_secret_min_32_chars_long
       CLICKHOUSE_URL: http://default:callloom_dev@clickhouse:8123
       CLICKHOUSE_DB: default
+      MOCK_MODE: "true"
+      KAFKA_BROKER: redpanda:9092
+      KAFKA_TOPIC_CALL_TRANSCRIPT_READY: callloom.calls.call_transcript_ready.v1
+      DEEPGRAM_CALLBACK_SECRET: dev_deepgram_callback_secret_change_me
+      ADSPEND_SOURCE: mock
+      NOTIFICATION_CHANNEL: mock
     depends_on:
       migrate:
         condition: service_completed_successfully
       clickhouse:
         condition: service_healthy
+      clickhouse-init:
+        condition: service_completed_successfully
+      redpanda:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  scoring:
+    build:
+      context: ../services/scoring
+    ports:
+      - "8082:8082"
+    environment:
+      SCORING_PORT: "8082"
+      MOCK_MODE: "true"
+      MOCK_EMITTER_ENABLED: "true"
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKER: redpanda:9092
+      KAFKA_TOPIC_PINGS: callloom.pings.v1
+      KAFKA_TOPIC_CALL_TRANSCRIPT_READY: callloom.calls.call_transcript_ready.v1
+      KAFKA_TOPIC_CALL_SCORED: callloom.calls.call_scored.v1
+      KAFKA_TOPIC_SCORING_DLQ: callloom.scoring.dlq.v1
+      KAFKA_SCORING_GROUP: callloom-scoring
+      KAFKA_MOCK_EMITTER_GROUP: callloom-scoring-mock-emitter
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: callloom_dev
+      TRANSCRIPTION_PROVIDER: mock
+      AI_PROVIDER: mock
+      RECORDING_SOURCE: mock
+    depends_on:
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+      clickhouse-init:
+        condition: service_completed_successfully
+
+  enrichment:
+    build:
+      context: ../services/enrichment
+    ports:
+      - "8083:8083"
+    environment:
+      ENRICHMENT_PORT: "8083"
+      MOCK_MODE: "true"
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKER: redpanda:9092
+      KAFKA_TOPIC_PINGS: callloom.pings.v1
+      KAFKA_TOPIC_ENRICHMENT_DLQ: callloom.enrichment.dlq.v1
+      KAFKA_ENRICHMENT_GROUP: callloom-enrichment
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: callloom_dev
+      ENRICHMENT_PROVIDER: mock
+      ENRICHMENT_CACHE_TTL_HOURS: "24"
+    depends_on:
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+      clickhouse-init:
+        condition: service_completed_successfully
 
   web:
     build:

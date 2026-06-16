@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TOPIC="${KAFKA_TOPIC_PINGS:-callloom.pings.v1}"
+BROKER="${KAFKA_BROKER:-redpanda:9092}"
+CONTAINER="$(docker compose -f deploy/docker-compose.yml ps -q redpanda)"
 
-docker exec "$(docker compose -f deploy/docker-compose.yml ps -q redpanda)" \
-  rpk topic create "$TOPIC" --partitions 3 --replicas 1 || true
+TOPICS=(
+  "callloom.pings.v1"
+  "callloom.calls.call_recording_ready.v1"
+  "callloom.calls.call_transcript_ready.v1"
+  "callloom.calls.call_scored.v1"
+  "callloom.scoring.dlq.v1"
+  "callloom.enrichment.dlq.v1"
+)
+
+for topic in "${TOPICS[@]}"; do
+  docker exec "$CONTAINER" \
+    rpk topic create "$topic" --brokers "$BROKER" --partitions 3 --replicas 1 || true
+done
