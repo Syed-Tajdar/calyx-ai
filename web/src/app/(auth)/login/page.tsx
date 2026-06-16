@@ -2,11 +2,12 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DesignBackground } from '@/components/ui/DesignBackground';
 import { EyeIcon, GoogleIcon, LockIcon } from '@/components/ui/Icons';
 import { Logo } from '@/components/ui/Logo';
+import { getToken, setToken } from '@/lib/auth';
 import { login } from '@/lib/api';
 
 export default function LoginPage(): JSX.Element {
@@ -18,17 +19,19 @@ export default function LoginPage(): JSX.Element {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (getToken()) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
+
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
       const token = await login(email, password);
-      if (remember) {
-        localStorage.setItem('callloom_token', token);
-      } else {
-        sessionStorage.setItem('callloom_token', token);
-      }
+      setToken(token, remember);
       router.push('/dashboard');
     } catch {
       setError('Invalid email or password');
@@ -42,7 +45,6 @@ export default function LoginPage(): JSX.Element {
       <DesignBackground />
 
       <div className="relative z-10 flex min-h-screen">
-        {/* Left — design illustration (cropped from sign-in PNG) */}
         <div className="relative hidden w-[52%] overflow-hidden lg:block">
           <Image
             src="/auth-character.png"
@@ -54,7 +56,6 @@ export default function LoginPage(): JSX.Element {
           />
         </div>
 
-        {/* Right — login form matching design */}
         <div className="flex w-full flex-col lg:w-[48%]">
           <div className="p-6 lg:hidden">
             <Logo />
@@ -110,10 +111,6 @@ export default function LoginPage(): JSX.Element {
                       <EyeIcon />
                     </button>
                   </div>
-                  <p className="mt-2 text-[11px] leading-relaxed text-loom-muted/80">
-                    Must be at least 8 characters, at least one uppercase letter, one number, one
-                    special character
-                  </p>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
@@ -142,29 +139,7 @@ export default function LoginPage(): JSX.Element {
                 </button>
               </form>
 
-              <p className="mt-5 text-center text-sm text-loom-muted">
-                <Link href="#" className="transition hover:text-loom-accent">
-                  Terms &amp; Privacy
-                </Link>
-              </p>
-
-              <p className="mt-3 text-center text-sm text-loom-muted">
-                Don&apos;t have an account?{' '}
-                <Link
-                  href="#"
-                  className="font-medium text-loom-accent transition hover:text-loom-accent-hover"
-                >
-                  Sign up
-                </Link>
-              </p>
-
-              <div className="mt-8 flex items-center gap-4">
-                <div className="h-px flex-1 bg-loom-border/60" />
-                <span className="text-xs text-loom-muted">or</span>
-                <div className="h-px flex-1 bg-loom-border/60" />
-              </div>
-
-              <button type="button" disabled className="loom-btn-google mt-6 opacity-70">
+              <button type="button" disabled className="loom-btn-google mt-8 opacity-70">
                 <GoogleIcon />
                 Continue with Google
               </button>

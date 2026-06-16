@@ -1,7 +1,9 @@
+import Link from 'next/link';
 import type { PingRecord } from '@/lib/api';
 
 interface PingsTableProps {
   pings: PingRecord[];
+  linkable?: boolean;
 }
 
 function formatTime(iso: string): string {
@@ -14,7 +16,7 @@ function formatTime(iso: string): string {
   });
 }
 
-export function PingsTable({ pings }: PingsTableProps): JSX.Element {
+export function PingsTable({ pings, linkable = false }: PingsTableProps): JSX.Element {
   return (
     <div className="loom-card overflow-hidden">
       <div className="border-b border-loom-border px-4 py-3">
@@ -49,7 +51,16 @@ export function PingsTable({ pings }: PingsTableProps): JSX.Element {
                   </span>
                 </td>
                 <td className="px-4 py-3 font-mono text-[10px] text-white/80">
-                  {p.external_call_id.slice(0, 10)}…
+                  {linkable ? (
+                    <Link
+                      href={`/calls/${encodeURIComponent(p.external_call_id)}?aniHash=${encodeURIComponent(p.ani_hash)}`}
+                      className="text-loom-accent hover:underline"
+                    >
+                      {p.external_call_id.slice(0, 10)}…
+                    </Link>
+                  ) : (
+                    <>{p.external_call_id.slice(0, 10)}…</>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-white">{p.state || '—'}</td>
                 <td className="px-4 py-3 capitalize text-loom-muted">{p.event_type}</td>
