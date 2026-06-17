@@ -3,7 +3,7 @@ package matcher
 import (
 	"testing"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/models"
 )
 
 func TestResolvePlatformFromGclid(t *testing.T) {

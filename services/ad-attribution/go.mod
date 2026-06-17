@@ -1,4 +1,4 @@
-module github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution
+module github.com/Syed-Tajdar/calyx-ai/services/ad-attribution
 
 go 1.22
 

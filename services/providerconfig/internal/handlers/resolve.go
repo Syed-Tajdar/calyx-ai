@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/providerconfig/internal/loader"
+	"github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/loader"
 )
 
 // ResolveHandler handles POST /v1/resolve.

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/internal/models"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/pkg/kafka"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/pkg/kafka"
 	"github.com/google/uuid"
 )
 

@@ -3,7 +3,7 @@ package platforms
 import (
 	"context"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/models"
 )
 
 // Platform fires server-side conversion events to an ad network.

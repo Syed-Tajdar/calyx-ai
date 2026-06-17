@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/models"
 )
 
 // MockPlatform logs would-be conversion fires without external calls.

@@ -3,7 +3,7 @@ package providers
 import (
 	"fmt"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/models"
 )
 
 // Provider enriches a phone number hash into attributes.

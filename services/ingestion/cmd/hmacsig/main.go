@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/security"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/security"
 )
 
 func main() {

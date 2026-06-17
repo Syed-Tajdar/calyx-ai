@@ -1,4 +1,4 @@
-module github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai
+module github.com/Syed-Tajdar/calyx-ai/services/ask-ai
 
 go 1.22
 

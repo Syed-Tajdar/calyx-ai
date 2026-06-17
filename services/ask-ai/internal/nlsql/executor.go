@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	chreader "github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/pkg/clickhouse"
+	chreader "github.com/Syed-Tajdar/calyx-ai/services/ask-ai/pkg/clickhouse"
 )
 
 // Executor runs validated read-only SQL.

@@ -6,14 +6,14 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/cost"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/embeddings"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/models"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/nlsql"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/nlquery"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/providerconfig"
-	pgstore "github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/pkg/postgres"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/cost"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/embeddings"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/nlsql"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/nlquery"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/providerconfig"
+	pgstore "github.com/Syed-Tajdar/calyx-ai/services/ask-ai/pkg/postgres"
 	"github.com/google/uuid"
 )
 

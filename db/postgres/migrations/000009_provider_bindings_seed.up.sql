@@ -1,5 +1,5 @@
 INSERT INTO tenants (id, name) VALUES
-    ('22222222-2222-2222-2222-222222222222', 'Call Loom Dev Tenant B')
+    ('22222222-2222-2222-2222-222222222222', 'Calyx AI Dev Tenant B')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO users (tenant_id, email, password_hash, role) VALUES

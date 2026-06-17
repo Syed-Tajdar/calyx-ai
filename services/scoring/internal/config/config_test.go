@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/config"
 )
 
 func TestLoadMockModeDefault(t *testing.T) {

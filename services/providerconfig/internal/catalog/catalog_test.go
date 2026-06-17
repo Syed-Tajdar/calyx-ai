@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/providerconfig/internal/registry"
+	"github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/registry"
 )
 
 func TestValidateAgainstRegistryBoot(t *testing.T) {

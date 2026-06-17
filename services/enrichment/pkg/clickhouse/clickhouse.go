@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/models"
 )
 
 // Client wraps ClickHouse for enrichment writes.

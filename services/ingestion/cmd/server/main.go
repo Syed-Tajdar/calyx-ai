@@ -11,13 +11,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/dedup"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/handlers"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/producer"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/store"
-	redisclient "github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/pkg/redis"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/pkg/kafka"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/dedup"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/handlers"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/producer"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/store"
+	redisclient "github.com/Syed-Tajdar/calyx-ai/services/ingestion/pkg/redis"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/pkg/kafka"
 )
 
 func main() {

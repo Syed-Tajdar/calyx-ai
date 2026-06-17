@@ -4,7 +4,7 @@ import (
 	"errors"
 	"hash/fnv"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/models"
 )
 
 // AIProvider scores call transcripts.

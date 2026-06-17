@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Call Loom Intelligence',
+  title: 'Calyx AI',
   description: 'Pay-per-call analytics and intelligence platform',
 };
 

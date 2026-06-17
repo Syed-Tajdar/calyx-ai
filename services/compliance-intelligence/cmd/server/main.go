@@ -11,15 +11,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/internal/consumer"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/internal/dedup"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/internal/dnc"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/internal/providerconfig"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/internal/publisher"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/pkg/clickhouse"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/pkg/kafka"
-	redisclient "github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/pkg/redis"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/consumer"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/dedup"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/dnc"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/providerconfig"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/publisher"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/pkg/clickhouse"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/pkg/kafka"
+	redisclient "github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/pkg/redis"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module github.com/Syed-Tajdar/call-loom-intelligence/services/providerconfig
+module github.com/Syed-Tajdar/calyx-ai/services/providerconfig
 
 go 1.22
 

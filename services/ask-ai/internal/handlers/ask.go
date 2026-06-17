@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/models"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/pipeline"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/pipeline"
 )
 
 // AskHandler serves POST /v1/ask and GET /v1/history.

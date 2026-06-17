@@ -1,4 +1,4 @@
-module github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence
+module github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence
 
 go 1.22
 

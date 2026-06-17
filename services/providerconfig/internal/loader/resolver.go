@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/providerconfig/internal/adapter"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/providerconfig/internal/catalog"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/providerconfig/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/providerconfig/internal/crypto"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/providerconfig/internal/registry"
+	"github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/adapter"
+	"github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/catalog"
+	"github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/crypto"
+	"github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/registry"
 )
 
 // Resolver resolves tenant provider configuration.

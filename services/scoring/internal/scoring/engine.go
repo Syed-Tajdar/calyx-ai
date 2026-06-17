@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/models"
 	"github.com/redis/go-redis/v9"
 )
 

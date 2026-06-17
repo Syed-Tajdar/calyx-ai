@@ -3,8 +3,8 @@ package riskscoring
 import (
 	"testing"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/internal/dnc"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/dnc"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/models"
 )
 
 func TestScoreDNCMatchHighRisk(t *testing.T) {

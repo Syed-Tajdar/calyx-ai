@@ -3,9 +3,9 @@ description: Project context and core rules — always applied
 alwaysApply: true
 ---
 
-# Call Loom Intelligence Platform
+# Calyx AI Platform
 Kaliper competitor — pay-per-call analytics & intelligence.
-Part of Call Loom ecosystem. May run standalone or built-in.
+May run standalone or integrated with partner stacks.
 
 ## Core Modules
 - Ping Intelligence Engine (ingestion, dedup, search, bid analysis)

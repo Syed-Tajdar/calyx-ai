@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/consumer/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/consumer/internal/consumer"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/consumer/internal/writer"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/consumer/pkg/clickhouse"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/consumer/pkg/kafka"
+	"github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/consumer"
+	"github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/writer"
+	"github.com/Syed-Tajdar/calyx-ai/services/consumer/pkg/clickhouse"
+	"github.com/Syed-Tajdar/calyx-ai/services/consumer/pkg/kafka"
 )
 
 func main() {

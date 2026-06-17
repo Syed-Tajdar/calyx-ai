@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/compliance-intelligence/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/models"
 )
 
 // Client wraps ClickHouse compliance writes.

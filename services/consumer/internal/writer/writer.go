@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/consumer/internal/models"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/consumer/pkg/clickhouse"
+	"github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/consumer/pkg/clickhouse"
 )
 
 // BatchWriter inserts ping batches into ClickHouse.

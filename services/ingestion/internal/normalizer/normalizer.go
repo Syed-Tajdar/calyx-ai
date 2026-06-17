@@ -3,9 +3,9 @@ package normalizer
 import (
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/connectors"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/crypto"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/connectors"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/crypto"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/models"
 )
 
 // NormalizeRingba maps a Ringba payload to the internal ping schema.

@@ -66,7 +66,7 @@ $$;
 
 -- Dev seed tenant + admin user (password: callloom_dev)
 INSERT INTO tenants (id, name) VALUES
-    ('11111111-1111-1111-1111-111111111111', 'Call Loom Dev');
+    ('11111111-1111-1111-1111-111111111111', 'Calyx AI Dev');
 
 INSERT INTO users (tenant_id, email, password_hash, role) VALUES
     ('11111111-1111-1111-1111-111111111111',

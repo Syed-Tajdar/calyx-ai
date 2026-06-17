@@ -1,4 +1,4 @@
-module github.com/Syed-Tajdar/call-loom-intelligence/services/scoring
+module github.com/Syed-Tajdar/calyx-ai/services/scoring
 
 go 1.22
 

@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/connectors"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/dedup"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/normalizer"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/producer"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/security"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/store"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/connectors"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/dedup"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/normalizer"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/producer"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/security"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/store"
 )
 
 // RingbaHandler handles Ringba tracking pixel webhooks.

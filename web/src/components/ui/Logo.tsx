@@ -32,12 +32,12 @@ export function Logo({ className = '', variant = 'full' }: LogoProps): JSX.Eleme
       </svg>
       <div className="leading-none">
         <span className="text-lg font-semibold tracking-tight">
-          <span className="text-white">Call </span>
-          <span className="text-loom-accent">Loom</span>
+          <span className="text-white">Calyx </span>
+          <span className="text-loom-accent">AI</span>
         </span>
         {variant === 'full' && (
           <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.22em] text-loom-muted">
-            Intelligence
+            Analytics
           </span>
         )}
       </div>

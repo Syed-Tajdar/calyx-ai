@@ -1,4 +1,4 @@
-module github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment
+module github.com/Syed-Tajdar/calyx-ai/services/enrichment
 
 go 1.22
 

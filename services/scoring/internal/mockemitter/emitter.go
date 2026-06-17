@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/internal/models"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/pkg/kafka"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/pkg/kafka"
 	"github.com/google/uuid"
 )
 

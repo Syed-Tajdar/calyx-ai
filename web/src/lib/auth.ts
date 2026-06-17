@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'callloom_token';
+const TOKEN_KEY = 'calyx_token';
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;

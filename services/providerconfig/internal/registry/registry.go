@@ -3,7 +3,7 @@ package registry
 import (
 	"fmt"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/providerconfig/internal/adapter"
+	"github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/adapter"
 )
 
 // RegisteredAdapters lists code adapters available at runtime.

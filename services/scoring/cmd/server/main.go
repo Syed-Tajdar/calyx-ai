@@ -11,13 +11,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/internal/consumer"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/internal/mockemitter"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/internal/scoring"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/pkg/clickhouse"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/pkg/kafka"
-	redisclient "github.com/Syed-Tajdar/call-loom-intelligence/services/scoring/pkg/redis"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/consumer"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/mockemitter"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/scoring"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/pkg/clickhouse"
+	"github.com/Syed-Tajdar/calyx-ai/services/scoring/pkg/kafka"
+	redisclient "github.com/Syed-Tajdar/calyx-ai/services/scoring/pkg/redis"
 )
 
 func main() {

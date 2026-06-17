@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/models"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/platforms"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/platforms"
 )
 
 // Service fires conversions with retry backoff.

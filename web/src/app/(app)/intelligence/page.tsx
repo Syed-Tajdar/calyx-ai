@@ -12,7 +12,7 @@ export default function IntelligencePage(): JSX.Element {
   return (
     <>
       <AppHeader />
-      <SectionHeader title="Phase 3 Intelligence" />
+      <SectionHeader title="Calyx Intelligence" />
       <p className="mb-4 text-sm text-loom-muted">
         Ask AI, TCPA compliance, and ad attribution — all tenant-scoped and mock-ready.
       </p>

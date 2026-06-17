@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/models"
-	pgstore "github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/pkg/postgres"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/models"
+	pgstore "github.com/Syed-Tajdar/calyx-ai/services/ask-ai/pkg/postgres"
 )
 
 // Cache provides exact-question cache lookups per tenant.

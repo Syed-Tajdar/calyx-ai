@@ -9,12 +9,12 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/internal/cache"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/internal/models"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/internal/providers"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/pkg/clickhouse"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/pkg/kafka"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/cache"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/providers"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/clickhouse"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/kafka"
 	kafkago "github.com/segmentio/kafka-go"
 )
 

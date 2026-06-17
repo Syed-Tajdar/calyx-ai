@@ -1,6 +1,6 @@
-# Call Loom Intelligence Platform
+# Calyx AI
 
-Pay-per-call analytics and intelligence — Kaliper competitor, part of the Call Loom ecosystem.
+Pay-per-call analytics and intelligence platform — Kaliper competitor.
 
 ## Phase 1 — Complete
 

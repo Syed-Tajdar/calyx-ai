@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package callloom.ping.v1;
+package calyx.ping.v1;
 
-option go_package = "github.com/Syed-Tajdar/call-loom-intelligence/shared/proto/ping/v1;pingv1";
+option go_package = "github.com/Syed-Tajdar/calyx-ai/shared/proto/ping/v1;pingv1";
 
 // PingEvent is the canonical Kafka message for normalized call pings.
 message PingEvent {

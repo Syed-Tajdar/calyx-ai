@@ -1,4 +1,4 @@
-module github.com/Syed-Tajdar/call-loom-intelligence/services/consumer
+module github.com/Syed-Tajdar/calyx-ai/services/consumer
 
 go 1.22
 

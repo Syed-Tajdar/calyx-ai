@@ -11,13 +11,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/internal/cache"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/internal/consumer"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/internal/providers"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/pkg/clickhouse"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/pkg/kafka"
-	redisclient "github.com/Syed-Tajdar/call-loom-intelligence/services/enrichment/pkg/redis"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/cache"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/consumer"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/providers"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/clickhouse"
+	"github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/kafka"
+	redisclient "github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/redis"
 )
 
 func main() {

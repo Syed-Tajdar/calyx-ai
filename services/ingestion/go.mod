@@ -1,4 +1,4 @@
-module github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion
+module github.com/Syed-Tajdar/calyx-ai/services/ingestion
 
 go 1.22
 

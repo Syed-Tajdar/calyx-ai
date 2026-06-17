@@ -11,16 +11,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/config"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/consumer"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/dedup"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/dispatcher"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/mockbridge"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/providerconfig"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/internal/publisher"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/pkg/clickhouse"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/pkg/kafka"
-	redisclient "github.com/Syed-Tajdar/call-loom-intelligence/services/ad-attribution/pkg/redis"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/config"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/consumer"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/dedup"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/dispatcher"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/mockbridge"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/providerconfig"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/publisher"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/pkg/clickhouse"
+	"github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/pkg/kafka"
+	redisclient "github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/pkg/redis"
 )
 
 func main() {

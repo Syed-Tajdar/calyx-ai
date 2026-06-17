@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ask-ai/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/internal/models"
-	"github.com/Syed-Tajdar/call-loom-intelligence/services/ingestion/pkg/kafka"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/pkg/kafka"
 )
 
 // PingMessage is the Kafka JSON envelope for normalized pings.
