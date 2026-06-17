@@ -34,6 +34,10 @@ make dev-up
 | Consumer   | http://localhost:8081/healthz |
 | Scoring    | http://localhost:8082/healthz |
 | Enrichment | http://localhost:8083/healthz |
+| Provider config | http://localhost:8084/healthz |
+| Compliance    | http://localhost:8085/healthz |
+| Ask AI        | http://localhost:8086/healthz |
+| Ad attribution | http://localhost:8087/healthz |
 | API        | http://localhost:3000/healthz |
 | Web        | http://localhost:3001 |
 
@@ -65,6 +69,18 @@ Services **fail fast on boot** if real mode secrets are missing (no silent mock 
 | `POST /scoring/deepgram/callback` | Deepgram → Kafka publish |
 | `GET /enrichment/:aniHash` | Enrichment attributes |
 | `GET /coverage/heatmap` | Geo demand heatmap |
+| `GET /providers/catalog` | Provider catalog (Step 1b) |
+| `GET /providers/bindings` | Tenant provider bindings |
+| `POST /providers/bindings` | Create binding (invalidates Redis cache) |
+| `POST /providers/resolve` | Resolve provider for tenant+domain |
+| `GET /compliance/risk-scores` | TCPA risk scores (ClickHouse) |
+| `GET /compliance/violations` | Compliance violations |
+| `GET /compliance/exposure` | Liability exposure summary |
+| `POST /ask` | Natural language analytics question |
+| `GET /ask/history` | Prior Ask AI questions |
+| `GET /attribution/events` | Conversion fire log (ClickHouse) |
+| `GET /attribution/status` | Per-platform fired/failed summary |
+| `GET /native/call-deep-view?callId=` | Full call story (ping + score + compliance + attribution) |
 | `GET /analytics/metrics` | CPA/RPC/ROI |
 | `GET /analytics/pnl` | P&L summary |
 | `GET /alerts/rules` | Alert rules CRUD |
@@ -85,6 +101,7 @@ http://localhost:8080/webhooks/ringba/dev_ringba_token_change_me?CallID=[Call:In
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
+make step1b-test
 ```
 
 See `.cursor/rules/` for full architecture rules.

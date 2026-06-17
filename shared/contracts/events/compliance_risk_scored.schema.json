@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ComplianceRiskScored",
+  "type": "object",
+  "required": ["schema_version", "event_id", "tenant_id", "call_id", "risk_score", "scored_at_unix_ms"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "call_id": { "type": "string", "minLength": 1 },
+    "publisher_id": { "type": "string" },
+    "state": { "type": "string" },
+    "risk_score": { "type": "number" },
+    "dnc_match": { "type": "boolean" },
+    "attestation_level": { "type": "string", "enum": ["A", "B", "C", "unknown"] },
+    "exposure_usd": { "type": "number" },
+    "scored_at_unix_ms": { "type": "integer" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,37 @@
+{
+  "version": "1",
+  "providers": [
+    {
+      "id": "mock",
+      "domain": "attribution",
+      "display_name": "Mock Attribution",
+      "required_secrets": [],
+      "optional_config": ["variant", "label"],
+      "go_adapter": "mock"
+    },
+    {
+      "id": "mock",
+      "domain": "dnc",
+      "display_name": "Mock DNC",
+      "required_secrets": [],
+      "optional_config": ["variant", "label"],
+      "go_adapter": "mock"
+    },
+    {
+      "id": "mock",
+      "domain": "llm",
+      "display_name": "Mock LLM",
+      "required_secrets": [],
+      "optional_config": ["variant", "label"],
+      "go_adapter": "mock"
+    },
+    {
+      "id": "mock",
+      "domain": "enrichment",
+      "display_name": "Mock Enrichment Provider",
+      "required_secrets": [],
+      "optional_config": ["variant", "label"],
+      "go_adapter": "mock"
+    }
+  ]
+}

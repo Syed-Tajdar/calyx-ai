@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: callloom
       POSTGRES_PASSWORD: callloom_dev
@@ -74,6 +74,12 @@ services:
         rpk topic create callloom.calls.call_scored.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
         rpk topic create callloom.scoring.dlq.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
         rpk topic create callloom.enrichment.dlq.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.compliance.risk_scored.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.compliance.violation_detected.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.compliance.dlq.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.conversions.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.attribution.attributed.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.attribution.dlq.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
     depends_on:
       redpanda:
         condition: service_healthy
@@ -81,12 +87,18 @@ services:
   clickhouse-init:
     image: clickhouse/clickhouse-server:24.8
     volumes:
-      - ../db/clickhouse/migrations/000002_phase2_analytics.up.sql:/init.sql:ro
+      - ../db/clickhouse/migrations/000002_phase2_analytics.up.sql:/init-phase2.sql:ro
+      - ../db/clickhouse/migrations/000003_phase3_compliance.up.sql:/init-phase3.sql:ro
+      - ../db/clickhouse/migrations/000004_phase3_ask_ai.up.sql:/init-phase4.sql:ro
+      - ../db/clickhouse/migrations/000005_phase3_attribution.up.sql:/init-phase5.sql:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         until clickhouse-client --host clickhouse --password callloom_dev --query "SELECT 1"; do sleep 2; done
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase2.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase3.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase4.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase5.sql || true
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -157,7 +169,8 @@ services:
 
   api:
     build:
-      context: ../services/api
+      context: ..
+      dockerfile: services/api/Dockerfile
     ports:
       - "3000:3000"
     environment:
@@ -167,6 +180,11 @@ services:
       CLICKHOUSE_URL: http://default:callloom_dev@clickhouse:8123
       CLICKHOUSE_DB: default
       MOCK_MODE: "true"
+      SINGLE_TENANT_MODE: "false"
+      REDIS_URL: redis://redis:6379
+      PROVIDERCONFIG_URL: http://providerconfig:8084
+      ASK_AI_URL: http://ask-ai:8086
+      PROVIDER_CATALOG_PATH: /app/catalog.json
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_CALL_TRANSCRIPT_READY: callloom.calls.call_transcript_ready.v1
       DEEPGRAM_CALLBACK_SECRET: dev_deepgram_callback_secret_change_me
@@ -175,6 +193,10 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      providerconfig:
+        condition: service_started
       clickhouse:
         condition: service_healthy
       clickhouse-init:
@@ -183,6 +205,138 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+
+  providerconfig:
+    build:
+      context: ..
+      dockerfile: services/providerconfig/Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      PROVIDERCONFIG_PORT: "8084"
+      MOCK_MODE: "true"
+      SINGLE_TENANT_MODE: "false"
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgres://callloom_api:api_dev@postgres:5432/callloom?sslmode=disable
+      PROVIDER_CATALOG_PATH: /app/catalog.json
+      CREDENTIAL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  compliance-intelligence:
+    build:
+      context: ..
+      dockerfile: services/compliance-intelligence/Dockerfile
+    ports:
+      - "8085:8085"
+    environment:
+      COMPLIANCE_PORT: "8085"
+      MOCK_MODE: "true"
+      SINGLE_TENANT_MODE: "false"
+      REDIS_URL: redis://redis:6379
+      PROVIDERCONFIG_URL: http://providerconfig:8084
+      DNC_PROVIDER: mock
+      KAFKA_BROKER: redpanda:9092
+      KAFKA_TOPIC_PINGS: callloom.pings.v1
+      KAFKA_TOPIC_COMPLIANCE_RISK_SCORED: callloom.compliance.risk_scored.v1
+      KAFKA_TOPIC_COMPLIANCE_VIOLATION: callloom.compliance.violation_detected.v1
+      KAFKA_TOPIC_COMPLIANCE_DLQ: callloom.compliance.dlq.v1
+      KAFKA_COMPLIANCE_GROUP: callloom-compliance
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: callloom_dev
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+      clickhouse-init:
+        condition: service_completed_successfully
+      providerconfig:
+        condition: service_started
+
+  ask-ai:
+    build:
+      context: ..
+      dockerfile: services/ask-ai/Dockerfile
+    ports:
+      - "8086:8086"
+    environment:
+      ASK_AI_PORT: "8086"
+      MOCK_MODE: "true"
+      DATABASE_URL: postgres://callloom_api:api_dev@postgres:5432/callloom?sslmode=disable
+      PROVIDERCONFIG_URL: http://providerconfig:8084
+      LLM_PROVIDER: mock
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: callloom_dev
+      ASK_AI_TOKEN_BUDGET_DAILY: "100000"
+      ASK_AI_QUERY_TIMEOUT_SEC: "10"
+      ASK_AI_MAX_ROWS: "100"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      clickhouse-init:
+        condition: service_completed_successfully
+      providerconfig:
+        condition: service_started
+
+  ad-attribution:
+    build:
+      context: ..
+      dockerfile: services/ad-attribution/Dockerfile
+    ports:
+      - "8087:8087"
+    environment:
+      ATTRIBUTION_PORT: "8087"
+      MOCK_MODE: "true"
+      ATTRIBUTION_MOCK_BRIDGE: "true"
+      REDIS_URL: redis://redis:6379
+      PROVIDERCONFIG_URL: http://providerconfig:8084
+      ATTRIBUTION_PROVIDER: mock
+      KAFKA_BROKER: redpanda:9092
+      KAFKA_TOPIC_PINGS: callloom.pings.v1
+      KAFKA_TOPIC_CONVERSIONS: callloom.conversions.v1
+      KAFKA_TOPIC_ATTRIBUTION_ATTRIBUTED: callloom.attribution.attributed.v1
+      KAFKA_TOPIC_ATTRIBUTION_DLQ: callloom.attribution.dlq.v1
+      KAFKA_ATTRIBUTION_GROUP: callloom-attribution
+      KAFKA_ATTRIBUTION_BRIDGE_GROUP: callloom-attribution-bridge
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: callloom_dev
+      ATTRIBUTION_DEDUP_TTL_HOURS: "24"
+      ATTRIBUTION_FIRE_MAX_RETRIES: "3"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+      clickhouse-init:
+        condition: service_completed_successfully
+      providerconfig:
+        condition: service_started
 
   scoring:
     build:

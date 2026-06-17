@@ -1,0 +1,10 @@
+DELETE FROM tenant_provider_bindings
+WHERE tenant_id IN (
+    '11111111-1111-1111-1111-111111111111',
+    '22222222-2222-2222-2222-222222222222'
+)
+AND domain = 'attribution'
+AND provider_id = 'mock';
+
+DELETE FROM users WHERE tenant_id = '22222222-2222-2222-2222-222222222222';
+DELETE FROM tenants WHERE id = '22222222-2222-2222-2222-222222222222';

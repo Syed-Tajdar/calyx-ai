@@ -10,6 +10,7 @@ import { PingsTable } from '@/components/dashboard/PingsTable';
 import { PlatformChart } from '@/components/dashboard/PlatformChart';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { ScoresTable } from '@/components/scoring/ScoresTable';
+import { IntelligenceHubCards } from '@/components/intelligence/IntelligenceHubCards';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import {
   ApiError,
@@ -71,6 +72,9 @@ export default function DashboardPage(): JSX.Element {
       {!loading && !error && (
         <div className="space-y-5">
           <SectionHeader title="Inbound Operations" />
+
+          <SectionHeader title="Intelligence" />
+          <IntelligenceHubCards />
 
           <section className="grid grid-cols-2 gap-3">
             <MetricCard

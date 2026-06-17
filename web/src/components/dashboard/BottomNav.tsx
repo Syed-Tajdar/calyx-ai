@@ -11,8 +11,8 @@ import {
 } from '@/components/ui/Icons';
 
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard', href: '/dashboard', Icon: NavDashboardIcon },
-  { id: 'reports', label: 'Reports', href: '/reports', Icon: NavReportsIcon },
+  { id: 'dashboard', label: 'Home', href: '/dashboard', Icon: NavDashboardIcon },
+  { id: 'intel', label: 'Intel', href: '/intelligence', Icon: NavReportsIcon },
   { id: 'calls', label: 'Pings', href: '/pings', Icon: NavCallsIcon },
   { id: 'agents', label: 'Quality', href: '/scoring', Icon: NavAgentsIcon },
   { id: 'settings', label: 'Settings', href: '/settings', Icon: NavSettingsIcon },
@@ -20,7 +20,15 @@ const NAV = [
 
 function resolveActiveTab(pathname: string): string {
   if (pathname.startsWith('/dashboard')) return 'dashboard';
-  if (pathname.startsWith('/reports') || pathname.startsWith('/coverage')) return 'reports';
+  if (
+    pathname.startsWith('/intelligence') ||
+    pathname.startsWith('/ask') ||
+    pathname.startsWith('/compliance') ||
+    pathname.startsWith('/attribution')
+  ) {
+    return 'intel';
+  }
+  if (pathname.startsWith('/reports') || pathname.startsWith('/coverage')) return 'intel';
   if (pathname.startsWith('/pings') || pathname.startsWith('/calls')) return 'calls';
   if (pathname.startsWith('/scoring')) return 'agents';
   if (pathname.startsWith('/settings')) return 'settings';

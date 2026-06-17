@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ComplianceViolationDetected",
+  "type": "object",
+  "required": ["schema_version", "event_id", "tenant_id", "call_id", "violation_type", "detected_at_unix_ms"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "call_id": { "type": "string", "minLength": 1 },
+    "violation_type": { "type": "string" },
+    "risk_score": { "type": "number" },
+    "exposure_usd": { "type": "number" },
+    "detected_at_unix_ms": { "type": "integer" }
+  },
+  "additionalProperties": false
+}

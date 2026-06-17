@@ -7,9 +7,12 @@ import { AppHeader } from '@/components/dashboard/AppHeader';
 import { EnrichmentPanel } from '@/components/enrichment/EnrichmentPanel';
 import { ScoreCard } from '@/components/scoring/ScoreCard';
 import { TranscriptPanel } from '@/components/scoring/TranscriptPanel';
+import { CallDeepViewPanel } from '@/components/native/CallDeepViewPanel';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import {
   ApiError,
+  CallDeepView,
+  fetchCallDeepView,
   fetchScores,
   fetchTranscript,
   ScoreRecord,
@@ -26,6 +29,7 @@ function CallDetailContent(): JSX.Element {
 
   const [score, setScore] = useState<ScoreRecord | null>(null);
   const [transcript, setTranscript] = useState<TranscriptRecord | null>(null);
+  const [deepView, setDeepView] = useState<CallDeepView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -36,12 +40,14 @@ function CallDetailContent(): JSX.Element {
     Promise.all([
       fetchScores(token, { callId }),
       fetchTranscript(token, callId),
+      fetchCallDeepView(token, callId).catch(() => null),
     ])
-      .then(([scoreRes, transcriptRes]) => {
+      .then(([scoreRes, transcriptRes, deepRes]) => {
         if (scoreRes && !('data' in scoreRes)) {
           setScore(scoreRes);
         }
         setTranscript(transcriptRes);
+        setDeepView(deepRes);
       })
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -68,6 +74,7 @@ function CallDetailContent(): JSX.Element {
 
       {!loading && !error && (
         <div className="space-y-4">
+          <CallDeepViewPanel view={deepView} />
           <ScoreCard score={score} />
           <TranscriptPanel transcript={transcript} />
           {aniHash ? (

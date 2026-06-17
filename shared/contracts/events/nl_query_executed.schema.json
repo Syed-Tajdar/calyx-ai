@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NLQueryExecuted",
+  "type": "object",
+  "required": ["tenant_id", "query_id", "question", "intent", "cache_hit", "executed_at"],
+  "properties": {
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "query_id": { "type": "string", "format": "uuid" },
+    "question": { "type": "string", "maxLength": 2000 },
+    "intent": { "type": "string", "maxLength": 64 },
+    "cache_hit": { "type": "boolean" },
+    "sql_hash": { "type": "string", "maxLength": 64 },
+    "row_count": { "type": "integer", "minimum": 0 },
+    "tokens_used": { "type": "integer", "minimum": 0 },
+    "executed_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

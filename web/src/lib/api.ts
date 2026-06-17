@@ -222,3 +222,183 @@ export async function fetchIntegrations(token: string): Promise<IntegrationRecor
 export async function fetchCoverageHeatmap(token: string): Promise<HeatmapResult> {
   return fetchWithAuth<HeatmapResult>(token, '/coverage/heatmap');
 }
+
+export interface RiskScoreRecord {
+  tenant_id: string;
+  call_id: string;
+  publisher_id: string;
+  state: string;
+  risk_score: number;
+  dnc_match: number;
+  attestation_level: string;
+  exposure_usd: number;
+  created_at: string;
+}
+
+export interface ViolationRecord {
+  tenant_id: string;
+  call_id: string;
+  violation_type: string;
+  risk_score: number;
+  exposure_usd: number;
+  created_at: string;
+}
+
+export interface ExposureSummary {
+  total_exposure_usd: number;
+  violation_count: number;
+  avg_risk_score: number;
+  dnc_match_count: number;
+}
+
+export async function fetchComplianceRiskScores(
+  token: string,
+  limit = 50,
+): Promise<{ data: RiskScoreRecord[] }> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return fetchWithAuth<{ data: RiskScoreRecord[] }>(
+    token,
+    `/compliance/risk-scores?${params.toString()}`,
+  );
+}
+
+export async function fetchComplianceViolations(
+  token: string,
+  limit = 50,
+): Promise<{ data: ViolationRecord[] }> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return fetchWithAuth<{ data: ViolationRecord[] }>(
+    token,
+    `/compliance/violations?${params.toString()}`,
+  );
+}
+
+export async function fetchComplianceExposure(token: string): Promise<ExposureSummary> {
+  return fetchWithAuth<ExposureSummary>(token, '/compliance/exposure');
+}
+
+export interface AskResponse {
+  query_id: string;
+  question: string;
+  answer: string;
+  intent: string;
+  cache_hit: boolean;
+  row_count: number;
+  tokens_used: number;
+}
+
+export interface AskHistoryRecord {
+  id: string;
+  question: string;
+  answer: string;
+  intent: string;
+  cache_hit: boolean;
+  row_count: number;
+  tokens_used: number;
+  created_at: string;
+}
+
+export async function postAsk(token: string, question: string): Promise<AskResponse> {
+  return fetchWithAuth<AskResponse>(token, '/ask', {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  });
+}
+
+export async function fetchAskHistory(
+  token: string,
+  limit = 20,
+): Promise<{ data: AskHistoryRecord[] }> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return fetchWithAuth<{ data: AskHistoryRecord[] }>(
+    token,
+    `/ask/history?${params.toString()}`,
+  );
+}
+
+export interface AttributionEventRecord {
+  tenant_id: string;
+  call_id: string;
+  event_id: string;
+  platform: string;
+  click_id: string;
+  revenue: number;
+  status: string;
+  http_status: number;
+  error_message: string;
+  fired_at: string;
+}
+
+export interface PlatformStatusSummary {
+  platform: string;
+  fired_count: number;
+  failed_count: number;
+  last_fired_at: string | null;
+}
+
+export async function fetchAttributionEvents(
+  token: string,
+  limit = 50,
+): Promise<{ data: AttributionEventRecord[] }> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return fetchWithAuth<{ data: AttributionEventRecord[] }>(
+    token,
+    `/attribution/events?${params.toString()}`,
+  );
+}
+
+export async function fetchAttributionStatus(
+  token: string,
+): Promise<{ data: PlatformStatusSummary[] }> {
+  return fetchWithAuth<{ data: PlatformStatusSummary[] }>(token, '/attribution/status');
+}
+
+export interface CallDeepView {
+  call_id: string;
+  tenant_id: string;
+  ping: {
+    platform: string;
+    publisher_id: string;
+    campaign_id: string;
+    target_id: string;
+    state: string;
+    event_type: string;
+    revenue: number;
+    payout: number;
+    ani_hash: string;
+    received_at: string;
+  } | null;
+  scoring: {
+    overall_score: number;
+    sentiment: string;
+    rules_passed: number;
+    rules_failed: number;
+    duration_seconds: number;
+    word_count: number;
+    scored_at: string;
+  } | null;
+  compliance: {
+    risk_score: number;
+    attestation_level: string;
+    exposure_usd: number;
+    dnc_match: number;
+    scored_at: string;
+  } | null;
+  attribution: {
+    platform: string;
+    status: string;
+    click_id: string;
+    revenue: number;
+    http_status: number;
+    fired_at: string;
+  } | null;
+  enrichment: {
+    attribute_count: number;
+    sample_attributes: EnrichmentAttribute[];
+  } | null;
+}
+
+export async function fetchCallDeepView(token: string, callId: string): Promise<CallDeepView> {
+  const params = new URLSearchParams({ callId });
+  return fetchWithAuth<CallDeepView>(token, `/native/call-deep-view?${params.toString()}`);
+}
