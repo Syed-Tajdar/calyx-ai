@@ -3,8 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { BottomNav } from '@/components/dashboard/BottomNav';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { TopBar } from '@/components/layout/TopBar';
 import { DesignBackground } from '@/components/ui/DesignBackground';
-import { Logo } from '@/components/ui/Logo';
+import { Skeleton } from '@/components/ui/skeleton';
+import { DateFilterProvider } from '@/lib/date-filter';
 import { clearToken, getToken } from '@/lib/auth';
 
 interface AppShellProps {
@@ -30,29 +33,25 @@ export function AppShell({ children }: AppShellProps): JSX.Element | null {
 
   if (!ready) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-loom-bg">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-loom-border border-t-loom-accent" />
+      <div className="relative flex min-h-screen items-center justify-center bg-calyx-bg">
+        <Skeleton className="h-10 w-10 rounded-full" />
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen bg-loom-bg pb-20">
-      <DesignBackground />
-      <div className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-6">
-        <Logo variant="compact" />
-        <button
-          type="button"
-          onClick={logout}
-          className="rounded-full border border-loom-border px-4 py-1.5 text-xs text-loom-muted transition hover:border-loom-accent hover:text-white"
-        >
-          Log out
-        </button>
+    <DateFilterProvider>
+      <div className="relative min-h-screen bg-calyx-bg pb-20 lg:pb-0">
+        <DesignBackground />
+        <div className="relative z-10 flex min-h-screen">
+          <Sidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <TopBar onLogout={logout} />
+            <main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">{children}</main>
+          </div>
+        </div>
+        <BottomNav />
       </div>
-      <div className="relative z-10 px-4 sm:px-6">
-        <div className="loom-dashboard-shell">{children}</div>
-      </div>
-      <BottomNav />
-    </div>
+    </DateFilterProvider>
   );
 }

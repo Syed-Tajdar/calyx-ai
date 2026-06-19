@@ -1,7 +1,13 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { z } from 'zod';
 import { CurrentTenant } from '../common/tenant.decorator';
 import { AnalyticsService, MetricsResult, PnLResult } from './analytics.service';
+
+const dateQuerySchema = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
 
 @Controller('analytics')
 @UseGuards(AuthGuard('jwt'))
@@ -9,12 +15,20 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('metrics')
-  async metrics(@CurrentTenant() tenantId: string): Promise<MetricsResult> {
-    return this.analyticsService.getMetrics(tenantId);
+  async metrics(
+    @CurrentTenant() tenantId: string,
+    @Query() query: Record<string, string>,
+  ): Promise<MetricsResult> {
+    const parsed = dateQuerySchema.parse(query);
+    return this.analyticsService.getMetrics(tenantId, parsed.from, parsed.to);
   }
 
   @Get('pnl')
-  async pnl(@CurrentTenant() tenantId: string): Promise<PnLResult> {
-    return this.analyticsService.getPnL(tenantId);
+  async pnl(
+    @CurrentTenant() tenantId: string,
+    @Query() query: Record<string, string>,
+  ): Promise<PnLResult> {
+    const parsed = dateQuerySchema.parse(query);
+    return this.analyticsService.getPnL(tenantId, parsed.from, parsed.to);
   }
 }

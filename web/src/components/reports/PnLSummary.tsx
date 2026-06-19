@@ -17,7 +17,7 @@ interface PnLSummaryProps {
 
 export function PnLSummary({ pnl }: PnLSummaryProps): JSX.Element {
   if (!pnl) {
-    return <div className="loom-card h-48 animate-pulse bg-loom-card/50" />;
+    return <div className="calyx-card h-48 animate-pulse bg-calyx-card/50" />;
   }
 
   const chartData = [
@@ -30,20 +30,20 @@ export function PnLSummary({ pnl }: PnLSummaryProps): JSX.Element {
   return (
     <div className="space-y-4">
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="loom-metric-card">
-          <p className="text-[10px] font-semibold uppercase text-loom-muted">Revenue</p>
+        <div className="calyx-metric-card">
+          <p className="text-[10px] font-semibold uppercase text-calyx-muted">Revenue</p>
           <p className="mt-2 text-xl font-bold text-emerald-400">${pnl.revenue.toFixed(0)}</p>
         </div>
-        <div className="loom-metric-card">
-          <p className="text-[10px] font-semibold uppercase text-loom-muted">Payout</p>
-          <p className="mt-2 text-xl font-bold text-white">${pnl.payout.toFixed(0)}</p>
+        <div className="calyx-metric-card">
+          <p className="text-[10px] font-semibold uppercase text-calyx-muted">Payout</p>
+          <p className="mt-2 text-xl font-bold text-calyx-text">${pnl.payout.toFixed(0)}</p>
         </div>
-        <div className="loom-metric-card">
-          <p className="text-[10px] font-semibold uppercase text-loom-muted">Ad Spend</p>
+        <div className="calyx-metric-card">
+          <p className="text-[10px] font-semibold uppercase text-calyx-muted">Ad Spend</p>
           <p className="mt-2 text-xl font-bold text-amber-400">${pnl.ad_spend.toFixed(0)}</p>
         </div>
-        <div className="loom-metric-card">
-          <p className="text-[10px] font-semibold uppercase text-loom-muted">Profit</p>
+        <div className="calyx-metric-card">
+          <p className="text-[10px] font-semibold uppercase text-calyx-muted">Profit</p>
           <p
             className={`mt-2 text-xl font-bold ${pnl.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
           >
@@ -52,8 +52,8 @@ export function PnLSummary({ pnl }: PnLSummaryProps): JSX.Element {
         </div>
       </section>
 
-      <div className="loom-card p-4">
-        <p className="mb-4 text-[10px] font-bold uppercase tracking-wider text-loom-accent">
+      <div className="calyx-card p-4">
+        <p className="mb-4 text-[10px] font-bold uppercase tracking-wider text-calyx-accent">
           P&amp;L Breakdown
         </p>
         <ResponsiveContainer width="100%" height={200}>

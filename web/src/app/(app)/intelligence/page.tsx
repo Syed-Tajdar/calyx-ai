@@ -1,34 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { AppHeader } from '@/components/dashboard/AppHeader';
-import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { IntelligenceHubCards } from '@/components/intelligence/IntelligenceHubCards';
+import { IntelligenceSubNav } from '@/components/intelligence/IntelligenceSubNav';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export default function IntelligencePage(): JSX.Element {
-  const router = useRouter();
-
   return (
-    <>
-      <AppHeader />
-      <SectionHeader title="Calyx Intelligence" />
-      <p className="mb-4 text-sm text-loom-muted">
-        Ask AI, TCPA compliance, and ad attribution — all tenant-scoped and mock-ready.
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Calyx Intelligence"
+        description="TCPA compliance moat, natural-language Ask AI, and ad attribution — tenant-scoped and mock-ready."
+      />
+      <IntelligenceSubNav />
       <IntelligenceHubCards />
-      <p className="mt-4 text-center">
-        <Link href="/reports" className="text-xs text-loom-muted hover:text-loom-accent">
-          Financial reports & coverage →
+      <p className="text-center">
+        <Link href="/reports" className="text-xs text-calyx-muted transition hover:text-calyx-accent">
+          Financial reports →
         </Link>
       </p>
-      <button
-        type="button"
-        onClick={() => router.push('/dashboard')}
-        className="mt-6 text-xs text-loom-accent hover:underline"
-      >
-        ← Back to dashboard
-      </button>
-    </>
+    </div>
   );
 }

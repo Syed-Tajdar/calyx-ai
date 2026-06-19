@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { AttributionEventsTable } from '@/components/attribution/AttributionEventsTable';
 import { PlatformStatusGrid } from '@/components/attribution/PlatformStatusGrid';
-import { AppHeader } from '@/components/dashboard/AppHeader';
-import { SectionHeader } from '@/components/dashboard/SectionHeader';
+import { IntelligenceSubNav } from '@/components/intelligence/IntelligenceSubNav';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
+import { PageHeader } from '@/components/ui/PageHeader';
 import {
   ApiError,
   AttributionEventRecord,
@@ -44,24 +43,22 @@ export default function AttributionPage(): JSX.Element {
   }, [router]);
 
   return (
-    <>
-      <AppHeader />
-      <div className="mb-3 flex items-center justify-between">
-        <SectionHeader title="Ad Attribution" />
-        <Link href="/intelligence" className="text-xs text-loom-accent hover:underline">
-          Intelligence hub
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Ad Attribution"
+        description="Meta, Google, and TikTok conversion fires — fired vs failed per platform."
+      />
+      <IntelligenceSubNav />
 
       {loading && <PageLoader />}
       {error && <ErrorBanner message={error} />}
 
       {!loading && !error && (
-        <div className="space-y-4">
+        <>
           <PlatformStatusGrid platforms={platforms} />
           <AttributionEventsTable events={events} />
-        </div>
+        </>
       )}
-    </>
+    </div>
   );
 }

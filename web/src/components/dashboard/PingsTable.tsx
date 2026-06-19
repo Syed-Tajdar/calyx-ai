@@ -1,9 +1,16 @@
 import Link from 'next/link';
 import type { PingRecord } from '@/lib/api';
+import { DataTable } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
+import { TableCell, TableRow } from '@/components/ui/table';
+import { pingRowKey } from '@/lib/use-ping-feed';
+import { cn } from '@/lib/utils';
 
 interface PingsTableProps {
   pings: PingRecord[];
   linkable?: boolean;
+  hideHeader?: boolean;
+  highlightKeys?: Set<string>;
 }
 
 function formatTime(iso: string): string {
@@ -16,76 +23,67 @@ function formatTime(iso: string): string {
   });
 }
 
-export function PingsTable({ pings, linkable = false }: PingsTableProps): JSX.Element {
-  return (
-    <div className="loom-card overflow-hidden">
-      <div className="border-b border-loom-border px-4 py-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-loom-accent">
-          Live Feed
-        </p>
-        <h3 className="text-sm font-semibold text-white">Recent Pings</h3>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[600px] text-left text-xs">
-          <thead>
-            <tr className="border-b border-loom-border text-[10px] uppercase tracking-wider text-loom-muted">
-              <th className="px-4 py-3 font-medium">Time</th>
-              <th className="px-4 py-3 font-medium">Platform</th>
-              <th className="px-4 py-3 font-medium">Call ID</th>
-              <th className="px-4 py-3 font-medium">State</th>
-              <th className="px-4 py-3 font-medium">Event</th>
-              <th className="px-4 py-3 font-medium">Revenue</th>
-              <th className="px-4 py-3 font-medium">Dup</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pings.map((p) => (
-              <tr
-                key={`${p.external_call_id}-${p.received_at}`}
-                className="border-b border-loom-border/40"
+export function PingsTable({
+  pings,
+  linkable = false,
+  hideHeader = false,
+  highlightKeys,
+}: PingsTableProps): JSX.Element {
+  const table = (
+    <DataTable
+      columns={['Time', 'Platform', 'Call ID', 'State', 'Event', 'Revenue', 'Dup']}
+      emptyTitle="No pings yet"
+      emptyDescription="Connect Ringba to start receiving data."
+      isEmpty={pings.length === 0}
+      className={hideHeader ? 'border-0 shadow-none' : undefined}
+    >
+      {pings.map((p) => (
+        <TableRow
+          key={pingRowKey(p)}
+          className={cn(highlightKeys?.has(pingRowKey(p)) && 'calyx-row-new')}
+        >
+          <TableCell className="text-calyx-muted">{formatTime(p.received_at)}</TableCell>
+          <TableCell>
+            <Badge variant="teal" className="capitalize">
+              {p.platform}
+            </Badge>
+          </TableCell>
+          <TableCell className="font-mono text-xs">
+            {linkable ? (
+              <Link
+                href={`/calls/${encodeURIComponent(p.external_call_id)}?aniHash=${encodeURIComponent(p.ani_hash)}`}
+                className="text-calyx-accent hover:underline"
               >
-                <td className="px-4 py-3 text-loom-muted">{formatTime(p.received_at)}</td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-loom-accent/10 px-2 py-0.5 text-[10px] font-medium capitalize text-loom-accent">
-                    {p.platform}
-                  </span>
-                </td>
-                <td className="px-4 py-3 font-mono text-[10px] text-white/80">
-                  {linkable ? (
-                    <Link
-                      href={`/calls/${encodeURIComponent(p.external_call_id)}?aniHash=${encodeURIComponent(p.ani_hash)}`}
-                      className="text-loom-accent hover:underline"
-                    >
-                      {p.external_call_id.slice(0, 10)}…
-                    </Link>
-                  ) : (
-                    <>{p.external_call_id.slice(0, 10)}…</>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-white">{p.state || '—'}</td>
-                <td className="px-4 py-3 capitalize text-loom-muted">{p.event_type}</td>
-                <td className="px-4 py-3 font-semibold text-emerald-400">
-                  ${p.revenue.toFixed(2)}
-                </td>
-                <td className="px-4 py-3">
-                  {p.is_duplicate ? (
-                    <span className="text-amber-400">Yes</span>
-                  ) : (
-                    <span className="text-loom-muted">No</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {pings.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-loom-muted">
-                  No pings yet. Connect Ringba to start receiving data.
-                </td>
-              </tr>
+                {p.external_call_id.slice(0, 10)}…
+              </Link>
+            ) : (
+              <>{p.external_call_id.slice(0, 10)}…</>
             )}
-          </tbody>
-        </table>
+          </TableCell>
+          <TableCell>{p.state || '—'}</TableCell>
+          <TableCell className="capitalize text-calyx-muted">{p.event_type}</TableCell>
+          <TableCell className="font-semibold text-calyx-success">${p.revenue.toFixed(2)}</TableCell>
+          <TableCell>
+            {p.is_duplicate ? (
+              <Badge variant="warning">Yes</Badge>
+            ) : (
+              <span className="text-calyx-muted">No</span>
+            )}
+          </TableCell>
+        </TableRow>
+      ))}
+    </DataTable>
+  );
+
+  if (hideHeader) return table;
+
+  return (
+    <div>
+      <div className="mb-2 px-1">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-calyx-accent">Live Feed</p>
+        <h3 className="text-sm font-semibold text-calyx-text">Recent Pings</h3>
       </div>
+      {table}
     </div>
   );
 }

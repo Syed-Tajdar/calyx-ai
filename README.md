@@ -2,6 +2,11 @@
 
 Pay-per-call analytics and intelligence platform — Kaliper competitor.
 
+> **Presentation build:** `MOCK_MODE=true` · UI Design System v2 Phases 1–3 complete · Management docs in [`docs/`](docs/README.md)
+
+See [`docs/design-system-v2.md`](docs/design-system-v2.md) for UI/UX specification.  
+**10-min demo:** [`docs/DEMO-SCRIPT.md`](docs/DEMO-SCRIPT.md)
+
 ## Phase 1 — Complete
 
 End-to-end ping pipeline:
@@ -75,11 +80,20 @@ Provider config (Go) → tenant bindings + secret resolve (Redis cache)
 
 | Route | Description |
 |-------|-------------|
+| `/login` | Auth (dev credentials below) |
+| `/dashboard` | Overview metrics, charts, performance table |
+| `/pings` | Ping feed — date filters, live poll, CSV export |
+| `/scoring` | Call quality scores |
+| `/calls/[callId]` | Native deep view (ping + score + compliance + attribution) |
 | `/intelligence` | Intelligence hub (Ask AI, compliance, attribution) |
 | `/ask` | Natural language analytics chat |
 | `/compliance` | TCPA risk scores and exposure |
 | `/attribution` | Conversion events and platform status |
-| `/calls/[callId]` | Call detail with native deep view panel |
+| `/coverage` | Geographic ping demand heatmap |
+| `/reports` | Financial analytics (CPA, RPC, ROI, P&L) |
+| `/settings` | Integrations, alerts, provider bindings |
+
+**Design System v2 (UI phases):** See [`docs/design-system-v2.md`](docs/design-system-v2.md). Phase 3 adds API-backed date filters, live ping polling (8s), server CSV export, light/dark theme toggle, mobile bottom nav, and Storybook (`cd web && npm run storybook`).
 
 ---
 
@@ -137,11 +151,44 @@ http://localhost:8080/webhooks/ringba/dev_ringba_token_change_me?CallID=[Call:In
 
 4. **HMAC required:** every request must include `X-Ringba-Signature`. Dev secret: `dev_ringba_hmac_secret_change_me`
 
+### Demo seed (populated dashboard)
+
+```powershell
+make demo-seed
+```
+
+Sends 25 signed Ringba pings across US states, waits for pipeline, then verifies API totals.
+
 ### Smoke test
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
 make step1b-test
+make verify-presentation
+make test
 ```
+
+| Command | What it checks |
+|---------|----------------|
+| `smoke-test.ps1` | Single signed ping → ingestion → API |
+| `demo-seed` | 25 pings for demo-ready dashboard |
+| `verify-presentation` | All Phase 3 API endpoints + Ask AI |
+| `step1b-test` | Go service unit tests |
+| `make test` | Full test matrix (Go + API) |
+
+### Web & API build
+
+```bash
+make build-web
+make build-api
+```
+
+---
+
+## Post-approval (MOCK_MODE=false)
+
+No UI rewrite. Set provider env vars and flip `MOCK_MODE=false` — services fail fast if secrets are missing. See [`docs/10-known-gaps-and-roadmap.md`](docs/10-known-gaps-and-roadmap.md).
+
+---
 
 See `.cursor/rules/` for full architecture rules.

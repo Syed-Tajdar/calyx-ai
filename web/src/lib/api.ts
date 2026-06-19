@@ -140,16 +140,120 @@ export async function login(email: string, password: string): Promise<string> {
   return body.access_token;
 }
 
+export interface MeResult {
+  email: string;
+  tenant_id: string;
+  tenant_name: string;
+  role: string;
+}
+
+export async function fetchMe(token: string): Promise<MeResult> {
+  return fetchWithAuth<MeResult>(token, '/auth/me');
+}
+
+export interface ProviderCatalogEntry {
+  id: string;
+  domain: string;
+  display_name: string;
+  required_secrets: string[];
+  optional_config: string[];
+  go_adapter: string;
+}
+
+export interface ProviderBinding {
+  id: string;
+  tenant_id: string;
+  domain: string;
+  provider_id: string;
+  config_json: Record<string, unknown>;
+  is_active: boolean;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchProvidersCatalog(
+  token: string,
+): Promise<{ version: string; providers: ProviderCatalogEntry[] }> {
+  return fetchWithAuth<{ version: string; providers: ProviderCatalogEntry[] }>(
+    token,
+    '/providers/catalog',
+  );
+}
+
+export async function fetchProviderBindings(
+  token: string,
+): Promise<{ data: ProviderBinding[] }> {
+  return fetchWithAuth<{ data: ProviderBinding[] }>(token, '/providers/bindings');
+}
+
+export async function createProviderBinding(
+  token: string,
+  body: {
+    domain: string;
+    provider_id: string;
+    config_json?: Record<string, unknown>;
+    is_active?: boolean;
+    priority?: number;
+  },
+): Promise<ProviderBinding> {
+  return fetchWithAuth<ProviderBinding>(token, '/providers/bindings', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export interface PingFetchFilters {
+  platform?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+}
+
 export async function fetchPings(
   token: string,
   limit = 50,
   offset = 0,
+  filters: PingFetchFilters = {},
 ): Promise<PingListResponse> {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
   });
+  if (filters.platform) params.set('platform', filters.platform);
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
+  if (filters.search) params.set('search', filters.search);
   return fetchWithAuth<PingListResponse>(token, `/pings?${params.toString()}`);
+}
+
+export async function downloadPingsExport(
+  token: string,
+  filters: PingFetchFilters = {},
+): Promise<void> {
+  const params = new URLSearchParams();
+  if (filters.platform) params.set('platform', filters.platform);
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
+  if (filters.search) params.set('search', filters.search);
+  const qs = params.toString();
+  const res = await fetch(`${API_URL}/pings/export${qs ? `?${qs}` : ''}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    clearToken();
+    throw new ApiError('Session expired', 401);
+  }
+  if (!res.ok) {
+    throw new ApiError('Export failed', res.status);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `pings-${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export interface FetchScoresOptions {
@@ -193,12 +297,26 @@ export async function fetchEnrichment(
   );
 }
 
-export async function fetchAnalyticsMetrics(token: string): Promise<MetricsResult> {
-  return fetchWithAuth<MetricsResult>(token, '/analytics/metrics');
+export async function fetchAnalyticsMetrics(
+  token: string,
+  filters: { from?: string; to?: string } = {},
+): Promise<MetricsResult> {
+  const params = new URLSearchParams();
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
+  const qs = params.toString();
+  return fetchWithAuth<MetricsResult>(token, `/analytics/metrics${qs ? `?${qs}` : ''}`);
 }
 
-export async function fetchPnL(token: string): Promise<PnLResult> {
-  return fetchWithAuth<PnLResult>(token, '/analytics/pnl');
+export async function fetchPnL(
+  token: string,
+  filters: { from?: string; to?: string } = {},
+): Promise<PnLResult> {
+  const params = new URLSearchParams();
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
+  const qs = params.toString();
+  return fetchWithAuth<PnLResult>(token, `/analytics/pnl${qs ? `?${qs}` : ''}`);
 }
 
 export async function fetchAlertRules(token: string): Promise<{ data: AlertRule[] }> {

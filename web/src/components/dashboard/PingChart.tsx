@@ -18,14 +18,14 @@ export function PingChart({ data }: PingChartProps): JSX.Element {
   const chartData = data.length > 0 ? data : [{ date: '—', count: 0 }];
 
   return (
-    <div className="loom-card p-4">
+    <div className="calyx-card p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-loom-muted">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-calyx-muted">
             Inbound Ping Overview
           </p>
         </div>
-        <span className="rounded-md bg-loom-surface px-2 py-0.5 text-[10px] text-loom-muted">
+        <span className="rounded-md bg-calyx-surface px-2 py-0.5 text-[10px] text-calyx-muted">
           Last 7 days
         </span>
       </div>
@@ -38,16 +38,20 @@ export function PingChart({ data }: PingChartProps): JSX.Element {
                 <stop offset="100%" stopColor="#00c9b7" stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke="#1a4a47" strokeDasharray="3 3" vertical={false} />
+            <CartesianGrid
+              stroke="var(--calyx-chart-grid)"
+              strokeDasharray="3 3"
+              vertical={false}
+            />
             <XAxis
               dataKey="date"
-              tick={{ fill: '#8ba8a6', fontSize: 10 }}
+              tick={{ fill: 'var(--calyx-chart-tick)', fontSize: 10 }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: string) => v.slice(5)}
             />
             <YAxis
-              tick={{ fill: '#8ba8a6', fontSize: 10 }}
+              tick={{ fill: 'var(--calyx-chart-tick)', fontSize: 10 }}
               axisLine={false}
               tickLine={false}
               allowDecimals={false}
@@ -55,17 +59,17 @@ export function PingChart({ data }: PingChartProps): JSX.Element {
             />
             <Tooltip
               contentStyle={{
-                background: '#0f2e2c',
-                border: '1px solid #1a4a47',
+                background: 'var(--calyx-chart-tooltip-bg)',
+                border: '1px solid var(--calyx-chart-tooltip-border)',
                 borderRadius: '8px',
-                color: '#fff',
+                color: 'var(--calyx-text)',
                 fontSize: '12px',
               }}
             />
             <Area
               type="monotone"
               dataKey="count"
-              stroke="#00c9b7"
+              stroke="var(--calyx-teal)"
               strokeWidth={2}
               fill="url(#pingGradient)"
             />

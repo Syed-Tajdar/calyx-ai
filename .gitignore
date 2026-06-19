@@ -36,8 +36,12 @@ tmp/
 temp/
 .cache/
 
-# Test & coverage
-coverage/
+# Test & coverage reports (not API CoverageModule or /coverage route)
+/coverage/
+**/coverage.out
+!services/api/src/coverage/
+!web/src/app/(app)/coverage/
+storybook-static/
 *.test
 .nyc_output/
 

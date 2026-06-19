@@ -1,6 +1,9 @@
 'use client';
 
 import type { AskHistoryRecord, AskResponse } from '@/lib/api';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface ChatWindowProps {
   history: AskHistoryRecord[];
@@ -23,7 +26,7 @@ export function ChatWindow({ history, onAsk, loading }: ChatWindowProps): JSX.El
     .slice()
     .reverse()
     .flatMap((h) => [
-      { role: 'user' as const, text: h.question, meta: undefined },
+      { role: 'user' as const, text: h.question, meta: undefined as string | undefined },
       {
         role: 'assistant' as const,
         text: h.answer,
@@ -32,10 +35,10 @@ export function ChatWindow({ history, onAsk, loading }: ChatWindowProps): JSX.El
     ]);
 
   return (
-    <div className="loom-card flex flex-col overflow-hidden">
-      <div className="max-h-96 space-y-3 overflow-y-auto p-4">
+    <div className="calyx-card flex flex-col overflow-hidden">
+      <div className="max-h-[28rem] space-y-3 overflow-y-auto p-4" aria-live="polite">
         {messages.length === 0 && (
-          <p className="text-sm text-loom-muted">
+          <p className="text-sm text-calyx-muted">
             Ask about revenue, pings, publishers, states, or compliance exposure.
           </p>
         )}
@@ -44,35 +47,33 @@ export function ChatWindow({ history, onAsk, loading }: ChatWindowProps): JSX.El
             key={`${msg.role}-${i}-${msg.text.slice(0, 20)}`}
             className={`rounded-lg px-3 py-2 text-sm ${
               msg.role === 'user'
-                ? 'ml-8 bg-loom-accent/15 text-white'
-                : 'mr-8 bg-loom-surface text-loom-muted'
+                ? 'ml-8 bg-calyx-accent-muted text-calyx-text'
+                : 'mr-8 border border-calyx-border bg-calyx-card text-calyx-muted'
             }`}
           >
             <p className="whitespace-pre-wrap">{msg.text}</p>
             {msg.meta && (
-              <p className="mt-1 text-[10px] uppercase tracking-wide text-loom-accent/80">{msg.meta}</p>
+              <Badge variant={msg.meta === 'cached' ? 'secondary' : 'default'} className="mt-2">
+                {msg.meta}
+              </Badge>
             )}
           </div>
         ))}
-        {loading && <p className="text-xs text-loom-muted">Thinking…</p>}
+        {loading && <p className="text-xs text-calyx-muted">Thinking…</p>}
       </div>
-      <form onSubmit={handleSubmit} className="border-t border-loom-border p-3">
+      <form onSubmit={handleSubmit} className="border-t border-calyx-border p-3">
         <div className="flex gap-2">
-          <input
+          <Input
             name="question"
             type="text"
             placeholder="e.g. What is my total revenue?"
             maxLength={2000}
             disabled={loading}
-            className="flex-1 rounded-lg border border-loom-border bg-loom-bg px-3 py-2 text-sm text-white placeholder:text-loom-muted focus:border-loom-accent focus:outline-none disabled:opacity-60"
+            className="flex-1"
           />
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-lg bg-loom-accent px-4 py-2 text-xs font-bold uppercase tracking-wide text-loom-bg transition hover:opacity-90 disabled:opacity-40"
-          >
+          <Button type="submit" disabled={loading}>
             Ask
-          </button>
+          </Button>
         </div>
       </form>
     </div>

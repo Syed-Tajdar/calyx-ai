@@ -11,17 +11,17 @@ function maskToken(token: string): string {
 
 export function IntegrationsList({ integrations }: IntegrationsListProps): JSX.Element {
   return (
-    <div className="loom-card overflow-hidden">
-      <div className="border-b border-loom-border px-4 py-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-loom-accent">
+    <div className="calyx-card overflow-hidden">
+      <div className="border-b border-calyx-border px-4 py-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-calyx-accent">
           Integrations
         </p>
-        <h3 className="text-sm font-semibold text-white">Connected Platforms</h3>
+        <h3 className="text-sm font-semibold text-calyx-text">Connected Platforms</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[400px] text-left text-xs">
           <thead>
-            <tr className="border-b border-loom-border text-[10px] uppercase text-loom-muted">
+            <tr className="border-b border-calyx-border text-[10px] uppercase text-calyx-muted">
               <th className="px-4 py-3 font-medium">Platform</th>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Token</th>
@@ -30,10 +30,10 @@ export function IntegrationsList({ integrations }: IntegrationsListProps): JSX.E
           </thead>
           <tbody>
             {integrations.map((item) => (
-              <tr key={item.id} className="border-b border-loom-border/40">
-                <td className="px-4 py-3 capitalize text-white">{item.platform}</td>
-                <td className="px-4 py-3 text-loom-muted">{item.name}</td>
-                <td className="px-4 py-3 font-mono text-[10px] text-loom-muted">
+              <tr key={item.id} className="border-b border-calyx-border/40">
+                <td className="px-4 py-3 capitalize text-calyx-text">{item.platform}</td>
+                <td className="px-4 py-3 text-calyx-muted">{item.name}</td>
+                <td className="px-4 py-3 font-mono text-[10px] text-calyx-muted">
                   {maskToken(item.webhook_token)}
                 </td>
                 <td className="px-4 py-3">
@@ -51,7 +51,7 @@ export function IntegrationsList({ integrations }: IntegrationsListProps): JSX.E
             ))}
             {integrations.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-12 text-center text-loom-muted">
+                <td colSpan={4} className="px-4 py-12 text-center text-calyx-muted">
                   No integrations configured.
                 </td>
               </tr>

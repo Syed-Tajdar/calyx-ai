@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppHeader } from '@/components/dashboard/AppHeader';
-import { SectionHeader } from '@/components/dashboard/SectionHeader';
+import { Map } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { AnalyticsMetricsGrid } from '@/components/reports/AnalyticsMetricsGrid';
 import { PnLSummary } from '@/components/reports/PnLSummary';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
+import { Button } from '@/components/ui/button';
 import {
   ApiError,
   fetchAnalyticsMetrics,
@@ -16,9 +18,12 @@ import {
   PnLResult,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
 
 export default function ReportsPage(): JSX.Element {
   const router = useRouter();
+  const { startDate, platform, preset } = useDateFilter();
+  const filters = useMemo(() => dateFilterToQuery(startDate, platform), [startDate, platform]);
   const [metrics, setMetrics] = useState<MetricsResult | null>(null);
   const [pnl, setPnl] = useState<PnLResult | null>(null);
   const [error, setError] = useState('');
@@ -28,7 +33,8 @@ export default function ReportsPage(): JSX.Element {
     const token = getToken();
     if (!token) return;
 
-    Promise.all([fetchAnalyticsMetrics(token), fetchPnL(token)])
+    setLoading(true);
+    Promise.all([fetchAnalyticsMetrics(token, filters), fetchPnL(token, filters)])
       .then(([metricsRes, pnlRes]) => {
         setMetrics(metricsRes);
         setPnl(pnlRes);
@@ -41,30 +47,34 @@ export default function ReportsPage(): JSX.Element {
         setError('Failed to load reports');
       })
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, filters.from, filters.platform, preset]);
 
   return (
-    <>
-      <AppHeader />
-      <div className="mb-4 flex items-center justify-between">
-        <SectionHeader title="Financial Analytics" />
-        <Link
-          href="/coverage"
-          className="text-xs text-loom-accent transition hover:text-loom-accent-hover"
-        >
-          View coverage →
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Financial Analytics"
+        description="CPA, RPC, ROI, and profit & loss summary."
+        action={
+          <Button variant="outline" size="sm" asChild className="gap-2">
+            <Link href="/coverage">
+              <Map className="h-4 w-4" />
+              Coverage
+            </Link>
+          </Button>
+        }
+      />
+
+      <FilterBar />
 
       {loading && <PageLoader />}
       {error && <ErrorBanner message={error} />}
 
       {!loading && !error && (
-        <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-2">
           <AnalyticsMetricsGrid metrics={metrics} />
           <PnLSummary pnl={pnl} />
         </div>
       )}
-    </>
+    </div>
   );
 }

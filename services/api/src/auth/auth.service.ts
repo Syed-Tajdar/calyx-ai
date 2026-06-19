@@ -40,4 +40,24 @@ export class AuthService {
       access_token: await this.jwtService.signAsync(payload),
     };
   }
+
+  async getMe(user: JwtPayload): Promise<{
+    email: string;
+    tenant_id: string;
+    tenant_name: string;
+    role: string;
+  }> {
+    const result = await this.postgres.getPool().query<{ name: string }>(
+      `SELECT name FROM tenants WHERE id = $1::uuid`,
+      [user.tenant_id],
+    );
+    const tenantName = result.rows[0]?.name ?? 'Unknown tenant';
+
+    return {
+      email: user.email,
+      tenant_id: user.tenant_id,
+      tenant_name: tenantName,
+      role: user.role,
+    };
+  }
 }

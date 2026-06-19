@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppHeader } from '@/components/dashboard/AppHeader';
-import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { AlertRulesSection } from '@/components/settings/AlertRulesSection';
 import { IntegrationsList } from '@/components/settings/IntegrationsList';
+import { ProviderBindingsSection } from '@/components/settings/ProviderBindingsSection';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertRule,
   ApiError,
@@ -47,19 +48,33 @@ export default function SettingsPage(): JSX.Element {
   }
 
   return (
-    <>
-      <AppHeader />
-      <SectionHeader title="Settings" />
+    <div className="space-y-6">
+      <PageHeader
+        title="Settings"
+        description="Integrations, alert rules, and provider bindings for your tenant."
+      />
 
       {loading && <PageLoader />}
       {error && <ErrorBanner message={error} />}
 
       {!loading && !error && (
-        <div className="space-y-6">
-          <IntegrationsList integrations={integrations} />
-          <AlertRulesSection rules={rules} onCreated={handleRuleCreated} />
-        </div>
+        <Tabs defaultValue="integrations">
+          <TabsList>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
+            <TabsTrigger value="alerts">Alerts</TabsTrigger>
+            <TabsTrigger value="providers">Providers</TabsTrigger>
+          </TabsList>
+          <TabsContent value="integrations">
+            <IntegrationsList integrations={integrations} />
+          </TabsContent>
+          <TabsContent value="alerts">
+            <AlertRulesSection rules={rules} onCreated={handleRuleCreated} />
+          </TabsContent>
+          <TabsContent value="providers">
+            <ProviderBindingsSection />
+          </TabsContent>
+        </Tabs>
       )}
-    </>
+    </div>
   );
 }

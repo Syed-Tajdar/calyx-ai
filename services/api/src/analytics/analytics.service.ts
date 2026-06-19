@@ -34,7 +34,12 @@ export class AnalyticsService {
     );
   }
 
-  async getMetrics(tenantId: string): Promise<MetricsResult> {
+  async getMetrics(tenantId: string, from?: string, to?: string): Promise<MetricsResult> {
+    const dateClause = this.buildDateClause(from, to);
+    const params: Record<string, string> = { tenant_id: tenantId };
+    if (from) params.from = from;
+    if (to) params.to = to;
+
     const result = await this.clickhouse.getClient().query({
       query: `
         SELECT
@@ -43,8 +48,9 @@ export class AnalyticsService {
           sum(payout) AS total_payout
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
+        ${dateClause}
       `,
-      query_params: { tenant_id: tenantId },
+      query_params: params,
       format: 'JSONEachRow',
     });
     const rows = await result.json<{ total_pings: string; total_revenue: string; total_payout: string }>();
@@ -66,8 +72,8 @@ export class AnalyticsService {
     };
   }
 
-  async getPnL(tenantId: string): Promise<PnLResult> {
-    const metrics = await this.getMetrics(tenantId);
+  async getPnL(tenantId: string, from?: string, to?: string): Promise<PnLResult> {
+    const metrics = await this.getMetrics(tenantId, from, to);
     const spendRows = await this.adSpendSource.getSpend(tenantId);
     const adSpend = spendRows.reduce((sum: number, r: AdSpendRow) => sum + r.amount, 0);
     const profit = metrics.total_revenue - metrics.total_payout - adSpend;
@@ -99,5 +105,12 @@ export class AnalyticsService {
         amount: Number(row.amount),
       }));
     });
+  }
+
+  private buildDateClause(from?: string, to?: string): string {
+    const parts: string[] = [];
+    if (from) parts.push('AND received_at >= parseDateTimeBestEffort({from:String})');
+    if (to) parts.push('AND received_at < parseDateTimeBestEffort({to:String})');
+    return parts.join('\n        ');
   }
 }

@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { ExposureSummaryCard } from '@/components/compliance/ExposureSummaryCard';
 import { RiskScoresTable } from '@/components/compliance/RiskScoresTable';
-import { AppHeader } from '@/components/dashboard/AppHeader';
-import { SectionHeader } from '@/components/dashboard/SectionHeader';
+import { ComplianceRiskRing } from '@/components/calyx/ComplianceRiskRing';
+import { IntelligenceSubNav } from '@/components/intelligence/IntelligenceSubNav';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
+import { PageHeader } from '@/components/ui/PageHeader';
 import {
   ApiError,
   ExposureSummary,
@@ -43,25 +43,35 @@ export default function CompliancePage(): JSX.Element {
       .finally(() => setLoading(false));
   }, [router]);
 
+  const avgRisk = exposure?.avg_risk_score ?? 0;
+
   return (
-    <>
-      <AppHeader />
-      <div className="mb-3 flex items-center justify-between">
-        <SectionHeader title="TCPA Compliance" />
-        <Link href="/intelligence" className="text-xs text-loom-accent hover:underline">
-          Intelligence hub
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="TCPA Compliance"
+        description="Risk scoring, DNC matches, and liability exposure — your competitive moat."
+      />
+      <IntelligenceSubNav />
 
       {loading && <PageLoader />}
       {error && <ErrorBanner message={error} />}
 
       {!loading && !error && (
-        <div className="space-y-4">
-          <ExposureSummaryCard exposure={exposure} />
+        <>
+          <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
+            <div className="calyx-card flex flex-col items-center justify-center p-6">
+              <ComplianceRiskRing
+                score={avgRisk}
+                exposureUsd={exposure?.total_exposure_usd ?? 0}
+                size="md"
+              />
+              <p className="mt-3 text-xs text-calyx-muted">Portfolio risk score</p>
+            </div>
+            <ExposureSummaryCard exposure={exposure} />
+          </div>
           <RiskScoresTable scores={scores} />
-        </div>
+        </>
       )}
-    </>
+    </div>
   );
 }

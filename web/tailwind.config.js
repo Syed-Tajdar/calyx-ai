@@ -1,34 +1,95 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: ['class'],
   content: ['./src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
-        loom: {
-          bg: '#071615',
-          surface: '#0c2423',
-          card: '#0f2e2c',
-          border: '#1a4a47',
-          accent: '#00c9b7',
-          'accent-hover': '#00e5d4',
-          muted: '#8ba8a6',
-          teal: '#14b8a6',
+        calyx: {
+          bg: 'var(--calyx-bg)',
+          surface: 'var(--calyx-surface)',
+          card: 'var(--calyx-card)',
+          border: 'var(--calyx-border)',
+          'border-subtle': 'var(--calyx-border-subtle)',
+          text: 'var(--calyx-text)',
+          muted: 'var(--calyx-muted)',
+          dim: 'var(--calyx-dim)',
+          accent: 'var(--calyx-accent)',
+          'accent-hover': 'var(--calyx-accent-hover)',
+          'accent-muted': 'var(--calyx-accent-muted)',
+          teal: 'var(--calyx-teal)',
+          'teal-hover': 'var(--calyx-teal-hover)',
+          success: 'var(--calyx-success)',
+          warning: 'var(--calyx-warning)',
+          danger: 'var(--calyx-danger)',
+        },
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
         },
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
       },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+      },
       backgroundImage: {
-        'loom-grid':
-          'linear-gradient(rgba(0,201,183,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,201,183,0.03) 1px, transparent 1px)',
+        'calyx-grid':
+          'linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,201,183,0.03) 1px, transparent 1px)',
       },
       backgroundSize: {
         grid: '48px 48px',
       },
       boxShadow: {
-        'loom-glow': '0 0 80px rgba(0, 201, 183, 0.06)',
+        'calyx-glow': '0 0 80px rgba(99, 102, 241, 0.08)',
+      },
+      keyframes: {
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
       },
     },
   },
-  plugins: [],
+  plugins: [require('tailwindcss-animate')],
 };

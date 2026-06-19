@@ -1,19 +1,22 @@
 'use client';
 
-import Image from 'next/image';
-import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { DesignBackground } from '@/components/ui/DesignBackground';
-import { EyeIcon, GoogleIcon, LockIcon } from '@/components/ui/Icons';
 import { Logo } from '@/components/ui/Logo';
 import { getToken, setToken } from '@/lib/auth';
 import { login } from '@/lib/api';
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 export default function LoginPage(): JSX.Element {
   const router = useRouter();
-  const [email, setEmail] = useState('admin@callloom.dev');
-  const [password, setPassword] = useState('callloom_dev');
+  const [email, setEmail] = useState(IS_DEV ? 'admin@callloom.dev' : '');
+  const [password, setPassword] = useState(IS_DEV ? 'callloom_dev' : '');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
@@ -41,112 +44,81 @@ export default function LoginPage(): JSX.Element {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-loom-bg">
+    <div className="relative flex min-h-screen items-center justify-center bg-calyx-bg p-4">
       <DesignBackground />
-
-      <div className="relative z-10 flex min-h-screen">
-        <div className="relative hidden w-[52%] overflow-hidden lg:block">
-          <Image
-            src="/auth-character.png"
-            alt=""
-            fill
-            className="object-cover object-left"
-            priority
-            sizes="52vw"
-          />
-        </div>
-
-        <div className="flex w-full flex-col lg:w-[48%]">
-          <div className="p-6 lg:hidden">
-            <Logo />
-          </div>
-
-          <div className="flex flex-1 flex-col justify-center px-6 py-10 sm:px-12 lg:px-16 xl:px-20">
-            <div className="mx-auto w-full max-w-md">
-              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Welcome back!
-              </h1>
-              <p className="mt-2 text-sm text-loom-muted">Good to see you again.</p>
-
-              <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-                <div>
-                  <label htmlFor="email" className="mb-2 block text-sm text-loom-muted">
-                    Email Address
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    className="loom-input"
-                    placeholder="e.g.john@gmail.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="password" className="mb-2 block text-sm text-loom-muted">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-loom-muted">
-                      <LockIcon />
-                    </span>
-                    <input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      className="loom-input-icon-left pr-12"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      autoComplete="current-password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-loom-muted transition hover:text-white"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      <EyeIcon />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex cursor-pointer items-center gap-2 text-loom-muted">
-                    <input
-                      type="checkbox"
-                      checked={remember}
-                      onChange={(e) => setRemember(e.target.checked)}
-                      className="h-4 w-4 rounded border-loom-border bg-loom-surface accent-loom-accent"
-                    />
-                    Remember me
-                  </label>
-                  <Link href="#" className="text-loom-muted transition hover:text-loom-accent">
-                    Forget Password?
-                  </Link>
-                </div>
-
-                {error && (
-                  <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                    {error}
-                  </p>
-                )}
-
-                <button type="submit" disabled={loading} className="loom-btn-primary">
-                  {loading ? 'Signing in…' : 'Sign in'}
-                </button>
-              </form>
-
-              <button type="button" disabled className="loom-btn-google mt-8 opacity-70">
-                <GoogleIcon />
-                Continue with Google
-              </button>
+      <Card className="relative z-10 w-full max-w-md border-calyx-border bg-calyx-card/95 backdrop-blur-sm">
+        <CardHeader className="items-center text-center">
+          <Logo className="mb-2" />
+          <CardTitle className="text-xl">Sign in to Calyx AI</CardTitle>
+          <CardDescription>
+            Pay-per-call analytics, TCPA compliance intelligence, and Ask AI reporting.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-calyx-muted">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-calyx-muted" />
+                <Input
+                  id="email"
+                  type="email"
+                  className="pl-10"
+                  placeholder="you@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
+            <div>
+              <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-calyx-muted">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-calyx-muted" />
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  className="pl-10 pr-10"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-calyx-muted hover:text-calyx-text"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-calyx-muted">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-calyx-border accent-calyx-accent"
+              />
+              Remember me
+            </label>
+            {error && (
+              <p className="rounded-lg border border-calyx-danger/30 bg-calyx-danger/10 px-3 py-2 text-sm text-calyx-danger">
+                {error}
+              </p>
+            )}
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

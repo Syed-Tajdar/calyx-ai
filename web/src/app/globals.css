@@ -1,39 +1,128 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  body {
-    @apply bg-loom-bg text-white antialiased;
-  }
-}
-
-@layer components {
-  .loom-input {
-    @apply w-full rounded-xl border border-loom-border/80 bg-[#0a1f1e]/90 px-4 py-3.5 text-sm text-white placeholder:text-loom-muted/70 outline-none transition focus:border-loom-accent focus:ring-1 focus:ring-loom-accent/50;
-  }
-
-  .loom-input-icon-left {
-    @apply loom-input pl-11;
-  }
-
-  .loom-card {
-    @apply rounded-2xl border border-loom-border/60 bg-loom-card/80 backdrop-blur-sm;
-  }
-
-  .loom-metric-card {
-    @apply rounded-xl border border-loom-border/50 bg-[#0a2221]/90 p-4 backdrop-blur-sm;
-  }
-
-  .loom-btn-primary {
-    @apply w-full rounded-full bg-loom-accent py-3.5 text-sm font-semibold text-[#041414] transition hover:bg-loom-accent-hover disabled:opacity-60;
-  }
-
-  .loom-btn-google {
-    @apply flex w-full items-center justify-center gap-3 rounded-full border border-loom-border bg-[#0a1f1e]/80 py-3 text-sm text-white transition hover:border-loom-accent/60;
-  }
-
-  .loom-dashboard-shell {
-    @apply relative mx-auto max-w-5xl rounded-3xl border border-loom-border/40 bg-loom-surface/30 p-4 shadow-loom-glow backdrop-blur-md sm:p-6;
-  }
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  .dark {
+    --calyx-bg: #060b14;
+    --calyx-surface: #0d1421;
+    --calyx-card: #111827;
+    --calyx-border: #1f2937;
+    --calyx-border-subtle: #374151;
+    --calyx-text: #f9fafb;
+    --calyx-muted: #9ca3af;
+    --calyx-dim: #6b7280;
+    --calyx-accent: #6366f1;
+    --calyx-accent-hover: #818cf8;
+    --calyx-accent-muted: rgba(99, 102, 241, 0.12);
+    --calyx-teal: #00c9b7;
+    --calyx-teal-hover: #00e5d4;
+    --calyx-success: #10b981;
+    --calyx-warning: #f59e0b;
+    --calyx-danger: #ef4444;
+    --calyx-chart-grid: #1a4a47;
+    --calyx-chart-tick: #8ba8a6;
+    --calyx-chart-tooltip-bg: #0f2e2c;
+    --calyx-chart-tooltip-border: #1a4a47;
+
+    --background: 222 47% 4%;
+    --foreground: 210 20% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 20% 98%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 19% 17%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 217 19% 17%;
+    --muted-foreground: 218 11% 65%;
+    --accent: 217 19% 17%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 19% 20%;
+    --input: 217 19% 20%;
+    --ring: 239 84% 67%;
+    --radius: 0.75rem;
+  }
+
+  .light {
+    --calyx-bg: #f9fafb;
+    --calyx-surface: #ffffff;
+    --calyx-card: #ffffff;
+    --calyx-border: #e5e7eb;
+    --calyx-border-subtle: #d1d5db;
+    --calyx-text: #111827;
+    --calyx-muted: #6b7280;
+    --calyx-dim: #9ca3af;
+    --calyx-accent: #6366f1;
+    --calyx-accent-hover: #4f46e5;
+    --calyx-accent-muted: rgba(99, 102, 241, 0.1);
+    --calyx-teal: #00a896;
+    --calyx-teal-hover: #00c9b7;
+    --calyx-success: #059669;
+    --calyx-warning: #d97706;
+    --calyx-danger: #dc2626;
+    --calyx-chart-grid: #e5e7eb;
+    --calyx-chart-tick: #6b7280;
+    --calyx-chart-tooltip-bg: #ffffff;
+    --calyx-chart-tooltip-border: #e5e7eb;
+
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 20% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 239 84% 67%;
+  }
+
+  body {
+    @apply bg-calyx-bg text-calyx-text antialiased;
+  }
+}
+
+@layer components {
+  .calyx-input {
+    @apply w-full rounded-lg border border-calyx-border bg-calyx-surface px-4 py-2.5 text-sm text-calyx-text placeholder:text-calyx-muted outline-none transition focus:border-calyx-accent focus:ring-2 focus:ring-calyx-accent-muted;
+  }
+
+  .calyx-card {
+    @apply rounded-xl border border-calyx-border bg-calyx-card;
+  }
+
+  .calyx-metric-card {
+    @apply rounded-xl border border-calyx-border bg-calyx-card p-5;
+  }
+
+  .calyx-btn-primary {
+    @apply inline-flex w-full items-center justify-center rounded-lg bg-calyx-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-calyx-accent-hover disabled:opacity-60;
+  }
+
+  .calyx-row-new {
+    animation: calyx-flash 2.5s ease-out;
+  }
+}
+
+@keyframes calyx-flash {
+  0% {
+    background-color: rgba(0, 201, 183, 0.25);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
