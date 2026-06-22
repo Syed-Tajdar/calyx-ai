@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/button';
+import { StateHeatmapChart } from '@/components/coverage/StateHeatmapChart';
 import { ApiError, fetchCoverageHeatmap, HeatmapStateRow } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 
@@ -81,6 +82,7 @@ export default function CoveragePage(): JSX.Element {
               No geographic data yet. Run the demo seed script or send pings with state codes.
             </div>
           ) : (
+            <>
             <div className="calyx-card p-4">
               <div className="grid grid-cols-4 gap-2 xs:grid-cols-5 sm:grid-cols-8 md:grid-cols-10">
                 {rows.slice(0, US_STATES_MAX).map((row) => (
@@ -100,6 +102,8 @@ export default function CoveragePage(): JSX.Element {
                 <span>High</span>
               </div>
             </div>
+            <StateHeatmapChart data={rows} />
+            </>
           )}
         </>
       )}
