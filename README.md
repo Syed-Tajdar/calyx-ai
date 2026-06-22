@@ -191,4 +191,4 @@ No UI rewrite. Set provider env vars and flip `MOCK_MODE=false` — services fai
 
 ---
 
-See `.cursor/rules/` for full architecture rules.
+See `.calyx-ai/rules/` for full architecture rules.
