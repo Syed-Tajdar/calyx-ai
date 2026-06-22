@@ -91,7 +91,7 @@ export default function AskPage(): JSX.Element {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="Ask AI"
         description="Natural-language reporting over your ping and revenue data."

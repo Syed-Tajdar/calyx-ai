@@ -19,7 +19,7 @@ export function SuggestedQuestions({ onSelect, disabled }: SuggestedQuestionsPro
           type="button"
           disabled={disabled}
           onClick={() => onSelect(q)}
-              className="rounded-full border border-calyx-border px-3 py-1 text-xs text-calyx-muted transition hover:border-calyx-accent hover:text-calyx-text disabled:opacity-40"
+          className="rounded-full border border-calyx-border bg-calyx-surface px-3 py-1.5 text-xs text-calyx-muted transition hover:border-calyx-accent hover:bg-calyx-accent-muted hover:text-calyx-text disabled:opacity-40"
         >
           {q}
         </button>

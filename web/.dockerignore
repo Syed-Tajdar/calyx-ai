@@ -1,0 +1,7 @@
+node_modules
+.next
+storybook-static
+.git
+*.md
+compliance-ring-check.png
+scripts/ui-check-compliance.mjs

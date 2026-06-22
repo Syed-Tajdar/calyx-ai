@@ -1,6 +1,8 @@
 # Calyx AI — Design System v2
 
-Version 2.0 · Teal + Indigo hybrid brand · UI Phases 1–3 complete · Presentation-ready
+Version 2.0 · Teal + Indigo hybrid brand · Claude Design aligned · Production UI
+
+Canonical token source: [`web/src/styles/tokens/`](../web/src/styles/tokens/) (imported from Claude Design ZIP).
 
 ---
 

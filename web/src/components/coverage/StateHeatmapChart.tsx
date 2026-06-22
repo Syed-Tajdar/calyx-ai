@@ -35,23 +35,24 @@ export function StateHeatmapChart({ data }: StateHeatmapChartProps): JSX.Element
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 28)}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1a4a47" horizontal={false} />
-              <XAxis type="number" tick={{ fill: '#8ba8a6', fontSize: 10 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--calyx-chart-grid)" horizontal={false} />
+              <XAxis type="number" tick={{ fill: 'var(--calyx-chart-tick)', fontSize: 10 }} />
               <YAxis
                 type="category"
                 dataKey="state"
                 width={36}
-                tick={{ fill: '#8ba8a6', fontSize: 10 }}
+                tick={{ fill: 'var(--calyx-chart-tick)', fontSize: 10 }}
               />
               <Tooltip
                 contentStyle={{
-                  background: '#0f2e2c',
-                  border: '1px solid #1a4a47',
+                  background: 'var(--calyx-chart-tooltip-bg)',
+                  border: '1px solid var(--calyx-chart-tooltip-border)',
                   borderRadius: 8,
                   fontSize: 12,
+                  color: 'var(--calyx-text)',
                 }}
               />
-              <Bar dataKey="pings" fill="#00c9b7" radius={[0, 4, 4, 0]} name="Pings" />
+              <Bar dataKey="pings" fill="var(--calyx-teal)" radius={[0, 4, 4, 0]} name="Pings" />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -71,8 +72,10 @@ export function StateHeatmapChart({ data }: StateHeatmapChartProps): JSX.Element
               {data.map((row) => (
                 <tr key={row.state} className="border-b border-calyx-border/40">
                   <td className="px-4 py-3 font-semibold text-calyx-text">{row.state}</td>
-                  <td className="px-4 py-3 text-calyx-muted">{row.ping_count}</td>
-                  <td className="px-4 py-3 text-emerald-400">${row.revenue.toFixed(2)}</td>
+                  <td className="px-4 py-3 font-mono text-xs tabular-nums text-calyx-muted">{row.ping_count}</td>
+                  <td className="px-4 py-3 font-mono text-xs tabular-nums text-calyx-success">
+                    ${row.revenue.toFixed(2)}
+                  </td>
                 </tr>
               ))}
             </tbody>

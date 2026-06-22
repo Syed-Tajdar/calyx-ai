@@ -45,10 +45,10 @@ export function ChatWindow({ history, onAsk, loading }: ChatWindowProps): JSX.El
         {messages.map((msg, i) => (
           <div
             key={`${msg.role}-${i}-${msg.text.slice(0, 20)}`}
-            className={`rounded-lg px-3 py-2 text-sm ${
+            className={`max-w-[85%] rounded-md px-3 py-2 text-sm ${
               msg.role === 'user'
-                ? 'ml-8 bg-calyx-accent-muted text-calyx-text'
-                : 'mr-8 border border-calyx-border bg-calyx-card text-calyx-muted'
+                ? 'ml-auto bg-calyx-accent-muted text-calyx-text'
+                : 'border border-calyx-border text-calyx-muted'
             }`}
           >
             <p className="whitespace-pre-wrap">{msg.text}</p>

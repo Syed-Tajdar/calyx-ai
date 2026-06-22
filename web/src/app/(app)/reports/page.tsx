@@ -50,7 +50,7 @@ export default function ReportsPage(): JSX.Element {
   }, [router, filters.from, filters.platform, preset]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="Financial Analytics"
         description="CPA, RPC, ROI, and profit & loss summary."

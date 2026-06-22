@@ -48,7 +48,7 @@ export default function SettingsPage(): JSX.Element {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="Settings"
         description="Integrations, alert rules, and provider bindings for your tenant."

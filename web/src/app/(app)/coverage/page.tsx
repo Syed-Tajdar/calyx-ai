@@ -55,7 +55,7 @@ export default function CoveragePage(): JSX.Element {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="Coverage Intelligence"
         description="Geographic ping demand heatmap by US state."
@@ -79,7 +79,7 @@ export default function CoveragePage(): JSX.Element {
           </p>
           {rows.length === 0 ? (
             <div className="calyx-card p-8 text-center text-sm text-calyx-muted">
-              No geographic data yet. Run the demo seed script or send pings with state codes.
+              No geographic data yet. Connect platforms and send pings with state codes.
             </div>
           ) : (
             <>

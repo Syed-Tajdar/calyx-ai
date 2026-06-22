@@ -1,15 +1,22 @@
 'use client';
 
+import {
+  BarChart3,
+  Brain,
+  Home,
+  Phone,
+  Settings,
+  Star,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Brain, Home, Phone, Settings, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV = [
-  { id: 'dashboard', label: 'Home', href: '/dashboard', Icon: Home },
-  { id: 'intel', label: 'Intel', href: '/intelligence', Icon: Brain },
+  { id: 'dashboard', label: 'Dashboard', href: '/dashboard', Icon: Home },
+  { id: 'intel', label: 'Intelligence', href: '/intelligence', Icon: Brain },
   { id: 'calls', label: 'Pings', href: '/pings', Icon: Phone },
-  { id: 'agents', label: 'Scoring', href: '/scoring', Icon: Star },
+  { id: 'scoring', label: 'Scoring', href: '/scoring', Icon: Star },
   { id: 'settings', label: 'Settings', href: '/settings', Icon: Settings },
 ] as const;
 
@@ -26,7 +33,7 @@ function resolveActiveTab(pathname: string): string {
     return 'intel';
   }
   if (pathname.startsWith('/pings') || pathname.startsWith('/calls')) return 'calls';
-  if (pathname.startsWith('/scoring')) return 'agents';
+  if (pathname.startsWith('/scoring')) return 'scoring';
   if (pathname.startsWith('/settings')) return 'settings';
   return 'dashboard';
 }

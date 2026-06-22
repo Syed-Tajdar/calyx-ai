@@ -15,7 +15,7 @@ export function PlatformStatusGrid({ platforms }: PlatformStatusGridProps): JSX.
   if (platforms.length === 0) {
     return (
       <div className="calyx-card p-4 text-sm text-calyx-muted">
-        No attribution fires yet. Mock bridge emits conversions when pings have revenue.
+        No attribution fires yet. Conversion events appear when pings include revenue.
       </div>
     );
   }

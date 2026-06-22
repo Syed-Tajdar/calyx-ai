@@ -47,7 +47,9 @@ export function AppShell({ children }: AppShellProps): JSX.Element | null {
           <Sidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             <TopBar onLogout={logout} />
-            <main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">{children}</main>
+            <main className="mx-auto w-full max-w-content flex-1 overflow-x-hidden px-4 py-7 sm:px-6 lg:px-8">
+              {children}
+            </main>
           </div>
         </div>
         <BottomNav />

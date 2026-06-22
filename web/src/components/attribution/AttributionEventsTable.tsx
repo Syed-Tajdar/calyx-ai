@@ -12,7 +12,7 @@ export function AttributionEventsTable({ events }: AttributionEventsTableProps):
     <DataTable
       columns={['Platform', 'Status', 'Revenue', 'HTTP', 'Fired']}
       emptyTitle="No attribution events"
-      emptyDescription="Mock bridge emits conversions when pings have revenue."
+      emptyDescription="Conversion events appear when pings include revenue."
       isEmpty={events.length === 0}
     >
       {events.map((row) => (

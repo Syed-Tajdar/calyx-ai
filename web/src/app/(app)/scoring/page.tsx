@@ -42,7 +42,7 @@ export default function ScoringPage(): JSX.Element {
   }, [router, offset]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="Call Quality"
         description="AI-scored calls with sentiment and rule pass/fail breakdown."

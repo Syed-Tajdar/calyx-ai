@@ -1,3 +1,8 @@
+@import '../styles/tokens/colors.css';
+@import '../styles/tokens/typography.css';
+@import '../styles/tokens/spacing.css';
+@import '../styles/tokens/effects.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,26 +10,8 @@
 @layer base {
   :root,
   .dark {
-    --calyx-bg: #060b14;
-    --calyx-surface: #0d1421;
-    --calyx-card: #111827;
-    --calyx-border: #1f2937;
-    --calyx-border-subtle: #374151;
-    --calyx-text: #f9fafb;
-    --calyx-muted: #9ca3af;
-    --calyx-dim: #6b7280;
-    --calyx-accent: #6366f1;
-    --calyx-accent-hover: #818cf8;
-    --calyx-accent-muted: rgba(99, 102, 241, 0.12);
-    --calyx-teal: #00c9b7;
-    --calyx-teal-hover: #00e5d4;
-    --calyx-success: #10b981;
-    --calyx-warning: #f59e0b;
-    --calyx-danger: #ef4444;
-    --calyx-chart-grid: #1a4a47;
-    --calyx-chart-tick: #8ba8a6;
-    --calyx-chart-tooltip-bg: #0f2e2c;
-    --calyx-chart-tooltip-border: #1a4a47;
+    --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: var(--font-jetbrains-mono), ui-monospace, 'SF Mono', Menlo, monospace;
 
     --background: 222 47% 4%;
     --foreground: 210 20% 98%;
@@ -49,27 +36,6 @@
   }
 
   .light {
-    --calyx-bg: #f9fafb;
-    --calyx-surface: #ffffff;
-    --calyx-card: #ffffff;
-    --calyx-border: #e5e7eb;
-    --calyx-border-subtle: #d1d5db;
-    --calyx-text: #111827;
-    --calyx-muted: #6b7280;
-    --calyx-dim: #9ca3af;
-    --calyx-accent: #6366f1;
-    --calyx-accent-hover: #4f46e5;
-    --calyx-accent-muted: rgba(99, 102, 241, 0.1);
-    --calyx-teal: #00a896;
-    --calyx-teal-hover: #00c9b7;
-    --calyx-success: #059669;
-    --calyx-warning: #d97706;
-    --calyx-danger: #dc2626;
-    --calyx-chart-grid: #e5e7eb;
-    --calyx-chart-tick: #6b7280;
-    --calyx-chart-tooltip-bg: #ffffff;
-    --calyx-chart-tooltip-border: #e5e7eb;
-
     --background: 210 20% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
@@ -92,7 +58,7 @@
   }
 
   body {
-    @apply bg-calyx-bg text-calyx-text antialiased;
+    @apply bg-calyx-bg font-sans text-calyx-text antialiased;
   }
 }
 
@@ -116,13 +82,16 @@
   .calyx-row-new {
     animation: calyx-flash 2.5s ease-out;
   }
-}
 
-@keyframes calyx-flash {
-  0% {
-    background-color: rgba(0, 201, 183, 0.25);
+  .calyx-table-th {
+    @apply px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-calyx-muted;
   }
-  100% {
-    background-color: transparent;
+
+  .calyx-table-cell {
+    @apply px-4 py-3 text-sm text-calyx-text;
+  }
+
+  .calyx-table-cell-mono {
+    @apply calyx-table-cell font-mono text-xs tabular-nums;
   }
 }

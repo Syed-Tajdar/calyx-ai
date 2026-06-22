@@ -96,7 +96,7 @@ function CallDetailContent(): JSX.Element {
       {error && <ErrorBanner message={error} />}
 
       {!loading && !error && (
-        <div className="space-y-6">
+        <div className="space-y-8">
           <CallJourneyTimeline steps={journeySteps} />
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="space-y-4">

@@ -46,7 +46,7 @@ export default function CompliancePage(): JSX.Element {
   const avgRisk = exposure?.avg_risk_score ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="TCPA Compliance"
         description="Risk scoring, DNC matches, and liability exposure — your competitive moat."

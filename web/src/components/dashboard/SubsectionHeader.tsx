@@ -13,7 +13,7 @@ export function SubsectionHeader({ title, icon: Icon }: SubsectionHeaderProps): 
           <Icon className="h-3.5 w-3.5" />
         </span>
       )}
-      <h2 className="text-xs font-bold uppercase tracking-wider text-calyx-text">{title}</h2>
+      <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-calyx-text">{title}</h2>
     </div>
   );
 }

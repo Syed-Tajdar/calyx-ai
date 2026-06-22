@@ -6,7 +6,6 @@ import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { DesignBackground } from '@/components/ui/DesignBackground';
 import { Logo } from '@/components/ui/Logo';
 import { getToken, setToken } from '@/lib/auth';
 import { login } from '@/lib/api';
@@ -44,81 +43,112 @@ export default function LoginPage(): JSX.Element {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-calyx-bg p-4">
-      <DesignBackground />
-      <Card className="relative z-10 w-full max-w-md border-calyx-border bg-calyx-card/95 backdrop-blur-sm">
-        <CardHeader className="items-center text-center">
-          <Logo className="mb-2" />
-          <CardTitle className="text-xl">Sign in to Calyx AI</CardTitle>
-          <CardDescription>
-            Pay-per-call analytics, TCPA compliance intelligence, and Ask AI reporting.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-calyx-muted">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-calyx-muted" />
-                <Input
-                  id="email"
-                  type="email"
-                  className="pl-10"
-                  placeholder="you@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
+    <div
+      className="relative flex min-h-screen items-stretch"
+      style={{
+        background:
+          'radial-gradient(110% 90% at 15% 10%, #0d2b2a 0%, var(--calyx-bg) 55%)',
+      }}
+    >
+      <div className="hidden min-h-screen flex-1 flex-col items-center justify-center px-12 lg:flex">
+        <img
+          src="/illustration-pipeline.svg"
+          alt="Calyx pipeline"
+          className="w-full max-w-md"
+        />
+        <h2 className="mt-3 max-w-md text-center text-[28px] font-bold tracking-tight text-calyx-text">
+          Turn every call into revenue
+        </h2>
+        <p className="mt-2 max-w-sm text-center text-sm leading-relaxed text-calyx-muted">
+          Pay-per-call analytics, TCPA compliance intelligence, and natural-language Ask AI —
+          one pipeline, end to end.
+        </p>
+      </div>
+
+      <div className="flex flex-1 items-center justify-center p-6">
+        <Card className="w-full max-w-md border-calyx-border bg-calyx-card/95 backdrop-blur-sm">
+          <CardHeader className="items-center text-center">
+            <Logo className="mb-2" />
+            <CardTitle className="text-xl">Sign in to Calyx AI</CardTitle>
+            <CardDescription>
+              Pay-per-call analytics, TCPA compliance intelligence, and Ask AI reporting.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-calyx-muted">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-calyx-muted" />
+                  <Input
+                    id="email"
+                    type="email"
+                    className="pl-10"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                  />
+                </div>
               </div>
-            </div>
-            <div>
-              <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-calyx-muted">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-calyx-muted" />
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  className="pl-10 pr-10"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-calyx-muted hover:text-calyx-text"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+              <div>
+                <label
+                  htmlFor="password"
+                  className="mb-1.5 block text-xs font-medium text-calyx-muted"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-calyx-muted" />
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    className="pl-10 pr-10"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-calyx-muted hover:text-calyx-text"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-            </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-calyx-muted">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-calyx-border accent-calyx-accent"
-              />
-              Remember me
-            </label>
-            {error && (
-              <p className="rounded-lg border border-calyx-danger/30 bg-calyx-danger/10 px-3 py-2 text-sm text-calyx-danger">
-                {error}
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-calyx-muted">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-calyx-border accent-calyx-accent"
+                />
+                Remember me
+              </label>
+              {error && (
+                <p className="rounded-lg border border-calyx-danger/30 bg-calyx-danger/10 px-3 py-2 text-sm text-calyx-danger">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? 'Signing in…' : 'Sign in'}
+              </Button>
+              <p className="text-center text-xs text-calyx-muted">
+                Need access?{' '}
+                <a href="mailto:sales@calyx.ai" className="text-calyx-accent hover:underline">
+                  Contact your administrator
+                </a>
               </p>
-            )}
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? 'Signing in…' : 'Sign in'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

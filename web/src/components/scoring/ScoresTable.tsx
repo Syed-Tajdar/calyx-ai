@@ -48,7 +48,7 @@ export function ScoresTable({ scores, compact = false }: ScoresTableProps): JSX.
     <DataTable
       columns={['Time', 'Call ID', 'Platform', 'Score', 'Sentiment']}
       emptyTitle={compact ? 'No recent scores' : 'No scored calls yet'}
-      emptyDescription="Send a ping to trigger mock scoring."
+      emptyDescription="Send a ping with revenue to trigger attribution events."
       isEmpty={scores.length === 0}
     >
       {scores.map((s) => (

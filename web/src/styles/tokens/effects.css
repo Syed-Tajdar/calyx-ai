@@ -1,0 +1,31 @@
+/* Calyx AI — Elevation, borders, motion */
+
+:root {
+  /* Shadows — restrained on the dark surface; cards read by border first */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+  /* Glow — indigo focus on hover for intelligence/command surfaces */
+  --shadow-glow: 0 0 0 1px rgba(99, 102, 241, 0.35), 0 8px 28px rgba(99, 102, 241, 0.18);
+  --shadow-teal-glow: 0 0 24px rgba(0, 201, 183, 0.25);
+
+  /* Border widths */
+  --border-width: 1px;
+  --border-width-accent: 2px;   /* journey-step rings, accent bars */
+
+  /* Motion — quick, no bounce; ease-out for entrances */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --duration-fast: 120ms; /* @kind other */
+  --duration-base: 180ms; /* @kind other */
+  --duration-slow: 300ms; /* @kind other */
+  --transition-colors: color var(--duration-base) var(--ease-standard),
+    background-color var(--duration-base) var(--ease-standard),
+    border-color var(--duration-base) var(--ease-standard);
+}
+
+/* New-row flash used on the live ping feed */
+@keyframes calyx-flash {
+  0% { background-color: rgba(0, 201, 183, 0.25); }
+  100% { background-color: transparent; }
+}

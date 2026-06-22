@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { toast } from 'sonner';
 import { ApiError, downloadPingsExport } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
@@ -59,17 +60,20 @@ function PingsPageContent(): JSX.Element {
     setExporting(true);
     try {
       await downloadPingsExport(token, filters);
+      toast.success('Ping export downloaded');
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 401) {
         router.replace('/login');
+        return;
       }
+      toast.error('Export failed. Try again.');
     } finally {
       setExporting(false);
     }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="Ping Feed"
         description="Real-time RTB ping stream from connected platforms."

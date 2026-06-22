@@ -81,7 +81,7 @@ export function AlertRulesSection({ rules, onCreated }: AlertRulesSectionProps):
       <form onSubmit={handleSubmit} className="calyx-card space-y-4 p-4">
         <p className="text-sm font-semibold text-calyx-text">Create Alert Rule</p>
         <p className="text-xs text-calyx-muted">
-          Fires when call overall_score is below threshold (mock notification channel).
+          Fires when call overall_score is below threshold.
         </p>
         <div>
           <label htmlFor="rule-name" className="mb-1 block text-xs text-calyx-muted">

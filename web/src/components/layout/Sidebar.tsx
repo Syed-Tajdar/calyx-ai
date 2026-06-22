@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import {
   BarChart3,
   Brain,
@@ -11,6 +12,9 @@ import {
   Settings,
   Star,
 } from 'lucide-react';
+import { Logo } from '@/components/ui/Logo';
+import { ApiError, fetchMe, MeResult } from '@/lib/api';
+import { getToken } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
@@ -40,14 +44,29 @@ function isActive(pathname: string, href: string): boolean {
 
 export function Sidebar(): JSX.Element {
   const pathname = usePathname();
+  const [me, setMe] = useState<MeResult | null>(null);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetchMe(token)
+      .then(setMe)
+      .catch((err: unknown) => {
+        if (err instanceof ApiError) return;
+      });
+  }, []);
+
+  const tenantLabel = me?.tenant_name ?? 'Tenant';
 
   return (
-    <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:border-r lg:border-calyx-border lg:bg-calyx-surface">
-      <div className="border-b border-calyx-border px-5 py-5">
-        <p className="text-xs font-semibold uppercase tracking-widest text-calyx-teal">Calyx AI</p>
-        <p className="mt-0.5 text-[10px] text-calyx-muted">Call Intelligence</p>
+    <aside
+      className="hidden lg:flex lg:flex-col lg:border-r lg:border-calyx-border lg:bg-calyx-surface"
+      style={{ width: 'var(--sidebar-width)' }}
+    >
+      <div className="flex items-center gap-2.5 border-b border-calyx-border px-5 py-[18px]">
+        <Logo variant="compact" />
       </div>
-      <nav className="flex flex-1 flex-col gap-1 p-3">
+      <nav className="flex flex-1 flex-col gap-0.5 p-3">
         {NAV_ITEMS.map((item) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
@@ -68,6 +87,11 @@ export function Sidebar(): JSX.Element {
           );
         })}
       </nav>
+      <div className="border-t border-calyx-border p-4 text-[11px] text-calyx-dim">
+        <span className="font-medium text-calyx-muted">MOCK_MODE</span>
+        <span className="mx-1.5">·</span>
+        <span>{tenantLabel}</span>
+      </div>
     </aside>
   );
 }

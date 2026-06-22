@@ -29,7 +29,7 @@ export function IntelligenceCommandCard({
       href={href}
       className={cn(
         'group relative flex flex-col overflow-hidden rounded-xl border border-calyx-border bg-calyx-card p-5 transition',
-        'hover:border-calyx-accent/40 hover:shadow-calyx-glow',
+        'hover:border-calyx-accent/40 hover:shadow-[var(--shadow-glow)]',
       )}
     >
       <div className={cn('absolute left-0 top-0 h-full w-1', ACCENT_BAR[accent])} />

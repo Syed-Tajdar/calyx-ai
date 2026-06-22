@@ -1,0 +1,73 @@
+/* Calyx AI — Color tokens
+   Dark is the default brand surface; .light is the toggled theme.
+   Rule of thumb: INDIGO (--calyx-accent) = actions + navigation.
+                  TEAL  (--calyx-teal)   = Calyx identity + intelligence data. */
+
+:root,
+.dark {
+  /* ---- Base palette (dark) ---- */
+  --calyx-bg: #060b14;            /* page background */
+  --calyx-surface: #0d1421;       /* sidebar, elevated panels */
+  --calyx-card: #111827;          /* cards, tables */
+  --calyx-border: #1f2937;        /* default borders */
+  --calyx-border-subtle: #374151; /* stronger dividers */
+  --calyx-text: #f9fafb;          /* primary text */
+  --calyx-muted: #9ca3af;         /* secondary text */
+  --calyx-dim: #6b7280;           /* tertiary / disabled text */
+
+  /* ---- Brand accents ---- */
+  --calyx-accent: #6366f1;        /* indigo — CTAs, links, active nav */
+  --calyx-accent-hover: #818cf8;
+  --calyx-accent-muted: rgba(99, 102, 241, 0.12);
+  --calyx-teal: #00c9b7;          /* teal — logo, intelligence highlights */
+  --calyx-teal-hover: #00e5d4;
+  --calyx-teal-muted: rgba(0, 201, 183, 0.12);
+
+  /* ---- Semantic / status ---- */
+  --calyx-success: #10b981;       /* positive metrics, low risk */
+  --calyx-warning: #f59e0b;       /* medium compliance risk */
+  --calyx-danger: #ef4444;        /* high risk, violations */
+
+  /* ---- Chart surfaces ---- */
+  --calyx-chart-grid: #1a4a47;
+  --calyx-chart-tick: #8ba8a6;
+  --calyx-chart-tooltip-bg: #0f2e2c;
+  --calyx-chart-tooltip-border: #1a4a47;
+
+  /* ---- Semantic aliases (use these in components) ---- */
+  --surface-page: var(--calyx-bg);
+  --surface-raised: var(--calyx-surface);
+  --surface-card: var(--calyx-card);
+  --border-default: var(--calyx-border);
+  --text-primary: var(--calyx-text);
+  --text-secondary: var(--calyx-muted);
+  --text-link: var(--calyx-accent);
+  --focus-ring: rgba(99, 102, 241, 0.5);
+}
+
+.light {
+  --calyx-bg: #f9fafb;
+  --calyx-surface: #ffffff;
+  --calyx-card: #ffffff;
+  --calyx-border: #e5e7eb;
+  --calyx-border-subtle: #d1d5db;
+  --calyx-text: #111827;
+  --calyx-muted: #6b7280;
+  --calyx-dim: #9ca3af;
+
+  --calyx-accent: #6366f1;
+  --calyx-accent-hover: #4f46e5;
+  --calyx-accent-muted: rgba(99, 102, 241, 0.1);
+  --calyx-teal: #00a896;
+  --calyx-teal-hover: #00c9b7;
+  --calyx-teal-muted: rgba(0, 168, 150, 0.1);
+
+  --calyx-success: #059669;
+  --calyx-warning: #d97706;
+  --calyx-danger: #dc2626;
+
+  --calyx-chart-grid: #e5e7eb;
+  --calyx-chart-tick: #6b7280;
+  --calyx-chart-tooltip-bg: #ffffff;
+  --calyx-chart-tooltip-border: #e5e7eb;
+}

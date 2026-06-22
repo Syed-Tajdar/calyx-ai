@@ -19,7 +19,7 @@ export function ScoreCard({ score, loading }: ScoreCardProps): JSX.Element {
       <div className="calyx-card p-4">
         <p className="text-[10px] font-bold uppercase tracking-wider text-calyx-accent">Call Quality</p>
         <p className="mt-2 text-sm text-calyx-muted">
-          Score not available yet. Mock scoring runs ~1–2s after ingest.
+          Score not available yet. Scoring completes shortly after a ping is ingested.
         </p>
       </div>
     );

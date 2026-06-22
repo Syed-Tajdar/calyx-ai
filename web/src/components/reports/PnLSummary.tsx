@@ -32,7 +32,7 @@ export function PnLSummary({ pnl }: PnLSummaryProps): JSX.Element {
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="calyx-metric-card">
           <p className="text-[10px] font-semibold uppercase text-calyx-muted">Revenue</p>
-          <p className="mt-2 text-xl font-bold text-emerald-400">${pnl.revenue.toFixed(0)}</p>
+          <p className="mt-2 text-xl font-bold tabular-nums text-calyx-success">${pnl.revenue.toFixed(0)}</p>
         </div>
         <div className="calyx-metric-card">
           <p className="text-[10px] font-semibold uppercase text-calyx-muted">Payout</p>
@@ -40,12 +40,12 @@ export function PnLSummary({ pnl }: PnLSummaryProps): JSX.Element {
         </div>
         <div className="calyx-metric-card">
           <p className="text-[10px] font-semibold uppercase text-calyx-muted">Ad Spend</p>
-          <p className="mt-2 text-xl font-bold text-amber-400">${pnl.ad_spend.toFixed(0)}</p>
+          <p className="mt-2 text-xl font-bold tabular-nums text-calyx-warning">${pnl.ad_spend.toFixed(0)}</p>
         </div>
         <div className="calyx-metric-card">
           <p className="text-[10px] font-semibold uppercase text-calyx-muted">Profit</p>
           <p
-            className={`mt-2 text-xl font-bold ${pnl.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+            className={`mt-2 text-xl font-bold tabular-nums ${pnl.profit >= 0 ? 'text-calyx-success' : 'text-calyx-danger'}`}
           >
             ${pnl.profit.toFixed(0)}
           </p>
@@ -58,24 +58,25 @@ export function PnLSummary({ pnl }: PnLSummaryProps): JSX.Element {
         </p>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1a4a47" horizontal={false} />
-            <XAxis type="number" tick={{ fill: '#8ba8a6', fontSize: 10 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--calyx-chart-grid)" horizontal={false} />
+            <XAxis type="number" tick={{ fill: 'var(--calyx-chart-tick)', fontSize: 10 }} />
             <YAxis
               type="category"
               dataKey="name"
               width={70}
-              tick={{ fill: '#8ba8a6', fontSize: 10 }}
+              tick={{ fill: 'var(--calyx-chart-tick)', fontSize: 10 }}
             />
             <Tooltip
               contentStyle={{
-                background: '#0f2e2c',
-                border: '1px solid #1a4a47',
+                background: 'var(--calyx-chart-tooltip-bg)',
+                border: '1px solid var(--calyx-chart-tooltip-border)',
                 borderRadius: 8,
                 fontSize: 12,
+                color: 'var(--calyx-text)',
               }}
               formatter={(value: number) => [`$${value.toFixed(2)}`, '']}
             />
-            <Bar dataKey="value" fill="#00c9b7" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="value" fill="var(--calyx-teal)" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

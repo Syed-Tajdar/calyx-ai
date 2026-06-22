@@ -43,7 +43,7 @@ export default function AttributionPage(): JSX.Element {
   }, [router]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="Ad Attribution"
         description="Meta, Google, and TikTok conversion fires — fired vs failed per platform."
