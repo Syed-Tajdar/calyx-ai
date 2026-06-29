@@ -2,7 +2,7 @@
 
 ## What is Calyx AI?
 
-Calyx AI is a **pay-per-call analytics and intelligence platform** — a Kaliper-class competitor built for the Call Loom ecosystem. It unifies ping intelligence, call quality AI, financial analytics, TCPA compliance, audience enrichment, and ad attribution in one multi-tenant product.
+Calyx AI is a **pay-per-call analytics and intelligence platform** — real-time **ping ingestion**, **call quality AI**, **TCPA compliance**, **financial analytics** (CPA/RPC/P&L), **audience enrichment**, and **ad attribution** in one **multi-tenant** product.
 
 ## Why now?
 
@@ -46,4 +46,4 @@ Approve **Phase 4 — Production integrations**:
 
 ## Recommendation
 
-**Approve presentation → fund production integration sprint (4–6 weeks)** to onboard first paying tenant on Call Loom infrastructure.
+**Approve presentation → fund production integration sprint (4–6 weeks)** to onboard first paying tenant on production infrastructure.

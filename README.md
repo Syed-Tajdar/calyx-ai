@@ -1,6 +1,6 @@
 # Calyx AI
 
-Pay-per-call analytics and intelligence platform — Kaliper competitor.
+Pay-per-call analytics and intelligence platform.
 
 > **Presentation build:** `MOCK_MODE=true` · Teal Glass UI complete · 100% API↔UI coverage · Management docs in [`docs/`](docs/README.md)
 
