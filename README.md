@@ -1,11 +1,40 @@
 # Calyx AI
 
-Pay-per-call analytics and intelligence platform — Kaliper competitor.
+Pay-per-call analytics and intelligence platform.
 
-> **Presentation build:** `MOCK_MODE=true` · UI Design System v2 Phases 1–3 complete · Management docs in [`docs/`](docs/README.md)
+> **Presentation build:** `MOCK_MODE=true` · Teal Glass UI complete · 100% API↔UI coverage · Management docs in [`docs/`](docs/README.md)
 
 See [`docs/design-system-v2.md`](docs/design-system-v2.md) for UI/UX specification.  
+UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.md)  
 **10-min demo:** [`docs/DEMO-SCRIPT.md`](docs/DEMO-SCRIPT.md)
+
+## Credits
+
+**Author · UI Design · Code:** Syed Tajdar
+
+---
+
+## System verification (last run: 2026-06-29)
+
+| Layer | Result |
+|-------|--------|
+| Docker containers | **14/14** (10 app services running; postgres, redis, clickhouse, redpanda healthy) |
+| Service health (`/healthz` + `/readyz`) | **10/10** (ports 8080–8087, API :3000) |
+| API presentation checks | **16/16** (`verify-presentation.ps1`) |
+| Web routes (`:3001`) | **13/13** (all product pages + `/calls/demo-call-1`) |
+| WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — ≥3 events) |
+| Unit tests (Go + API Jest) | **PASS** |
+| Web production build | **PASS** (16 routes) |
+| Pipeline smoke (signed ping E2E) | **FAIL** — ingestion returns `401 unauthorized` (HMAC/integration lookup); demo dashboard unaffected via ClickHouse fixtures |
+
+**One-command full check:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1
+# or: make verify-system
+```
+
+---
 
 ## Phase 1 — Complete
 
@@ -30,7 +59,7 @@ Deepgram callback → API → Kafka → Scoring consumer
 call_scored → Alert engine (API) → mock notifications
 ```
 
-**Core:** call quality scoring, transcripts, audience enrichment, financial analytics, coverage heatmaps, alert rules.
+**Core:** call quality scoring, transcripts, audience enrichment, financial analytics, coverage heatmaps, alert rules, scorecards.
 
 ### Phase 2 API endpoints
 
@@ -44,6 +73,10 @@ call_scored → Alert engine (API) → mock notifications
 | `GET /analytics/metrics` | CPA/RPC/ROI |
 | `GET /analytics/pnl` | P&L summary |
 | `GET /alerts/rules` | Alert rules CRUD |
+| `GET /scorecards` | List scorecards |
+| `POST /scorecards` | Create scorecard |
+| `PATCH /scorecards/:id` | Update scorecard |
+| `DELETE /scorecards/:id` | Soft-delete scorecard |
 
 ---
 
@@ -55,9 +88,10 @@ Ask AI (Go) → intent → safe SQL → ClickHouse read + Postgres query log
 Ping → Attribution bridge → conversions → Ad platforms (mock) → ClickHouse
 API native deep view → single call story (ping + score + compliance + attribution)
 Provider config (Go) → tenant bindings + secret resolve (Redis cache)
+WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter)
 ```
 
-**Core:** TCPA compliance intelligence, natural-language Ask AI, ad attribution, native deep call view, provider config bindings.
+**Core:** TCPA compliance intelligence, natural-language Ask AI, ad attribution, native deep call view, provider config bindings, live dashboard feed.
 
 ### Phase 3 API endpoints
 
@@ -66,6 +100,9 @@ Provider config (Go) → tenant bindings + secret resolve (Redis cache)
 | `GET /providers/catalog` | Provider catalog |
 | `GET /providers/bindings` | Tenant provider bindings |
 | `POST /providers/bindings` | Create binding (invalidates Redis cache) |
+| `PATCH /providers/bindings/:id` | Update binding |
+| `DELETE /providers/bindings/:id` | Delete binding |
+| `POST /providers/bindings/:id/test` | Test binding |
 | `POST /providers/resolve` | Resolve provider for tenant+domain |
 | `GET /compliance/risk-scores` | TCPA risk scores (ClickHouse) |
 | `GET /compliance/violations` | Compliance violations |
@@ -81,19 +118,20 @@ Provider config (Go) → tenant bindings + secret resolve (Redis cache)
 | Route | Description |
 |-------|-------------|
 | `/login` | Auth (dev credentials below) |
-| `/dashboard` | Overview metrics, charts, performance table |
-| `/pings` | Ping feed — date filters, live poll, CSV export |
+| `/dashboard` | Overview metrics, live activity strip, hybrid WS + poll feed |
+| `/pings` | Ping feed — date filters, live WebSocket, CSV export |
 | `/scoring` | Call quality scores |
+| `/scoring/scorecards` | Scorecard CRUD (rules editor) |
 | `/calls/[callId]` | Native deep view (ping + score + compliance + attribution) |
 | `/intelligence` | Intelligence hub (Ask AI, compliance, attribution) |
 | `/ask` | Natural language analytics chat |
-| `/compliance` | TCPA risk scores and exposure |
+| `/compliance` | TCPA risk scores, violations table, exposure |
 | `/attribution` | Conversion events and platform status |
 | `/coverage` | Geographic ping demand heatmap |
 | `/reports` | Financial analytics (CPA, RPC, ROI, P&L) |
-| `/settings` | Integrations, alerts, provider bindings |
+| `/settings` | Integrations, alerts, provider bindings (create/edit/delete/test) |
 
-**Design System v2 (UI phases):** See [`docs/design-system-v2.md`](docs/design-system-v2.md). Phase 3 adds API-backed date filters, live ping polling (8s), server CSV export, light/dark theme toggle, mobile bottom nav, and Storybook (`cd web && npm run storybook`).
+**Teal Glass design system:** Geist headings + Inter body, glass sidebar/topbar, teal aurora background, teal gradient CTAs. Tokens in [`web/src/styles/tokens/`](web/src/styles/tokens/). Dark theme for presentation demo. Storybook: `cd web && npm run storybook`.
 
 ---
 
@@ -117,8 +155,8 @@ make dev-up
 | API | 3000 | http://localhost:3000/healthz |
 | Web | 3001 | http://localhost:3001 |
 
-**Dev login:** `admin@callloom.dev` / `callloom_dev`  
-**Tenant A UUID:** `11111111-1111-1111-1111-111111111111`
+**Dev login:** `admin@calyx.ai` / `calyx_dev`  
+**Tenant A UUID:** `11111111-1111-1111-1111-111111111111` (displays as **Demo Tenant**)
 
 ### MOCK_MODE switch
 
@@ -153,27 +191,35 @@ http://localhost:8080/webhooks/ringba/dev_ringba_token_change_me?CallID=[Call:In
 
 ### Demo seed (populated dashboard)
 
+**Cold start:** ClickHouse fixture `000006_demo_fixture` + Postgres alert rules seed load on `clickhouse-init` / `migrate` — dashboard shows data without running the pipeline.
+
+**Full pipeline demo:**
+
 ```powershell
 make demo-seed
 ```
 
 Sends 25 signed Ringba pings across US states, waits for pipeline, then verifies API totals.
 
-### Smoke test
+### Smoke & verification
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
+powershell -ExecutionPolicy Bypass -File scripts/verify-presentation.ps1
+powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1
+node scripts/ws-smoke-test.mjs
 make step1b-test
-make verify-presentation
 make test
 ```
 
 | Command | What it checks |
 |---------|----------------|
-| `smoke-test.ps1` | Single signed ping → ingestion → API |
+| `verify-system` | Docker + all healthz + API + web routes + WS + unit tests + web build |
+| `verify-presentation` | Phase 3 API endpoints + scorecard CRUD + fixtures (16 checks) |
+| `smoke-test.ps1` | Single signed ping → ingestion → API (live pipeline) |
+| `ws-smoke-test.mjs` | WebSocket `/live` receives ≥3 mock events |
 | `demo-seed` | 25 pings for demo-ready dashboard |
-| `verify-presentation` | All Phase 3 API endpoints + Ask AI |
-| `step1b-test` | Go service unit tests |
+| `step1b-test` | Go providerconfig unit tests |
 | `make test` | Full test matrix (Go + API) |
 
 ### Web & API build

@@ -31,7 +31,7 @@ foreach ($u in $healthUrls) {
 
 $login = Invoke-RestMethod -Uri "http://localhost:3000/auth/login" -Method POST `
   -ContentType "application/json" `
-  -Body '{"email":"admin@callloom.dev","password":"callloom_dev"}'
+  -Body '{"email":"admin@calyx.ai","password":"calyx_dev"}'
 
 $h = @{ Authorization = "Bearer $($login.access_token)" }
 $base = "http://localhost:3000"
@@ -41,6 +41,7 @@ $total = 0
 $endpoints = @(
   @{ Name = "GET /auth/me"; Url = "$base/auth/me" },
   @{ Name = "GET /pings"; Url = "$base/pings?limit=5" },
+  @{ Name = "GET /scorecards"; Url = "$base/scorecards?limit=5" },
   @{ Name = "GET /analytics/metrics"; Url = "$base/analytics/metrics" },
   @{ Name = "GET /analytics/pnl"; Url = "$base/analytics/pnl" },
   @{ Name = "GET /coverage/heatmap"; Url = "$base/coverage/heatmap" },
@@ -59,6 +60,53 @@ foreach ($ep in $endpoints) {
 
 $total++
 if (Test-Endpoint "POST /ask" "$base/ask" $h "POST" '{"question":"What is my total revenue?"}') { $passed++ }
+
+# Tenant name check
+$total++
+try {
+  $me = Invoke-RestMethod -Uri "$base/auth/me" -Headers $h
+  if ($me.tenant_name -eq "Demo Tenant") {
+    Write-Host "  PASS GET /auth/me tenant_name = Demo Tenant"
+    $passed++
+  } else {
+    Write-Host "  FAIL GET /auth/me tenant_name = '$($me.tenant_name)' (expected Demo Tenant)"
+  }
+} catch {
+  Write-Host "  FAIL GET /auth/me tenant_name check ($($_.Exception.Message))"
+}
+
+# Scorecard CRUD smoke
+$total++
+$scorecardName = "Verify Scorecard $([guid]::NewGuid().ToString('N').Substring(0, 8))"
+$scorecardBody = (@{
+  name     = $scorecardName
+  vertical = 'general'
+  rules    = @(@{ id = 'r1'; weight = 1; question = 'Test?' })
+} | ConvertTo-Json -Compress)
+try {
+  $created = Invoke-RestMethod -Uri "$base/scorecards" -Method POST -Headers $h -ContentType "application/json" -Body $scorecardBody
+  $scId = $created.id
+  Invoke-RestMethod -Uri "$base/scorecards/$scId" -Method PATCH -Headers $h -ContentType "application/json" -Body '{"name":"Verify Updated"}' | Out-Null
+  Invoke-RestMethod -Uri "$base/scorecards/$scId" -Method DELETE -Headers $h | Out-Null
+  Write-Host "  PASS scorecard CRUD smoke"
+  $passed++
+} catch {
+  Write-Host "  FAIL scorecard CRUD smoke ($($_.Exception.Message))"
+}
+
+# Fixture data check
+$total++
+try {
+  $pingCheck = Invoke-RestMethod -Uri "$base/pings?limit=1" -Headers $h
+  if ([int]$pingCheck.total -gt 0) {
+    Write-Host "  PASS fixture pings total > 0 ($($pingCheck.total))"
+    $passed++
+  } else {
+    Write-Host "  FAIL fixture pings total = 0 (run clickhouse-init / demo-seed)"
+  }
+} catch {
+  Write-Host "  FAIL fixture pings check ($($_.Exception.Message))"
+}
 
 Write-Host ""
 Write-Host "API checks: $passed / $total passed"

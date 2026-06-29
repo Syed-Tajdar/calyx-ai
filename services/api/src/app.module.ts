@@ -16,6 +16,8 @@ import { ComplianceModule } from './compliance/compliance.module';
 import { AskAiModule } from './ask-ai/ask-ai.module';
 import { AttributionModule } from './attribution/attribution.module';
 import { NativeIntegrationModule } from './native-integration/native-integration.module';
+import { ScorecardsModule } from './scorecards/scorecards.module';
+import { LiveModule } from './live/live.module';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { NativeIntegrationModule } from './native-integration/native-integration
     AskAiModule,
     AttributionModule,
     NativeIntegrationModule,
+    ScorecardsModule,
+    LiveModule,
   ],
 })
 export class AppModule {}

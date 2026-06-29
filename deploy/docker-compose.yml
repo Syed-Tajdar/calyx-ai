@@ -91,6 +91,7 @@ services:
       - ../db/clickhouse/migrations/000003_phase3_compliance.up.sql:/init-phase3.sql:ro
       - ../db/clickhouse/migrations/000004_phase3_ask_ai.up.sql:/init-phase4.sql:ro
       - ../db/clickhouse/migrations/000005_phase3_attribution.up.sql:/init-phase5.sql:ro
+      - ../db/clickhouse/migrations/000006_demo_fixture.up.sql:/init-phase6.sql:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -99,6 +100,7 @@ services:
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase3.sql || true
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase4.sql || true
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase5.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase6.sql || true
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -186,6 +188,10 @@ services:
       ASK_AI_URL: http://ask-ai:8086
       PROVIDER_CATALOG_PATH: /app/catalog.json
       KAFKA_BROKER: redpanda:9092
+      KAFKA_TOPIC_PINGS: callloom.pings.v1
+      KAFKA_TOPIC_CALL_SCORED: callloom.calls.call_scored.v1
+      KAFKA_TOPIC_ATTRIBUTION_ATTRIBUTED: callloom.attribution.attributed.v1
+      KAFKA_TOPIC_COMPLIANCE_VIOLATION: callloom.compliance.violation_detected.v1
       KAFKA_TOPIC_CALL_TRANSCRIPT_READY: callloom.calls.call_transcript_ready.v1
       DEEPGRAM_CALLBACK_SECRET: dev_deepgram_callback_secret_change_me
       ADSPEND_SOURCE: mock

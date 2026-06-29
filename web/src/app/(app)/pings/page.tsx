@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { ApiError, downloadPingsExport } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
-import { usePingFeed } from '@/lib/use-ping-feed';
+import { useHybridPingFeed } from '@/lib/use-hybrid-ping-feed';
 
 const PAGE_SIZE = 25;
 
@@ -39,12 +39,13 @@ function PingsPageContent(): JSX.Element {
     return base;
   }, [startDate, platform, searchQuery]);
 
-  const { pings, total, loading, error, newRowKeys, isLive } = usePingFeed({
-    limit: PAGE_SIZE,
-    offset,
-    filters,
-    pollMs: 8000,
-  });
+  const { pings, total, loading, error, newRowKeys, isLive, isPollingFallback } =
+    useHybridPingFeed({
+      limit: PAGE_SIZE,
+      offset,
+      filters,
+      pollMs: 8000,
+    });
 
   const platforms = useMemo(
     () => Array.from(new Set(pings.map((p) => p.platform).filter(Boolean))),
@@ -79,12 +80,14 @@ function PingsPageContent(): JSX.Element {
         description="Real-time RTB ping stream from connected platforms."
         action={
           <div className="flex items-center gap-2">
-            {isLive && (
+            {isLive ? (
               <Badge variant="teal" className="gap-1.5">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-calyx-teal" />
                 Live
               </Badge>
-            )}
+            ) : isPollingFallback ? (
+              <Badge variant="secondary">Polling</Badge>
+            ) : null}
             <Badge variant="teal" className="text-sm">
               {total.toLocaleString()} total
             </Badge>

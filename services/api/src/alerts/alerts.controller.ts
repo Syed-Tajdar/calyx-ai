@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { z } from 'zod';
 import { CurrentTenant } from '../common/tenant.decorator';
@@ -28,5 +28,14 @@ export class AlertsController {
   ): Promise<AlertRule> {
     const parsed = createRuleSchema.parse(body);
     return this.alertsService.create(tenantId, parsed);
+  }
+
+  @Delete('rules/:id')
+  @HttpCode(204)
+  async remove(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ): Promise<void> {
+    await this.alertsService.softDelete(tenantId, id);
   }
 }

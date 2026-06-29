@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ExposureSummaryCard } from '@/components/compliance/ExposureSummaryCard';
 import { RiskScoresTable } from '@/components/compliance/RiskScoresTable';
+import { ViolationsTable } from '@/components/compliance/ViolationsTable';
 import { ComplianceRiskRing } from '@/components/calyx/ComplianceRiskRing';
 import { IntelligenceSubNav } from '@/components/intelligence/IntelligenceSubNav';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
@@ -13,7 +15,9 @@ import {
   ExposureSummary,
   fetchComplianceExposure,
   fetchComplianceRiskScores,
+  fetchComplianceViolations,
   RiskScoreRecord,
+  ViolationRecord,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 
@@ -21,6 +25,7 @@ export default function CompliancePage(): JSX.Element {
   const router = useRouter();
   const [exposure, setExposure] = useState<ExposureSummary | null>(null);
   const [scores, setScores] = useState<RiskScoreRecord[]>([]);
+  const [violations, setViolations] = useState<ViolationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -28,10 +33,15 @@ export default function CompliancePage(): JSX.Element {
     const token = getToken();
     if (!token) return;
 
-    Promise.all([fetchComplianceExposure(token), fetchComplianceRiskScores(token, 25)])
-      .then(([exp, scoreRes]) => {
+    Promise.all([
+      fetchComplianceExposure(token),
+      fetchComplianceRiskScores(token, 25),
+      fetchComplianceViolations(token, 25),
+    ])
+      .then(([exp, scoreRes, violationRes]) => {
         setExposure(exp);
         setScores(scoreRes.data);
+        setViolations(violationRes.data);
       })
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -59,7 +69,7 @@ export default function CompliancePage(): JSX.Element {
       {!loading && !error && (
         <>
           <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
-            <div className="calyx-card flex flex-col items-center justify-center p-6">
+            <div className="calyx-glass calyx-glass-lit flex flex-col items-center justify-center p-6">
               <ComplianceRiskRing
                 score={avgRisk}
                 exposureUsd={exposure?.total_exposure_usd ?? 0}
@@ -70,6 +80,7 @@ export default function CompliancePage(): JSX.Element {
             <ExposureSummaryCard exposure={exposure} />
           </div>
           <RiskScoresTable scores={scores} />
+          <ViolationsTable violations={violations} />
         </>
       )}
     </div>

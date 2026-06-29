@@ -1,5 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { DEMO_TENANT_NAME } from '../config/constants';
+import { loadEnv } from '../config/env';
 import { PostgresService } from '../database/postgres.service';
 import { JwtPayload } from './jwt-payload.interface';
 
@@ -47,11 +49,14 @@ export class AuthService {
     tenant_name: string;
     role: string;
   }> {
-    const result = await this.postgres.getPool().query<{ name: string }>(
-      `SELECT name FROM tenants WHERE id = $1::uuid`,
-      [user.tenant_id],
+    const result = await this.postgres.withTenant(user.tenant_id, async (client) =>
+      client.query<{ name: string }>(`SELECT name FROM tenants WHERE id = $1::uuid`, [
+        user.tenant_id,
+      ]),
     );
-    const tenantName = result.rows[0]?.name ?? 'Unknown tenant';
+    const mockMode = loadEnv().MOCK_MODE ?? true;
+    const tenantName =
+      result.rows[0]?.name ?? (mockMode ? DEMO_TENANT_NAME : 'Unknown tenant');
 
     return {
       email: user.email,

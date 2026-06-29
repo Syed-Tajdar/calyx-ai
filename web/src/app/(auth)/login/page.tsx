@@ -14,8 +14,8 @@ const IS_DEV = process.env.NODE_ENV === 'development';
 
 export default function LoginPage(): JSX.Element {
   const router = useRouter();
-  const [email, setEmail] = useState(IS_DEV ? 'admin@callloom.dev' : '');
-  const [password, setPassword] = useState(IS_DEV ? 'callloom_dev' : '');
+  const [email, setEmail] = useState(IS_DEV ? 'admin@calyx.ai' : '');
+  const [password, setPassword] = useState(IS_DEV ? 'calyx_dev' : '');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
@@ -56,7 +56,7 @@ export default function LoginPage(): JSX.Element {
           alt="Calyx pipeline"
           className="w-full max-w-md"
         />
-        <h2 className="mt-3 max-w-md text-center text-[28px] font-bold tracking-tight text-calyx-text">
+        <h2 className="font-heading mt-3 max-w-md text-center text-[28px] font-bold tracking-tight text-calyx-text">
           Turn every call into revenue
         </h2>
         <p className="mt-2 max-w-sm text-center text-sm leading-relaxed text-calyx-muted">
@@ -66,10 +66,10 @@ export default function LoginPage(): JSX.Element {
       </div>
 
       <div className="flex flex-1 items-center justify-center p-6">
-        <Card className="w-full max-w-md border-calyx-border bg-calyx-card/95 backdrop-blur-sm">
+        <Card className="calyx-glass calyx-glass-lit w-full max-w-md border-calyx-border/60">
           <CardHeader className="items-center text-center">
             <Logo className="mb-2" />
-            <CardTitle className="text-xl">Sign in to Calyx AI</CardTitle>
+            <CardTitle className="font-heading text-xl">Sign in to Calyx AI</CardTitle>
             <CardDescription>
               Pay-per-call analytics, TCPA compliance intelligence, and Ask AI reporting.
             </CardDescription>

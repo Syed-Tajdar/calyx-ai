@@ -41,7 +41,7 @@ This repository is **presentation-ready** with `MOCK_MODE=true`. The following a
 
 ### Phase 6 — Ecosystem
 
-- Call Loom native SSO
+- Partner native SSO
 - White-label tenant branding
 - Billing meter (per-ping / per-enrichment)
 

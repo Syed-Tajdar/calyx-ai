@@ -12,4 +12,4 @@ Management and engineering documentation for the Calyx AI presentation package.
 
 **Repository:** [github.com/Syed-Tajdar/calyx-ai](https://github.com/Syed-Tajdar/calyx-ai)
 
-**Demo credentials:** `admin@callloom.dev` / `callloom_dev`
+**Demo credentials:** `admin@calyx.ai` / `calyx_dev`

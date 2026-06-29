@@ -12,7 +12,7 @@
   --calyx-border: #1f2937;        /* default borders */
   --calyx-border-subtle: #374151; /* stronger dividers */
   --calyx-text: #f9fafb;          /* primary text */
-  --calyx-muted: #9ca3af;         /* secondary text */
+  --calyx-muted: #b0b8c4;         /* secondary text — bumped for aurora contrast */
   --calyx-dim: #6b7280;           /* tertiary / disabled text */
 
   /* ---- Brand accents ---- */

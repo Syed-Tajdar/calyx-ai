@@ -1,0 +1,12 @@
+/* Teal Glass design tokens */
+:root,
+.dark {
+  --calyx-gradient: linear-gradient(135deg, #015a58, #11ceb8);
+  --calyx-accent-purple: #9b72cb;
+  --aurora-orb-1: #11ceb8;
+  --aurora-orb-2: #015a58;
+  --aurora-orb-3: #9b72cb;
+  --glass-bg: rgba(13, 20, 33, 0.55);
+  --glass-border: rgba(17, 206, 184, 0.12);
+  --glass-fallback: rgba(11, 13, 18, 0.95);
+}

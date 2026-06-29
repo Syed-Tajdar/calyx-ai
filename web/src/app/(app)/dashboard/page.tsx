@@ -28,7 +28,8 @@ import { getToken } from '@/lib/auth';
 import { computeDashboardStats } from '@/lib/dashboard-stats';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
-import { usePingFeed } from '@/lib/use-ping-feed';
+import { useHybridPingFeed } from '@/lib/use-hybrid-ping-feed';
+import { LiveActivityStrip } from '@/components/dashboard/LiveActivityStrip';
 
 export default function DashboardPage(): JSX.Element {
   const router = useRouter();
@@ -40,7 +41,7 @@ export default function DashboardPage(): JSX.Element {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const { pings, newRowKeys, isLive } = usePingFeed({
+  const { pings, newRowKeys, isLive, isPollingFallback, connected, liveEvents } = useHybridPingFeed({
     limit: 50,
     offset: 0,
     filters,
@@ -100,6 +101,10 @@ export default function DashboardPage(): JSX.Element {
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-calyx-teal" />
               Live
             </Badge>
+          ) : isPollingFallback ? (
+            <Badge variant="secondary" className="gap-1.5 text-calyx-muted">
+              Polling
+            </Badge>
           ) : undefined
         }
       />
@@ -118,6 +123,7 @@ export default function DashboardPage(): JSX.Element {
               trend={`RPC $${(metrics?.rpc ?? 0).toFixed(2)}`}
               trendUp
               icon={DollarSign}
+              sparklineData={stats.timeline.map((t) => t.count)}
             />
             <MetricCard
               label="Total Pings"
@@ -125,6 +131,7 @@ export default function DashboardPage(): JSX.Element {
               trend={`${stats.uniqueRate.toFixed(1)}% unique`}
               trendUp={stats.uniqueRate >= 50}
               icon={Phone}
+              sparklineData={stats.timeline.map((t) => t.count)}
             />
             <MetricCard
               label="Avg Call Score"
@@ -149,6 +156,8 @@ export default function DashboardPage(): JSX.Element {
             <PingChart data={stats.timeline} />
             <PlatformChart data={stats.platforms} />
           </section>
+
+          {connected && <LiveActivityStrip events={liveEvents} />}
 
           <section>
             <SubsectionHeader title="Calyx Intelligence" icon={Brain} />

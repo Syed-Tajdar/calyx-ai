@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
-import { LogOut, Moon, Search, Sun, X } from 'lucide-react';
+import { LogOut, Search, X } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,6 @@ import {
 import { ApiError, fetchMe, MeResult } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { decodeJwtPayload } from '@/lib/jwt';
-import { useTheme } from '@/lib/theme-provider';
 
 interface TopBarProps {
   onLogout: () => void;
@@ -32,7 +31,6 @@ export function TopBar({ onLogout }: TopBarProps): JSX.Element {
   const [me, setMe] = useState<MeResult | null>(null);
   const [search, setSearch] = useState('');
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     if (!token) return;
@@ -72,7 +70,7 @@ export function TopBar({ onLogout }: TopBarProps): JSX.Element {
   return (
     <>
       <header
-        className="sticky top-0 z-40 flex items-center justify-between gap-4 border-b border-calyx-border bg-calyx-bg/95 px-4 backdrop-blur-md lg:px-6"
+        className="calyx-glass sticky top-0 z-40 flex items-center justify-between gap-4 border-b border-calyx-border/60 px-4 lg:px-6"
         style={{ height: 'var(--topbar-height)' }}
       >
         <Logo variant="compact" className="lg:hidden" />
@@ -89,15 +87,6 @@ export function TopBar({ onLogout }: TopBarProps): JSX.Element {
             aria-label="Search calls"
           >
             <Search className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
 
           <DropdownMenu>

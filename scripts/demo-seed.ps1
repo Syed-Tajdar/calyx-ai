@@ -44,7 +44,7 @@ Start-Sleep -Seconds $WaitSeconds
 
 $login = Invoke-RestMethod -Uri "http://localhost:3000/auth/login" -Method POST `
   -ContentType "application/json" `
-  -Body '{"email":"admin@callloom.dev","password":"callloom_dev"}'
+  -Body '{"email":"admin@calyx.ai","password":"calyx_dev"}'
 
 $pings = Invoke-RestMethod -Uri "http://localhost:3000/pings?limit=5" -Method GET `
   -Headers @{ Authorization = "Bearer $($login.access_token)" }

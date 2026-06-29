@@ -2,6 +2,7 @@
 @import '../styles/tokens/typography.css';
 @import '../styles/tokens/spacing.css';
 @import '../styles/tokens/effects.css';
+@import '../styles/tokens/glass.css';
 
 @tailwind base;
 @tailwind components;
@@ -58,7 +59,30 @@
   }
 
   body {
-    @apply bg-calyx-bg font-sans text-calyx-text antialiased;
+    @apply bg-calyx-bg text-calyx-text antialiased;
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .calyx-heading,
+  .page-title,
+  .font-heading {
+    font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: 'ss01' on;
+    letter-spacing: -0.01em;
+  }
+
+  .calyx-metric-value,
+  .calyx-stat,
+  td.numeric,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' on;
   }
 }
 
@@ -71,12 +95,57 @@
     @apply rounded-xl border border-calyx-border bg-calyx-card;
   }
 
+  .calyx-glass {
+    border-radius: 0.75rem;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  @supports not (backdrop-filter: blur(1px)) {
+    .calyx-glass {
+      background: var(--glass-fallback);
+    }
+  }
+
+  .calyx-glass-lit {
+    box-shadow:
+      inset 0 1px 0 rgba(17, 206, 184, 0.08),
+      0 8px 32px rgba(0, 0, 0, 0.24);
+  }
+
   .calyx-metric-card {
-    @apply rounded-xl border border-calyx-border bg-calyx-card p-5;
+    @apply calyx-glass calyx-glass-lit p-5;
   }
 
   .calyx-btn-primary {
-    @apply inline-flex w-full items-center justify-center rounded-lg bg-calyx-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-calyx-accent-hover disabled:opacity-60;
+    @apply inline-flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition disabled:opacity-60;
+    background: var(--calyx-gradient);
+  }
+
+  .calyx-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  .calyx-aurora-orb {
+    filter: blur(80px);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .calyx-aurora-orb {
+      animation: calyx-aurora-drift 18s ease-in-out infinite alternate;
+    }
+
+    .calyx-aurora-orb:nth-child(3) {
+      animation-duration: 22s;
+      animation-delay: -4s;
+    }
+
+    .calyx-aurora-orb:nth-child(4) {
+      animation-duration: 26s;
+      animation-delay: -8s;
+    }
   }
 
   .calyx-row-new {
@@ -93,5 +162,14 @@
 
   .calyx-table-cell-mono {
     @apply calyx-table-cell font-mono text-xs tabular-nums;
+  }
+}
+
+@keyframes calyx-aurora-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(24px, -16px) scale(1.05);
   }
 }

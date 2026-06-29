@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
 
-type Theme = 'dark' | 'light';
+type Theme = 'dark';
 
 interface ThemeContextValue {
   theme: Theme;
@@ -11,39 +11,25 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-const STORAGE_KEY = 'calyx-theme';
 
-function applyTheme(theme: Theme): void {
-  const root = document.documentElement;
-  root.classList.remove('light', 'dark');
-  root.classList.add(theme);
+function applyTheme(): void {
+  document.documentElement.classList.remove('light');
+  document.documentElement.classList.add('dark');
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }): JSX.Element {
-  const [theme, setThemeState] = useState<Theme>('dark');
-
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const initial: Theme = stored === 'light' ? 'light' : 'dark';
-    setThemeState(initial);
-    applyTheme(initial);
+    applyTheme();
+    localStorage.removeItem('calyx-theme');
   }, []);
 
-  function setTheme(next: Theme): void {
-    setThemeState(next);
-    localStorage.setItem(STORAGE_KEY, next);
-    applyTheme(next);
-  }
+  const value: ThemeContextValue = {
+    theme: 'dark',
+    setTheme: () => applyTheme(),
+    toggleTheme: () => applyTheme(),
+  };
 
-  function toggleTheme(): void {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  }
-
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextValue {
