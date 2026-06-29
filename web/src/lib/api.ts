@@ -127,6 +127,28 @@ async function fetchWithAuth<T>(token: string, path: string, init?: RequestInit)
   return res.json() as Promise<T>;
 }
 
+async function fetchWithAuthNoContent(
+  token: string,
+  path: string,
+  init?: RequestInit,
+): Promise<void> {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(init?.headers ?? {}),
+      Authorization: `Bearer ${token}`,
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+  });
+  if (res.status === 401) {
+    clearToken();
+    throw new ApiError('Session expired', 401);
+  }
+  if (!res.ok) {
+    throw new ApiError(`Request failed: ${path}`, res.status);
+  }
+}
+
 export async function login(email: string, password: string): Promise<string> {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
@@ -519,4 +541,115 @@ export interface CallDeepView {
 export async function fetchCallDeepView(token: string, callId: string): Promise<CallDeepView> {
   const params = new URLSearchParams({ callId });
   return fetchWithAuth<CallDeepView>(token, `/native/call-deep-view?${params.toString()}`);
+}
+
+export interface ScorecardRule {
+  id: string;
+  weight: number;
+  question: string;
+}
+
+export interface ScorecardRecord {
+  id: string;
+  tenant_id: string;
+  name: string;
+  vertical: string;
+  rules: ScorecardRule[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchScorecards(
+  token: string,
+  limit = 25,
+  offset = 0,
+): Promise<{ data: ScorecardRecord[]; total: number }> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  return fetchWithAuth<{ data: ScorecardRecord[]; total: number }>(
+    token,
+    `/scorecards?${params.toString()}`,
+  );
+}
+
+export async function fetchScorecard(token: string, id: string): Promise<ScorecardRecord> {
+  return fetchWithAuth<ScorecardRecord>(token, `/scorecards/${id}`);
+}
+
+export async function createScorecard(
+  token: string,
+  body: {
+    name: string;
+    vertical: string;
+    rules: ScorecardRule[];
+    is_active?: boolean;
+  },
+): Promise<ScorecardRecord> {
+  return fetchWithAuth<ScorecardRecord>(token, '/scorecards', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateScorecard(
+  token: string,
+  id: string,
+  body: Partial<{
+    name: string;
+    vertical: string;
+    rules: ScorecardRule[];
+    is_active: boolean;
+  }>,
+): Promise<ScorecardRecord> {
+  return fetchWithAuth<ScorecardRecord>(token, `/scorecards/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteScorecard(token: string, id: string): Promise<void> {
+  return fetchWithAuthNoContent(token, `/scorecards/${id}`, { method: 'DELETE' });
+}
+
+export async function deleteAlertRule(token: string, id: string): Promise<void> {
+  return fetchWithAuthNoContent(token, `/alerts/rules/${id}`, { method: 'DELETE' });
+}
+
+export async function deleteIntegration(token: string, id: string): Promise<void> {
+  return fetchWithAuthNoContent(token, `/integrations/${id}`, { method: 'DELETE' });
+}
+
+export async function deleteProviderBinding(token: string, id: string): Promise<void> {
+  return fetchWithAuthNoContent(token, `/providers/bindings/${id}`, { method: 'DELETE' });
+}
+
+export async function updateProviderBinding(
+  token: string,
+  id: string,
+  body: {
+    config_json?: Record<string, unknown>;
+    is_active?: boolean;
+    priority?: number;
+  },
+): Promise<ProviderBinding> {
+  return fetchWithAuth<ProviderBinding>(token, `/providers/bindings/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function testProviderBinding(
+  token: string,
+  id: string,
+  domain = 'attribution',
+): Promise<Record<string, unknown>> {
+  const params = new URLSearchParams({ domain });
+  return fetchWithAuth<Record<string, unknown>>(
+    token,
+    `/providers/bindings/${id}/test?${params.toString()}`,
+    { method: 'POST' },
+  );
 }

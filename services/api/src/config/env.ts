@@ -22,6 +22,14 @@ const envSchema = z.object({
   PROVIDERCONFIG_URL: z.string().default('http://localhost:8084'),
   ASK_AI_URL: z.string().default('http://localhost:8086'),
   KAFKA_BROKER: z.string().default('localhost:9092'),
+  KAFKA_TOPIC_PINGS: z.string().default('callloom.pings.v1'),
+  KAFKA_TOPIC_CALL_SCORED: z.string().default('callloom.calls.call_scored.v1'),
+  KAFKA_TOPIC_ATTRIBUTION_ATTRIBUTED: z
+    .string()
+    .default('callloom.attribution.attributed.v1'),
+  KAFKA_TOPIC_COMPLIANCE_VIOLATION: z
+    .string()
+    .default('callloom.compliance.violation_detected.v1'),
   KAFKA_TOPIC_CALL_TRANSCRIPT_READY: z
     .string()
     .default('callloom.calls.call_transcript_ready.v1'),

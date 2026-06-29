@@ -1,19 +1,28 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import type { AlertRule } from '@/lib/api';
-import { createAlertRule } from '@/lib/api';
+import { ApiError, createAlertRule, deleteAlertRule } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 
 interface AlertRulesSectionProps {
   rules: AlertRule[];
   onCreated: (rule: AlertRule) => void;
+  onDeleted: (id: string) => void;
 }
 
-export function AlertRulesSection({ rules, onCreated }: AlertRulesSectionProps): JSX.Element {
+export function AlertRulesSection({
+  rules,
+  onCreated,
+  onDeleted,
+}: AlertRulesSectionProps): JSX.Element {
   const [name, setName] = useState('');
   const [threshold, setThreshold] = useState('70');
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   async function handleSubmit(e: FormEvent): Promise<void> {
@@ -31,6 +40,7 @@ export function AlertRulesSection({ rules, onCreated }: AlertRulesSectionProps):
       onCreated(rule);
       setName('');
       setThreshold('70');
+      toast.success('Alert rule created');
     } catch {
       setError('Failed to create alert rule');
     } finally {
@@ -38,12 +48,33 @@ export function AlertRulesSection({ rules, onCreated }: AlertRulesSectionProps):
     }
   }
 
+  async function handleDelete(id: string, ruleName: string): Promise<void> {
+    if (!window.confirm(`Remove alert rule "${ruleName}"?`)) return;
+    const token = getToken();
+    if (!token) return;
+    setDeletingId(id);
+    try {
+      await deleteAlertRule(token, id);
+      onDeleted(id);
+      toast.success('Alert rule removed');
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 404) {
+        onDeleted(id);
+        toast.message('Rule was already removed');
+      } else {
+        toast.error('Failed to delete rule');
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div className="calyx-card overflow-hidden">
-        <div className="border-b border-calyx-border px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-calyx-accent">Alerts</p>
-          <h3 className="text-sm font-semibold text-calyx-text">Active Rules</h3>
+      <div className="calyx-glass calyx-glass-lit overflow-hidden">
+        <div className="border-b border-calyx-border/60 px-4 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-calyx-teal">Alerts</p>
+          <h3 className="font-heading text-sm font-semibold text-calyx-text">Active Rules</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
@@ -51,24 +82,41 @@ export function AlertRulesSection({ rules, onCreated }: AlertRulesSectionProps):
               <tr className="border-b border-calyx-border text-[10px] uppercase text-calyx-muted">
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Condition</th>
-                <th className="px-4 py-3 font-medium">Threshold</th>
+                <th className="px-4 py-3 font-medium numeric">Threshold</th>
                 <th className="px-4 py-3 font-medium">Channels</th>
+                <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
             <tbody>
               {rules.map((rule) => (
-                <tr key={rule.id} className="border-b border-calyx-border/40">
+                <tr
+                  key={rule.id}
+                  className="border-b border-calyx-border/40 hover:bg-white/[0.03]"
+                >
                   <td className="px-4 py-3 text-calyx-text">{rule.name}</td>
                   <td className="px-4 py-3 font-mono text-[10px] text-calyx-muted">
                     score &lt; {rule.threshold}
                   </td>
-                  <td className="px-4 py-3 text-calyx-muted">{rule.threshold}</td>
+                  <td className="px-4 py-3 tabular-nums text-calyx-muted">{rule.threshold}</td>
                   <td className="px-4 py-3 text-calyx-muted">{rule.channels.join(', ')}</td>
+                  <td className="px-4 py-3 text-right">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-calyx-danger"
+                      disabled={deletingId === rule.id}
+                      onClick={() => void handleDelete(rule.id, rule.name)}
+                      aria-label={`Delete ${rule.name}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </td>
                 </tr>
               ))}
               {rules.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-calyx-muted">
+                  <td colSpan={5} className="px-4 py-8 text-center text-calyx-muted">
                     No alert rules yet.
                   </td>
                 </tr>
@@ -78,8 +126,8 @@ export function AlertRulesSection({ rules, onCreated }: AlertRulesSectionProps):
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="calyx-card space-y-4 p-4">
-        <p className="text-sm font-semibold text-calyx-text">Create Alert Rule</p>
+      <form onSubmit={handleSubmit} className="calyx-glass calyx-glass-lit space-y-4 p-4">
+        <p className="font-heading text-sm font-semibold text-calyx-text">Create Alert Rule</p>
         <p className="text-xs text-calyx-muted">
           Fires when call overall_score is below threshold.
         </p>
@@ -107,7 +155,7 @@ export function AlertRulesSection({ rules, onCreated }: AlertRulesSectionProps):
             min={0}
             max={100}
             step={0.5}
-            className="calyx-input text-sm"
+            className="calyx-input text-sm tabular-nums"
             value={threshold}
             onChange={(e) => setThreshold(e.target.value)}
             required

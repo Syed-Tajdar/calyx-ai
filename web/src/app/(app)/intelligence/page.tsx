@@ -1,12 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Phone } from 'lucide-react';
 import { CallJourneyTimeline, type JourneyStep } from '@/components/calyx/CallJourneyTimeline';
 import { SubsectionHeader } from '@/components/dashboard/SubsectionHeader';
 import { IntelligenceHubCards } from '@/components/intelligence/IntelligenceHubCards';
 import { IntelligenceSubNav } from '@/components/intelligence/IntelligenceSubNav';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { ApiError, fetchScores } from '@/lib/api';
+import { getToken } from '@/lib/auth';
 
 const SAMPLE_JOURNEY: JourneyStep[] = [
   { id: 'ping', label: 'Ping', state: 'complete' },
@@ -17,6 +21,25 @@ const SAMPLE_JOURNEY: JourneyStep[] = [
 ];
 
 export default function IntelligencePage(): JSX.Element {
+  const router = useRouter();
+  const [latestCallId, setLatestCallId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetchScores(token, { limit: 1, offset: 0 })
+      .then((res) => {
+        if (res && 'data' in res && res.data[0]) {
+          setLatestCallId(res.data[0].call_id);
+        }
+      })
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 401) {
+          router.replace('/login');
+        }
+      });
+  }, [router]);
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -26,11 +49,26 @@ export default function IntelligencePage(): JSX.Element {
       <IntelligenceSubNav />
       <IntelligenceHubCards />
       <section>
-        <SubsectionHeader title="Call Journey · sample" icon={Phone} />
-        <CallJourneyTimeline steps={SAMPLE_JOURNEY} />
+        <SubsectionHeader title="Call Journey" icon={Phone} />
+        {latestCallId ? (
+          <div className="space-y-3">
+            <CallJourneyTimeline steps={SAMPLE_JOURNEY} />
+            <p className="text-center text-sm text-calyx-muted">
+              Latest scored call:{' '}
+              <Link
+                href={`/calls/${encodeURIComponent(latestCallId)}`}
+                className="font-mono text-calyx-teal hover:underline"
+              >
+                {latestCallId}
+              </Link>
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-calyx-muted">No scored calls yet — journey preview unavailable.</p>
+        )}
       </section>
       <p className="text-center">
-        <Link href="/reports" className="text-xs text-calyx-muted transition hover:text-calyx-accent">
+        <Link href="/reports" className="text-xs text-calyx-muted transition hover:text-calyx-teal">
           Financial reports →
         </Link>
       </p>

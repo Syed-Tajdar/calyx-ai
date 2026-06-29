@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -44,6 +46,15 @@ export class ProvidersController {
     @Body() body: unknown,
   ): Promise<unknown> {
     return this.providersService.updateBinding(tenantId, id, body);
+  }
+
+  @Delete('bindings/:id')
+  @HttpCode(204)
+  async deleteBinding(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ): Promise<void> {
+    await this.providersService.softDeleteBinding(tenantId, id);
   }
 
   @Post('bindings/:id/test')

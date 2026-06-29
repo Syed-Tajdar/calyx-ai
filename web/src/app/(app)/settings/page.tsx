@@ -47,6 +47,14 @@ export default function SettingsPage(): JSX.Element {
     setRules((prev) => [rule, ...prev]);
   }
 
+  function handleRuleDeleted(id: string): void {
+    setRules((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  function handleIntegrationDeleted(id: string): void {
+    setIntegrations((prev) => prev.filter((i) => i.id !== id));
+  }
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -65,10 +73,17 @@ export default function SettingsPage(): JSX.Element {
             <TabsTrigger value="providers">Providers</TabsTrigger>
           </TabsList>
           <TabsContent value="integrations">
-            <IntegrationsList integrations={integrations} />
+            <IntegrationsList
+              integrations={integrations}
+              onDeleted={handleIntegrationDeleted}
+            />
           </TabsContent>
           <TabsContent value="alerts">
-            <AlertRulesSection rules={rules} onCreated={handleRuleCreated} />
+            <AlertRulesSection
+              rules={rules}
+              onCreated={handleRuleCreated}
+              onDeleted={handleRuleDeleted}
+            />
           </TabsContent>
           <TabsContent value="providers">
             <ProviderBindingsSection />

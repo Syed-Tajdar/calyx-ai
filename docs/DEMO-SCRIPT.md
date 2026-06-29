@@ -2,7 +2,7 @@
 
 **Prerequisites:** `make dev-up` running, `make demo-seed` completed  
 **URL:** http://localhost:3001  
-**Login:** `admin@callloom.dev` / `callloom_dev`
+**Login:** `admin@calyx.ai` / `calyx_dev`
 
 ---
 

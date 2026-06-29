@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PostgresService } from '../database/postgres.service';
 
 export interface AlertRule {
@@ -38,6 +38,20 @@ export class AlertsService {
         [tenantId, input.name, JSON.stringify(input.condition), input.threshold],
       );
       return result.rows[0];
+    });
+  }
+
+  async softDelete(tenantId: string, id: string): Promise<void> {
+    return this.postgres.withTenant(tenantId, async (client) => {
+      const result = await client.query(
+        `UPDATE alert_rules
+         SET is_active = FALSE, updated_at = NOW()
+         WHERE id = $1::uuid AND tenant_id = $2::uuid AND is_active = TRUE`,
+        [id, tenantId],
+      );
+      if (result.rowCount === 0) {
+        throw new NotFoundException('Alert rule not found');
+      }
     });
   }
 }

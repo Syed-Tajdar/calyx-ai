@@ -60,7 +60,7 @@ export function Sidebar(): JSX.Element {
 
   return (
     <aside
-      className="hidden lg:flex lg:flex-col lg:border-r lg:border-calyx-border lg:bg-calyx-surface"
+      className="calyx-glass hidden lg:flex lg:flex-col lg:border-r lg:border-calyx-border/60"
       style={{ width: 'var(--sidebar-width)' }}
     >
       <div className="flex items-center gap-2.5 border-b border-calyx-border px-5 py-[18px]">

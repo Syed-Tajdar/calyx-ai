@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import pino from 'pino';
 import pinoHttp from 'pino-http';
 import { AppModule } from './app.module';
@@ -9,6 +10,7 @@ async function bootstrap(): Promise<void> {
   const logger = pino({ level: 'info' });
 
   const app = await NestFactory.create(AppModule, { logger: false });
+  app.useWebSocketAdapter(new IoAdapter(app));
   app.use(
     pinoHttp({
       logger,

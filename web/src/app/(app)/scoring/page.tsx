@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ScoresTable } from '@/components/scoring/ScoresTable';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
@@ -46,6 +47,11 @@ export default function ScoringPage(): JSX.Element {
       <PageHeader
         title="Call Quality"
         description="AI-scored calls with sentiment and rule pass/fail breakdown."
+        action={
+          <Button type="button" variant="outline" size="sm" asChild>
+            <Link href="/scoring/scorecards">Manage Scorecards</Link>
+          </Button>
+        }
       />
 
       {loading && <PageLoader />}

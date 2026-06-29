@@ -10,8 +10,8 @@ async function main() {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
   await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' });
-  await page.getByLabel('Email', { exact: true }).fill('admin@callloom.dev');
-  await page.getByLabel('Password', { exact: true }).fill('callloom_dev');
+  await page.getByLabel('Email', { exact: true }).fill('admin@calyx.ai');
+  await page.getByLabel('Password', { exact: true }).fill('calyx_dev');
   await page.getByRole('button', { name: /sign in|log in|login/i }).click();
   await page.waitForURL(/\/dashboard/, { timeout: 20000 });
 

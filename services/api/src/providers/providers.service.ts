@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
 import { PostgresService } from '../database/postgres.service';
 import { RedisService } from '../redis/redis.service';
@@ -63,6 +63,7 @@ export class ProvidersService {
         `SELECT id::text, tenant_id::text, domain, provider_id, config_json,
                 is_active, priority, created_at::text, updated_at::text
          FROM tenant_provider_bindings
+         WHERE is_active = TRUE
          ORDER BY domain, priority DESC, created_at DESC`,
       );
       return result.rows;
@@ -110,7 +111,7 @@ export class ProvidersService {
         [bindingId],
       );
       if (existing.rows.length === 0) {
-        throw new Error('binding not found');
+        throw new NotFoundException('binding not found');
       }
       domain = existing.rows[0].domain;
       const result = await client.query<ProviderBinding>(
@@ -133,6 +134,28 @@ export class ProvidersService {
     });
     await this.invalidateBindingCache(tenantId, domain);
     return row;
+  }
+
+  async softDeleteBinding(tenantId: string, bindingId: string): Promise<void> {
+    let domain = '';
+    await this.postgres.withTenant(tenantId, async (client) => {
+      const existing = await client.query<{ domain: string }>(
+        `SELECT domain FROM tenant_provider_bindings
+         WHERE id = $1::uuid AND is_active = TRUE`,
+        [bindingId],
+      );
+      if (existing.rows.length === 0) {
+        throw new NotFoundException('binding not found');
+      }
+      domain = existing.rows[0].domain;
+      await client.query(
+        `UPDATE tenant_provider_bindings
+         SET is_active = FALSE, updated_at = NOW()
+         WHERE id = $1::uuid`,
+        [bindingId],
+      );
+    });
+    await this.invalidateBindingCache(tenantId, domain);
   }
 
   async resolve(

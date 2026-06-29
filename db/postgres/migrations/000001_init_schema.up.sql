@@ -64,14 +64,14 @@ AS $$
     LIMIT 1;
 $$;
 
--- Dev seed tenant + admin user (password: callloom_dev)
+-- Dev seed tenant + admin user (password: calyx_dev)
 INSERT INTO tenants (id, name) VALUES
     ('11111111-1111-1111-1111-111111111111', 'Calyx AI Dev');
 
 INSERT INTO users (tenant_id, email, password_hash, role) VALUES
     ('11111111-1111-1111-1111-111111111111',
-     'admin@callloom.dev',
-     crypt('callloom_dev', gen_salt('bf')),
+     'admin@calyx.ai',
+     crypt('calyx_dev', gen_salt('bf')),
      'admin');
 
 INSERT INTO integrations (tenant_id, platform, name, webhook_token) VALUES

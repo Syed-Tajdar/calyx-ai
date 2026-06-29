@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down build-ingestion build-consumer build-scoring build-enrichment build-providerconfig build-compliance build-ask-ai build-attribution build-api build-web tidy test smoke-test demo-seed verify-presentation step1b-test
+.PHONY: dev-up dev-down build-ingestion build-consumer build-scoring build-enrichment build-providerconfig build-compliance build-ask-ai build-attribution build-api build-web tidy test smoke-test demo-seed verify-presentation verify-system step1b-test
 
 dev-up:
 	docker compose -f deploy/docker-compose.yml up -d --build
@@ -68,3 +68,6 @@ demo-seed:
 
 verify-presentation:
 	powershell -ExecutionPolicy Bypass -File scripts/verify-presentation.ps1
+
+verify-system:
+	powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1
