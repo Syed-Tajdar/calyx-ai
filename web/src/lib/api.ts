@@ -77,6 +77,12 @@ export interface PnLResult {
   profit: number;
 }
 
+export interface PlatformMixRow {
+  platform: string;
+  count: number;
+  percent: number;
+}
+
 export interface AlertRule {
   id: string;
   tenant_id: string;
@@ -124,7 +130,14 @@ async function fetchWithAuth<T>(token: string, path: string, init?: RequestInit)
   if (!res.ok) {
     throw new ApiError(`Request failed: ${path}`, res.status);
   }
-  return res.json() as Promise<T>;
+  if (res.status === 204) {
+    return null as T;
+  }
+  const text = await res.text();
+  if (!text) {
+    return null as T;
+  }
+  return JSON.parse(text) as T;
 }
 
 async function fetchWithAuthNoContent(
@@ -339,6 +352,18 @@ export async function fetchPnL(
   if (filters.to) params.set('to', filters.to);
   const qs = params.toString();
   return fetchWithAuth<PnLResult>(token, `/analytics/pnl${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchPlatformMix(
+  token: string,
+  filters: { from?: string; to?: string; platform?: string } = {},
+): Promise<PlatformMixRow[]> {
+  const params = new URLSearchParams();
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
+  if (filters.platform) params.set('platform', filters.platform);
+  const qs = params.toString();
+  return fetchWithAuth<PlatformMixRow[]>(token, `/analytics/platform-mix${qs ? `?${qs}` : ''}`);
 }
 
 export async function fetchAlertRules(token: string): Promise<{ data: AlertRule[] }> {

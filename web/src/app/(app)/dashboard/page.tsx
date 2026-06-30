@@ -20,8 +20,10 @@ import {
   ExposureSummary,
   fetchAnalyticsMetrics,
   fetchComplianceExposure,
+  fetchPlatformMix,
   fetchScores,
   MetricsResult,
+  PlatformMixRow,
   ScoreRecord,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -29,6 +31,7 @@ import { computeDashboardStats } from '@/lib/dashboard-stats';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
 import { useHybridPingFeed } from '@/lib/use-hybrid-ping-feed';
+import { usePlatformOptions } from '@/lib/use-platform-options';
 import { LiveActivityStrip } from '@/components/dashboard/LiveActivityStrip';
 
 export default function DashboardPage(): JSX.Element {
@@ -36,6 +39,7 @@ export default function DashboardPage(): JSX.Element {
   const { startDate, platform, preset } = useDateFilter();
   const filters = useMemo(() => dateFilterToQuery(startDate, platform), [startDate, platform]);
   const [metrics, setMetrics] = useState<MetricsResult | null>(null);
+  const [platformMix, setPlatformMix] = useState<PlatformMixRow[]>([]);
   const [exposure, setExposure] = useState<ExposureSummary | null>(null);
   const [scores, setScores] = useState<ScoreRecord[]>([]);
   const [error, setError] = useState('');
@@ -55,11 +59,13 @@ export default function DashboardPage(): JSX.Element {
     setLoading(true);
     Promise.all([
       fetchAnalyticsMetrics(token, filters),
+      fetchPlatformMix(token, filters),
       fetchComplianceExposure(token),
       fetchScores(token, { limit: 5, offset: 0 }),
     ])
-      .then(([metricsRes, exposureRes, scoresRes]) => {
+      .then(([metricsRes, platformMixRes, exposureRes, scoresRes]) => {
         setMetrics(metricsRes);
+        setPlatformMix(platformMixRes);
         setExposure(exposureRes);
         if (scoresRes && 'data' in scoresRes) {
           setScores(scoresRes.data);
@@ -75,14 +81,21 @@ export default function DashboardPage(): JSX.Element {
       .finally(() => setLoading(false));
   }, [router, filters.from, filters.platform, preset]);
 
-  const platformOptions = useMemo(
-    () => Array.from(new Set(pings.map((p) => p.platform).filter(Boolean))),
-    [pings],
-  );
+  const platformOptions = usePlatformOptions();
 
   const stats = useMemo(
     () => computeDashboardStats(pings, pings.length),
     [pings],
+  );
+
+  const chartPlatformData = useMemo(
+    () =>
+      platformMix.map((row) => ({
+        name: row.platform.charAt(0).toUpperCase() + row.platform.slice(1),
+        value: row.count,
+        percent: row.percent,
+      })),
+    [platformMix],
   );
 
   const avgScore =
@@ -127,7 +140,7 @@ export default function DashboardPage(): JSX.Element {
             />
             <MetricCard
               label="Total Pings"
-              value={stats.totalPings.toLocaleString()}
+              value={(metrics?.total_pings ?? 0).toLocaleString()}
               trend={`${stats.uniqueRate.toFixed(1)}% unique`}
               trendUp={stats.uniqueRate >= 50}
               icon={Phone}
@@ -154,7 +167,7 @@ export default function DashboardPage(): JSX.Element {
 
           <section className="grid gap-4 lg:grid-cols-2">
             <PingChart data={stats.timeline} />
-            <PlatformChart data={stats.platforms} />
+            <PlatformChart data={chartPlatformData} />
           </section>
 
           {connected && <LiveActivityStrip events={liveEvents} />}

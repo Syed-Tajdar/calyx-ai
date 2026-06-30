@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
 
@@ -182,7 +181,15 @@ export class DeepQueryService {
     const rows = await result.json<DeepViewRow>();
     const row = rows[0];
     if (!row) {
-      throw new NotFoundException(`call not found: ${trimmedCallId}`);
+      return {
+        call_id: trimmedCallId,
+        tenant_id: tenantId,
+        ping: null,
+        scoring: null,
+        compliance: null,
+        attribution: null,
+        enrichment: null,
+      };
     }
 
     const view: CallDeepView = {

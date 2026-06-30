@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down build-ingestion build-consumer build-scoring build-enrichment build-providerconfig build-compliance build-ask-ai build-attribution build-api build-web tidy test smoke-test demo-seed verify-presentation verify-system step1b-test
+.PHONY: dev-up dev-down build-ingestion build-consumer build-scoring build-enrichment build-providerconfig build-compliance build-ask-ai build-attribution build-api build-web tidy test smoke-test smoke-test-all demo-seed verify-presentation verify-system step1b-test
 
 dev-up:
 	docker compose -f deploy/docker-compose.yml up -d --build
@@ -62,6 +62,9 @@ step1b-test:
 
 smoke-test:
 	powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
+
+smoke-test-all:
+	powershell -ExecutionPolicy Bypass -File scripts/smoke-test-all-platforms.ps1
 
 demo-seed:
 	powershell -ExecutionPolicy Bypass -File scripts/demo-seed.ps1

@@ -16,6 +16,8 @@ interface UseHybridPingFeedOptions {
 interface UseHybridPingFeedResult {
   pings: PingRecord[];
   total: number;
+  displayTotal: number;
+  loaded: boolean;
   loading: boolean;
   error: string;
   newRowKeys: Set<string>;
@@ -51,6 +53,18 @@ function wsPingToRecord(payload: Record<string, unknown>): PingRecord | null {
   };
 }
 
+function pingMatchesFilters(row: PingRecord, filters: PingFetchFilters): boolean {
+  if (filters.platform && row.platform !== filters.platform) return false;
+  if (filters.from && row.received_at) {
+    if (new Date(row.received_at).getTime() < new Date(filters.from).getTime()) return false;
+  }
+  if (filters.search) {
+    const needle = filters.search.toLowerCase();
+    if (!row.external_call_id.toLowerCase().includes(needle)) return false;
+  }
+  return true;
+}
+
 export function useHybridPingFeed({
   limit,
   offset,
@@ -73,10 +87,10 @@ export function useHybridPingFeed({
     for (const event of events) {
       if (event.type !== 'ping_received') continue;
       const row = wsPingToRecord(event.payload);
-      if (row) rows.push(row);
+      if (row && pingMatchesFilters(row, filters)) rows.push(row);
     }
     return rows;
-  }, [events]);
+  }, [events, filters]);
 
   const mergedPings = useMemo(() => {
     if (!connected || wsPings.length === 0) return poll.pings;
@@ -94,13 +108,24 @@ export function useHybridPingFeed({
   const newRowKeys = useMemo(() => {
     if (!lastEvent || lastEvent.type !== 'ping_received') return poll.newRowKeys;
     const row = wsPingToRecord(lastEvent.payload);
-    if (!row) return poll.newRowKeys;
+    if (!row || !pingMatchesFilters(row, filters)) return poll.newRowKeys;
     return new Set([pingRowKey(row)]);
-  }, [lastEvent, poll.newRowKeys]);
+  }, [lastEvent, poll.newRowKeys, filters]);
+
+  const loaded = !poll.loading;
+
+  const displayTotal = useMemo(() => {
+    if (poll.loading) return 0;
+    const liveFloor =
+      offset === 0 && connected && mergedPings.length > 0 ? mergedPings.length : 0;
+    return Math.max(poll.total, liveFloor);
+  }, [poll.loading, poll.total, offset, connected, mergedPings.length]);
 
   return {
     pings: mergedPings,
-    total: connected ? Math.max(poll.total, mergedPings.length) : poll.total,
+    total: poll.total,
+    displayTotal,
+    loaded,
     loading: poll.loading,
     error: poll.error,
     newRowKeys,

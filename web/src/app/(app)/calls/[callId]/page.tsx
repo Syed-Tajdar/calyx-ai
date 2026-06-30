@@ -42,15 +42,32 @@ function CallDetailContent(): JSX.Element {
     const token = getToken();
     if (!token) return;
 
+    setLoading(true);
+    setError('');
+
     Promise.all([
-      fetchScores(token, { callId }),
-      fetchTranscript(token, callId),
+      fetchScores(token, { callId }).catch(() => null),
+      fetchTranscript(token, callId).catch(() => null),
       fetchCallDeepView(token, callId).catch(() => null),
     ])
       .then(([scoreRes, transcriptRes, deepRes]) => {
-        if (scoreRes && !('data' in scoreRes)) {
-          setScore(scoreRes);
+        const scoreRecord =
+          scoreRes && !('data' in scoreRes) ? scoreRes : null;
+        const hasScore = scoreRecord != null;
+        const hasTranscript = transcriptRes != null;
+        const hasDeepView =
+          deepRes != null &&
+          (deepRes.ping != null ||
+            deepRes.scoring != null ||
+            deepRes.compliance != null ||
+            deepRes.attribution != null);
+
+        if (!hasScore && !hasTranscript && !hasDeepView) {
+          setError('No data found for this call ID');
+          return;
         }
+
+        setScore(scoreRecord);
         setTranscript(transcriptRes);
         setDeepView(deepRes);
       })
@@ -63,6 +80,21 @@ function CallDetailContent(): JSX.Element {
       })
       .finally(() => setLoading(false));
   }, [router, callId]);
+
+  const displayScore = useMemo((): ScoreRecord | null => {
+    if (score) return score;
+    if (!deepView?.scoring) return null;
+    return {
+      tenant_id: deepView.tenant_id,
+      call_id: deepView.call_id,
+      platform: deepView.ping?.platform ?? 'unknown',
+      overall_score: deepView.scoring.overall_score,
+      sentiment: deepView.scoring.sentiment,
+      rules_passed: deepView.scoring.rules_passed,
+      rules_failed: deepView.scoring.rules_failed,
+      created_at: deepView.scoring.scored_at,
+    };
+  }, [score, deepView]);
 
   const journeySteps = useMemo(
     () =>
@@ -101,7 +133,7 @@ function CallDetailContent(): JSX.Element {
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="space-y-4">
               <CallDeepViewPanel view={deepView} />
-              <ScoreCard score={score} />
+              <ScoreCard score={displayScore} />
             </div>
             <div className="space-y-4">
               <TranscriptPanel transcript={transcript} />

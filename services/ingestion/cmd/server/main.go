@@ -51,13 +51,15 @@ func main() {
 	pingProducer := producer.NewProducer(kafkaClient, cfg.KafkaTopic)
 
 	health := handlers.NewHealthHandler(dedupChecker, pingProducer, integrationStore)
-	ringba := handlers.NewRingbaHandler(cfg, integrationStore, dedupChecker, pingProducer, logger)
+	webhook := handlers.NewWebhookHandler(cfg, integrationStore, dedupChecker, pingProducer, logger)
+	callloomNative := handlers.NewCallLoomNativeHandler()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", health.Liveness)
 	mux.HandleFunc("GET /readyz", health.Readiness)
-	mux.Handle("GET /webhooks/ringba/", ringba)
-	mux.Handle("POST /webhooks/ringba/", ringba)
+	mux.Handle("GET /webhooks/", webhook)
+	mux.Handle("POST /webhooks/", webhook)
+	mux.HandleFunc("GET /sources/callloom-native/v1/pings", callloomNative.ListPings)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	srv := &http.Server{

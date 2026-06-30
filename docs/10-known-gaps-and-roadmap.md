@@ -12,6 +12,7 @@ This repository is **presentation-ready** with `MOCK_MODE=true`. The following a
 | Enrichment | Fixture attributes | EnrollHere + Whitepages |
 | Ad attribution | Mock HTTP log | Meta CAPI, Google Ads, TikTok |
 | Ringba / TrackDrive | Dev HMAC token only | Per-tenant production webhooks |
+| Retreaver `call_key` at rest | Plaintext in ClickHouse (dev) | AES-256-GCM encrypt before `MOCK_MODE=false` |
 | Elasticsearch ping search | ClickHouse list API | ES cluster + sync job |
 | Kong gateway / rate limits | Direct local ports | EKS + Kong Terraform |
 | Secrets rotation | `.env` local | AWS Secrets Manager + 30-day rotation |

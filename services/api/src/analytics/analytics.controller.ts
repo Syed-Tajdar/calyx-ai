@@ -2,11 +2,15 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { z } from 'zod';
 import { CurrentTenant } from '../common/tenant.decorator';
-import { AnalyticsService, MetricsResult, PnLResult } from './analytics.service';
+import { AnalyticsService, MetricsResult, PnLResult, PlatformMixRow } from './analytics.service';
 
 const dateQuerySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
+});
+
+const platformMixQuerySchema = dateQuerySchema.extend({
+  platform: z.string().optional(),
 });
 
 @Controller('analytics')
@@ -30,5 +34,19 @@ export class AnalyticsController {
   ): Promise<PnLResult> {
     const parsed = dateQuerySchema.parse(query);
     return this.analyticsService.getPnL(tenantId, parsed.from, parsed.to);
+  }
+
+  @Get('platform-mix')
+  async platformMix(
+    @CurrentTenant() tenantId: string,
+    @Query() query: Record<string, string>,
+  ): Promise<PlatformMixRow[]> {
+    const parsed = platformMixQuerySchema.parse(query);
+    return this.analyticsService.getPlatformMix(
+      tenantId,
+      parsed.from,
+      parsed.to,
+      parsed.platform,
+    );
   }
 }

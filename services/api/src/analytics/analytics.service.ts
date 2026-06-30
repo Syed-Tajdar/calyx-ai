@@ -20,6 +20,12 @@ export interface PnLResult {
   profit: number;
 }
 
+export interface PlatformMixRow {
+  platform: string;
+  count: number;
+  percent: number;
+}
+
 @Injectable()
 export class AnalyticsService {
   private readonly adSpendSource;
@@ -83,6 +89,44 @@ export class AnalyticsService {
       ad_spend: adSpend,
       profit,
     };
+  }
+
+  async getPlatformMix(
+    tenantId: string,
+    from?: string,
+    to?: string,
+    platform?: string,
+  ): Promise<PlatformMixRow[]> {
+    const dateClause = this.buildDateClause(from, to);
+    const platformClause = platform ? 'AND platform = {platform:String}' : '';
+    const params: Record<string, string> = { tenant_id: tenantId };
+    if (from) params.from = from;
+    if (to) params.to = to;
+    if (platform) params.platform = platform;
+
+    const result = await this.clickhouse.getClient().query({
+      query: `
+        SELECT platform, count() AS count
+        FROM pings
+        WHERE tenant_id = {tenant_id:UUID}
+        ${dateClause}
+        ${platformClause}
+        GROUP BY platform
+        ORDER BY count DESC
+      `,
+      query_params: params,
+      format: 'JSONEachRow',
+    });
+    const rows = await result.json<{ platform: string; count: string }>();
+    const total = rows.reduce((sum, row) => sum + Number(row.count), 0) || 1;
+    return rows.map((row) => {
+      const count = Number(row.count);
+      return {
+        platform: row.platform,
+        count,
+        percent: Math.round((count / total) * 100),
+      };
+    });
   }
 
   private async loadManualAdSpend(tenantId: string): Promise<AdSpendRow[]> {

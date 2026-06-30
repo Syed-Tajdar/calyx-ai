@@ -55,13 +55,22 @@ func Load() (Config, error) {
 		dedupHours = parsed
 	}
 
+	requestTimeoutSec := 10
+	if v := os.Getenv("INGESTION_REQUEST_TIMEOUT_SEC"); v != "" {
+		parsed, parseErr := strconv.Atoi(v)
+		if parseErr != nil {
+			return Config{}, fmt.Errorf("config.Load: INGESTION_REQUEST_TIMEOUT_SEC: %w", parseErr)
+		}
+		requestTimeoutSec = parsed
+	}
+
 	return Config{
 		Port:           port,
 		RedisURL:       redisURL,
 		KafkaBrokers:   []string{kafkaBroker},
 		KafkaTopic:     kafkaTopic,
 		DatabaseURL:    databaseURL,
-		RequestTimeout: 100 * time.Millisecond,
+		RequestTimeout: time.Duration(requestTimeoutSec) * time.Second,
 		DedupTTL:       time.Duration(dedupHours) * time.Hour,
 		MaxBodyBytes:   maxBody,
 		EncryptionKey:  key,

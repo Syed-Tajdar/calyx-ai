@@ -14,20 +14,20 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 ---
 
-## System verification (last run: 2026-06-29)
+## System verification (last run: 2026-06-22)
 
 | Layer | Result |
 |-------|--------|
 | Docker containers | **14/14** (10 app services running; postgres, redis, clickhouse, redpanda healthy) |
 | Service health (`/healthz` + `/readyz`) | **10/10** (ports 8080–8087, API :3000) |
-| API presentation checks | **16/16** (`verify-presentation.ps1`) |
+| API presentation checks | **20/20** (`verify-presentation.ps1`) |
 | Web routes (`:3001`) | **13/13** (all product pages + `/calls/demo-call-1`) |
-| WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — ≥3 events) |
+| WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — ≥3 events, multi-platform rotation) |
 | Unit tests (Go + API Jest) | **PASS** |
 | Web production build | **PASS** (16 routes) |
-| Pipeline smoke (signed ping E2E) | **FAIL** — ingestion returns `401 unauthorized` (HMAC/integration lookup); demo dashboard unaffected via ClickHouse fixtures |
+| Pipeline smoke (multi-platform E2E) | **PASS (4/4)** — `verify-system.ps1` runs `smoke-test-all-platforms.ps1` |
 
-**One-command full check:**
+**One-command full check** (Docker + health + API + web + WS + tests + build + 4/4 pipeline — hard-fail if any layer fails):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1
@@ -38,15 +38,37 @@ powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1
 
 ## Phase 1 — Complete
 
-End-to-end ping pipeline:
+End-to-end multi-platform ping pipeline:
 
 ```
-Ringba Pixel → Ingestion (Go) → Kafka → Consumer (Go) → ClickHouse
-                                              ↓
-                                    API (NestJS) → Web (Next.js)
+Ringba / Retreaver / TrackDrive / CallGrid
+        ↓  /webhooks/{platform}/{token}
+Ingestion (Go) → Kafka → Consumer (Go) → ClickHouse
+                              ↓
+                    API (NestJS) → Web (Next.js)
+
+Call Loom native (direct source): GET /sources/callloom-native/v1/pings
 ```
 
-**Core:** signed webhook ingestion, tenant-scoped API, dashboard, ping feed.
+**Core:** per-platform webhook auth, tenant-scoped API, dashboard, ping feed.
+
+### Supported platforms
+
+| Platform | Webhook route | Auth |
+|----------|---------------|------|
+| **Ringba** | `/webhooks/ringba/{token}` | `X-Ringba-Signature` HMAC-SHA256 |
+| **Retreaver** | `/webhooks/retreaver/{token}` | `X-Retreaver-Signature` HMAC-SHA256 |
+| **TrackDrive** | `/webhooks/trackdrive/{token}` | Token in query (`lead_token` / `auth_token`) |
+| **CallGrid** | `/webhooks/callgrid/{token}` | `X-CallGrid-Signature` HMAC-SHA256 |
+| **Call Loom native** | `/sources/callloom-native/v1/pings` | Direct API (not webhook) |
+
+Each tenant integration is resolved by path token via PostgreSQL `lookup_integration_by_token`.
+
+**Ingestion notes**
+
+- **Retreaver** accepts `call_uuid` plus optional `call_key` (private conversion-update credential for async buyer confirmations).
+- `call_key` is stored in ClickHouse at ingestion time for a future conversion-update flow; it is **never** returned by the API, shown in the UI, or logged (ingestion logs `call_key_present` only).
+- Before `MOCK_MODE=false` production go-live, encrypt `call_key` at rest (AES-256-GCM).
 
 ---
 
@@ -72,6 +94,7 @@ call_scored → Alert engine (API) → mock notifications
 | `GET /coverage/heatmap` | Geo demand heatmap |
 | `GET /analytics/metrics` | CPA/RPC/ROI |
 | `GET /analytics/pnl` | P&L summary |
+| `GET /analytics/platform-mix` | Tenant-wide platform breakdown (`GROUP BY platform` in ClickHouse) |
 | `GET /alerts/rules` | Alert rules CRUD |
 | `GET /scorecards` | List scorecards |
 | `POST /scorecards` | Create scorecard |
@@ -88,7 +111,7 @@ Ask AI (Go) → intent → safe SQL → ClickHouse read + Postgres query log
 Ping → Attribution bridge → conversions → Ad platforms (mock) → ClickHouse
 API native deep view → single call story (ping + score + compliance + attribution)
 Provider config (Go) → tenant bindings + secret resolve (Redis cache)
-WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter)
+WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter, 5-platform rotation)
 ```
 
 **Core:** TCPA compliance intelligence, natural-language Ask AI, ad attribution, native deep call view, provider config bindings, live dashboard feed.
@@ -118,11 +141,11 @@ WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter)
 | Route | Description |
 |-------|-------------|
 | `/login` | Auth (dev credentials below) |
-| `/dashboard` | Overview metrics, live activity strip, hybrid WS + poll feed |
-| `/pings` | Ping feed — date filters, live WebSocket, CSV export |
+| `/dashboard` | Overview metrics, platform mix (ClickHouse aggregate), platform filter, live activity strip, hybrid WS + poll feed |
+| `/pings` | Ping feed — 5-platform filter (Ringba, Retreaver, TrackDrive, CallGrid, Call Loom), date filters, filtered live WS, accurate total badge, CSV export |
 | `/scoring` | Call quality scores |
 | `/scoring/scorecards` | Scorecard CRUD (rules editor) |
-| `/calls/[callId]` | Native deep view (ping + score + compliance + attribution) |
+| `/calls/[callId]` | Native deep view (ping + score + compliance + attribution); demo: `/calls/demo-call-1` |
 | `/intelligence` | Intelligence hub (Ask AI, compliance, attribution) |
 | `/ask` | Natural language analytics chat |
 | `/compliance` | TCPA risk scores, violations table, exposure |
@@ -189,9 +212,44 @@ http://localhost:8080/webhooks/ringba/dev_ringba_token_change_me?CallID=[Call:In
 
 4. **HMAC required:** every request must include `X-Ringba-Signature`. Dev secret: `dev_ringba_hmac_secret_change_me`
 
+### Multi-platform dev tokens
+
+| Platform | Path token | Secret / auth |
+|----------|------------|---------------|
+| Ringba | `dev_ringba_token_change_me` | HMAC secret: `dev_ringba_hmac_secret_change_me` |
+| Retreaver | `dev_retreaver_token_change_me` | HMAC secret: `dev_retreaver_hmac_secret_change_me` |
+| TrackDrive | `dev_trackdrive_token_change_me` | Query param `lead_token=dev_trackdrive_auth_token_change_me` |
+| CallGrid | `dev_callgrid_token_change_me` | HMAC secret: `dev_callgrid_hmac_secret_change_me` |
+
+```powershell
+# All four webhook platforms
+powershell -ExecutionPolicy Bypass -File scripts/smoke-test-all-platforms.ps1
+# or: make smoke-test-all
+
+# Single platform (Retreaver includes call_key in query)
+powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -Platform retreaver
+```
+
+Retreaver postback example (query string):
+
+```
+call_uuid=[uuid]&call_key=[key]&caller=...&state=CA&event=incoming&revenue=9.75
+```
+
 ### Demo seed (populated dashboard)
 
-**Cold start:** ClickHouse fixture `000006_demo_fixture` + Postgres alert rules seed load on `clickhouse-init` / `migrate` — dashboard shows data without running the pipeline.
+**Cold start:** ClickHouse fixture `000006_demo_fixture` + Postgres alert rules seed load on `clickhouse-init` / `migrate` — dashboard shows data without running the pipeline. Fixture backfills when `demo-call-1` or `demo-callloom-1` is missing (safe after smoke tests). Includes:
+
+- 50 webhook demo pings (`demo-call-*`) across ringba, retreaver, trackdrive, callgrid
+- 3 **Call Loom native** demo pings (`demo-callloom-1/2/3`) — filterable on `/pings` as **Call Loom**
+- Scores, transcripts, compliance, attribution, enrichment for `/calls/demo-call-1`
+
+Re-run fixture on existing stacks:
+
+```powershell
+cd deploy
+docker compose run --rm clickhouse-init
+```
 
 **Full pipeline demo:**
 
@@ -214,10 +272,11 @@ make test
 
 | Command | What it checks |
 |---------|----------------|
-| `verify-system` | Docker + all healthz + API + web routes + WS + unit tests + web build |
-| `verify-presentation` | Phase 3 API endpoints + scorecard CRUD + fixtures (16 checks) |
-| `smoke-test.ps1` | Single signed ping → ingestion → API (live pipeline) |
-| `ws-smoke-test.mjs` | WebSocket `/live` receives ≥3 mock events |
+| `verify-system` | Full pre-push gate: Docker + healthz + API 20/20 + web 13/13 + WS + unit tests + web build + **pipeline 4/4** |
+| `verify-presentation` | Phase 3 API + `platform-mix` + `demo-call-1` deep view/score/transcript + scorecard CRUD + fixtures (**20 checks**) |
+| `smoke-test.ps1` | Single signed ping → ingestion → API (`-Platform ringba\|retreaver\|trackdrive\|callgrid`) |
+| `smoke-test-all-platforms.ps1` / `make smoke-test-all` | E2E smoke for all four webhook platforms |
+| `ws-smoke-test.mjs` | WebSocket `/live` receives ≥3 mock events (rotates ringba/retreaver/trackdrive/callgrid/callloom-native) |
 | `demo-seed` | 25 pings for demo-ready dashboard |
 | `step1b-test` | Go providerconfig unit tests |
 | `make test` | Full test matrix (Go + API) |
@@ -233,7 +292,7 @@ make build-api
 
 ## Post-approval (MOCK_MODE=false)
 
-No UI rewrite. Set provider env vars and flip `MOCK_MODE=false` — services fail fast if secrets are missing. See [`docs/10-known-gaps-and-roadmap.md`](docs/10-known-gaps-and-roadmap.md).
+No UI rewrite. Set provider env vars and flip `MOCK_MODE=false` — services fail fast if secrets are missing.
 
 ---
 

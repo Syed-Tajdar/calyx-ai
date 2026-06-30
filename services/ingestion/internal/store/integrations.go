@@ -3,11 +3,15 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
+
+// ErrIntegrationNotFound is returned when no active integration matches the webhook token.
+var ErrIntegrationNotFound = errors.New("integration not found")
 
 // Integration maps a webhook token to a tenant and optional HMAC secret.
 type Integration struct {
@@ -41,7 +45,7 @@ func (s *IntegrationStore) LookupByToken(ctx context.Context, token string) (Int
 		FROM lookup_integration_by_token($1)
 	`, token).Scan(&integration.TenantID, &integration.Platform, &integration.WebhookSecret)
 	if err == sql.ErrNoRows {
-		return Integration{}, fmt.Errorf("store.LookupByToken: integration not found")
+		return Integration{}, ErrIntegrationNotFound
 	}
 	if err != nil {
 		return Integration{}, fmt.Errorf("store.LookupByToken: %w", err)

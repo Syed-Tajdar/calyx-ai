@@ -87,24 +87,3 @@ func ParseRingbaJSON(body []byte) (RingbaPayload, error) {
 	}
 	return ParseRingbaQuery(values)
 }
-
-func firstValue(values url.Values, keys ...string) string {
-	for _, key := range keys {
-		if v := values.Get(key); v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-func parseFloat(values url.Values, keys ...string) (float64, error) {
-	s := firstValue(values, keys...)
-	if s == "" {
-		return 0, nil
-	}
-	f, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid float %q: %w", s, err)
-	}
-	return f, nil
-}

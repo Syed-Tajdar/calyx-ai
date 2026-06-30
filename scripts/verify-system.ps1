@@ -90,7 +90,7 @@ Write-Section "API presentation verification"
 $verifyScript = Join-Path $repoRoot "scripts\verify-presentation.ps1"
 & powershell -ExecutionPolicy Bypass -File $verifyScript
 $apiExit = $LASTEXITCODE
-$summary.ApiPresentation = if ($apiExit -eq 0) { "PASS (16/16)" } else { "FAIL" }
+$summary.ApiPresentation = if ($apiExit -eq 0) { "PASS (20/20)" } else { "FAIL" }
 
 Write-Section "Web routes ($webBase)"
 $routes = @(
@@ -113,11 +113,11 @@ $wsScript = Join-Path $repoRoot "scripts\ws-smoke-test.mjs"
 $wsExit = $LASTEXITCODE
 $summary.WebSocket = if ($wsExit -eq 0) { "PASS" } else { "FAIL" }
 
-Write-Section "Pipeline smoke (optional)"
-$smokeScript = Join-Path $repoRoot "scripts\smoke-test.ps1"
+Write-Section "Pipeline smoke (multi-platform 4/4)"
+$smokeScript = Join-Path $repoRoot "scripts\smoke-test-all-platforms.ps1"
 & powershell -ExecutionPolicy Bypass -File $smokeScript
 $smokeExit = $LASTEXITCODE
-$summary.PipelineSmoke = if ($smokeExit -eq 0) { "PASS" } else { "FAIL (HMAC/integration — fixtures still populate dashboard)" }
+$summary.PipelineSmoke = if ($smokeExit -eq 0) { "PASS (4/4)" } else { "FAIL" }
 
 Write-Section "Unit tests"
 $testFailed = $false
@@ -133,15 +133,22 @@ foreach ($svc in $goServices) {
   Pop-Location
 }
 Push-Location (Join-Path $repoRoot "services\api")
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 npm test 2>&1 | Out-Host
-if ($LASTEXITCODE -ne 0) { $testFailed = $true }
+$apiTestExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEap
+if ($apiTestExit -ne 0) { $testFailed = $true }
 Pop-Location
 $summary.UnitTests = if (-not $testFailed) { "PASS" } else { "FAIL" }
 
 Write-Section "Web production build"
 Push-Location (Join-Path $repoRoot "web")
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 npm run build 2>&1 | Out-Host
 $buildExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEap
 Pop-Location
 $summary.WebBuild = if ($buildExit -eq 0) { "PASS" } else { "FAIL" }
 
@@ -163,6 +170,7 @@ if ($summary.WebRoutes.Pass -lt $summary.WebRoutes.Total) { $hardFail = $true }
 if ($wsExit -ne 0) { $hardFail = $true }
 if ($testFailed) { $hardFail = $true }
 if ($buildExit -ne 0) { $hardFail = $true }
+if ($smokeExit -ne 0) { $hardFail = $true }
 
 Write-Host ""
 if ($hardFail) {
@@ -170,7 +178,4 @@ if ($hardFail) {
   exit 1
 }
 Write-Host "SYSTEM VERIFY PASS"
-if ($smokeExit -ne 0) {
-  Write-Host "Note: pipeline smoke failed — demo data via ClickHouse fixtures is unaffected."
-}
 exit 0

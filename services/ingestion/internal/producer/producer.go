@@ -24,6 +24,8 @@ type PingMessage struct {
 	Payout         float64 `json:"payout"`
 	IsDuplicate    bool    `json:"is_duplicate"`
 	ReceivedAt     int64   `json:"received_at_unix_ms"`
+	// CallKey: Retreaver-only; omitempty. Never log. Encrypt at rest before production (MOCK_MODE=false).
+	CallKey string `json:"call_key,omitempty"`
 }
 
 // Producer publishes normalized pings to Kafka.
@@ -54,6 +56,7 @@ func (p *Producer) Publish(ctx context.Context, ping models.Ping) error {
 		Payout:         ping.Payout,
 		IsDuplicate:    ping.IsDuplicate,
 		ReceivedAt:     ping.ReceivedAt.UTC().UnixMilli(),
+		CallKey:        ping.CallKey,
 	}
 	body, err := json.Marshal(msg)
 	if err != nil {

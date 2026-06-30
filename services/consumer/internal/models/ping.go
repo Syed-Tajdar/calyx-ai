@@ -17,6 +17,7 @@ type PingMessage struct {
 	Payout         float64 `json:"payout"`
 	IsDuplicate    bool    `json:"is_duplicate"`
 	ReceivedAt     int64   `json:"received_at_unix_ms"`
+	CallKey        string  `json:"call_key,omitempty"`
 }
 
 // ReceivedTime converts the unix millis field to UTC time.

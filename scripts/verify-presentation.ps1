@@ -44,6 +44,7 @@ $endpoints = @(
   @{ Name = "GET /scorecards"; Url = "$base/scorecards?limit=5" },
   @{ Name = "GET /analytics/metrics"; Url = "$base/analytics/metrics" },
   @{ Name = "GET /analytics/pnl"; Url = "$base/analytics/pnl" },
+  @{ Name = "GET /analytics/platform-mix"; Url = "$base/analytics/platform-mix" },
   @{ Name = "GET /coverage/heatmap"; Url = "$base/coverage/heatmap" },
   @{ Name = "GET /compliance/exposure"; Url = "$base/compliance/exposure" },
   @{ Name = "GET /compliance/risk-scores"; Url = "$base/compliance/risk-scores?limit=5" },
@@ -106,6 +107,47 @@ try {
   }
 } catch {
   Write-Host "  FAIL fixture pings check ($($_.Exception.Message))"
+}
+
+# Demo call deep view fixture
+$fixtureCallId = "demo-call-1"
+$total++
+try {
+  $deep = Invoke-RestMethod -Uri "$base/native/call-deep-view?callId=$fixtureCallId" -Headers $h
+  if ($deep.ping) {
+    Write-Host "  PASS GET /native/call-deep-view?callId=$fixtureCallId (ping present)"
+    $passed++
+  } else {
+    Write-Host "  FAIL GET /native/call-deep-view?callId=$fixtureCallId (ping missing - run clickhouse-init)"
+  }
+} catch {
+  Write-Host "  FAIL GET /native/call-deep-view?callId=$fixtureCallId ($($_.Exception.Message))"
+}
+
+$total++
+try {
+  $score = Invoke-RestMethod -Uri "$base/scoring/scores?callId=$fixtureCallId" -Headers $h
+  if ($score -and $score.call_id -eq $fixtureCallId) {
+    Write-Host "  PASS GET /scoring/scores?callId=$fixtureCallId"
+    $passed++
+  } else {
+    Write-Host "  FAIL GET /scoring/scores?callId=$fixtureCallId (no score row)"
+  }
+} catch {
+  Write-Host "  FAIL GET /scoring/scores?callId=$fixtureCallId ($($_.Exception.Message))"
+}
+
+$total++
+try {
+  $transcript = Invoke-RestMethod -Uri "$base/scoring/transcript?callId=$fixtureCallId" -Headers $h
+  if ($transcript -and $transcript.transcript_text) {
+    Write-Host "  PASS GET /scoring/transcript?callId=$fixtureCallId"
+    $passed++
+  } else {
+    Write-Host "  FAIL GET /scoring/transcript?callId=$fixtureCallId (no transcript)"
+  }
+} catch {
+  Write-Host "  FAIL GET /scoring/transcript?callId=$fixtureCallId ($($_.Exception.Message))"
 }
 
 Write-Host ""

@@ -45,6 +45,7 @@ func (w *BatchWriter) InsertBatch(ctx context.Context, pings []models.PingMessag
 			Payout:         p.Payout,
 			IsDuplicate:    dup,
 			ReceivedAt:     p.ReceivedTime(),
+			CallKey:        p.CallKey,
 		})
 	}
 

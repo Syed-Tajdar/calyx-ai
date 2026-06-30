@@ -8,6 +8,13 @@ import type { LiveEventEnvelope } from './live-event.types';
 @Injectable()
 export class MockLiveEmitterService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MockLiveEmitterService.name);
+  private static readonly PING_PLATFORMS = [
+    'ringba',
+    'retreaver',
+    'trackdrive',
+    'callgrid',
+    'callloom-native',
+  ] as const;
   private timer: ReturnType<typeof setInterval> | null = null;
   private tick = 0;
 
@@ -49,7 +56,10 @@ export class MockLiveEmitterService implements OnModuleInit, OnModuleDestroy {
         event_id: randomUUID(),
         tenant_id: DEMO_TENANT_ID,
         call_id: callId,
-        platform: 'ringba',
+        platform:
+          MockLiveEmitterService.PING_PLATFORMS[
+            this.tick % MockLiveEmitterService.PING_PLATFORMS.length
+          ],
         event_type: 'incoming',
         is_duplicate: false,
         received_at_unix_ms: now,

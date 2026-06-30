@@ -2,9 +2,8 @@ package handlers
 
 import (
 	"context"
-	"io"
+	"errors"
 	"log/slog"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -58,13 +57,19 @@ func (h *RingbaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	integration, err := h.store.LookupByToken(ctx, token)
 	if err != nil {
-		h.logger.Warn("webhook token lookup failed",
+		if errors.Is(err, store.ErrIntegrationNotFound) {
+			h.logger.Warn("webhook token not found",
+				"service", "ingestion", "client_ip", clientIP(r))
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		h.logger.Error("webhook token lookup failed",
 			"service", "ingestion", "client_ip", clientIP(r), "error", err)
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
-	body, err := h.readBody(r)
+	body, err := readBody(r, h.cfg.MaxBodyBytes)
 	if err != nil {
 		http.Error(w, "payload too large", http.StatusRequestEntityTooLarge)
 		return
@@ -147,23 +152,4 @@ func (h *RingbaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
-}
-
-func (h *RingbaHandler) readBody(r *http.Request) ([]byte, error) {
-	if r.Body == nil {
-		return nil, nil
-	}
-	defer r.Body.Close()
-	return io.ReadAll(io.LimitReader(r.Body, h.cfg.MaxBodyBytes))
-}
-
-func clientIP(r *http.Request) string {
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		return strings.TrimSpace(strings.Split(forwarded, ",")[0])
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }

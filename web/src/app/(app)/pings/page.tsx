@@ -14,6 +14,7 @@ import { ApiError, downloadPingsExport } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
 import { useHybridPingFeed } from '@/lib/use-hybrid-ping-feed';
+import { usePlatformOptions } from '@/lib/use-platform-options';
 
 const PAGE_SIZE = 25;
 
@@ -39,7 +40,7 @@ function PingsPageContent(): JSX.Element {
     return base;
   }, [startDate, platform, searchQuery]);
 
-  const { pings, total, loading, error, newRowKeys, isLive, isPollingFallback } =
+  const { pings, total, displayTotal, loaded, loading, error, newRowKeys, isLive, isPollingFallback } =
     useHybridPingFeed({
       limit: PAGE_SIZE,
       offset,
@@ -47,10 +48,7 @@ function PingsPageContent(): JSX.Element {
       pollMs: 8000,
     });
 
-  const platforms = useMemo(
-    () => Array.from(new Set(pings.map((p) => p.platform).filter(Boolean))),
-    [pings],
-  );
+  const platforms = usePlatformOptions();
 
   const canPrev = offset > 0;
   const canNext = offset + PAGE_SIZE < total;
@@ -89,7 +87,7 @@ function PingsPageContent(): JSX.Element {
               <Badge variant="secondary">Polling</Badge>
             ) : null}
             <Badge variant="teal" className="text-sm">
-              {total.toLocaleString()} total
+              {loaded ? `${displayTotal.toLocaleString()} total` : '…'}
             </Badge>
           </div>
         }

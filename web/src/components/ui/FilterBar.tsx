@@ -1,6 +1,7 @@
 'use client';
 
 import { useDateFilter, type DateRangePreset } from '@/lib/date-filter';
+import { formatPlatformLabel } from '@/lib/platform-options';
 
 const PRESETS: { value: DateRangePreset; label: string }[] = [
   { value: '7d', label: '7 days' },
@@ -33,7 +34,7 @@ export function FilterBar({ showPlatform = false, platforms = [] }: FilterBarPro
           {p.label}
         </button>
       ))}
-      {showPlatform && platforms.length > 0 && (
+      {showPlatform && (
         <>
           <span className="ml-2 text-xs font-medium text-calyx-muted">Platform</span>
           <select
@@ -44,7 +45,7 @@ export function FilterBar({ showPlatform = false, platforms = [] }: FilterBarPro
             <option value="">All</option>
             {platforms.map((pl) => (
               <option key={pl} value={pl}>
-                {pl}
+                {formatPlatformLabel(pl)}
               </option>
             ))}
           </select>

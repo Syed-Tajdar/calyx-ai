@@ -1,0 +1,1 @@
+ALTER TABLE pings ADD COLUMN IF NOT EXISTS call_key String DEFAULT '';
