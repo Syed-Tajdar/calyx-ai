@@ -8,6 +8,8 @@ interface MetricCardProps {
   trendUp?: boolean;
   icon?: LucideIcon;
   sparklineData?: number[];
+  /** Stagger icon pulse across a metric row (ms). */
+  iconPulseDelayMs?: number;
 }
 
 export function MetricCard({
@@ -17,6 +19,7 @@ export function MetricCard({
   trendUp = true,
   icon: Icon,
   sparklineData,
+  iconPulseDelayMs,
 }: MetricCardProps): JSX.Element {
   return (
     <div className="calyx-metric-card flex flex-col">
@@ -24,7 +27,18 @@ export function MetricCard({
         <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-calyx-muted">
           {label}
         </p>
-        {Icon && <Icon className="h-4 w-4 text-calyx-teal" aria-hidden />}
+        {Icon && (
+          <span
+            className="calyx-metric-icon-pulse"
+            style={
+              iconPulseDelayMs !== undefined
+                ? { animationDelay: `${iconPulseDelayMs}ms` }
+                : undefined
+            }
+          >
+            <Icon className="h-4 w-4 text-calyx-teal" aria-hidden />
+          </span>
+        )}
       </div>
       <p className="calyx-metric-value mt-2 text-2xl font-bold text-calyx-text">{value}</p>
       {trend && (

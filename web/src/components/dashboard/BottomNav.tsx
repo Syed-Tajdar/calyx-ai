@@ -1,51 +1,19 @@
 'use client';
 
-import {
-  BarChart3,
-  Brain,
-  Home,
-  Phone,
-  Settings,
-  Star,
-} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { BOTTOM_NAV_ITEMS, resolveBottomNavTab } from '@/lib/app-navigation';
+import { NavIcon } from '@/components/layout/NavIcon';
 import { cn } from '@/lib/utils';
-
-const NAV = [
-  { id: 'dashboard', label: 'Dashboard', href: '/dashboard', Icon: Home },
-  { id: 'intel', label: 'Intelligence', href: '/intelligence', Icon: Brain },
-  { id: 'calls', label: 'Pings', href: '/pings', Icon: Phone },
-  { id: 'scoring', label: 'Scoring', href: '/scoring', Icon: Star },
-  { id: 'settings', label: 'Settings', href: '/settings', Icon: Settings },
-] as const;
-
-function resolveActiveTab(pathname: string): string {
-  if (pathname.startsWith('/dashboard')) return 'dashboard';
-  if (
-    pathname.startsWith('/intelligence') ||
-    pathname.startsWith('/ask') ||
-    pathname.startsWith('/compliance') ||
-    pathname.startsWith('/attribution') ||
-    pathname.startsWith('/reports') ||
-    pathname.startsWith('/coverage')
-  ) {
-    return 'intel';
-  }
-  if (pathname.startsWith('/pings') || pathname.startsWith('/calls')) return 'calls';
-  if (pathname.startsWith('/scoring')) return 'scoring';
-  if (pathname.startsWith('/settings')) return 'settings';
-  return 'dashboard';
-}
 
 export function BottomNav(): JSX.Element {
   const pathname = usePathname();
-  const active = resolveActiveTab(pathname);
+  const active = resolveBottomNavTab(pathname);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-calyx-border bg-calyx-surface/95 backdrop-blur-lg lg:hidden">
       <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-2">
-        {NAV.map((item) => {
+        {BOTTOM_NAV_ITEMS.map((item) => {
           const isActive = item.id === active;
           return (
             <Link
@@ -56,7 +24,7 @@ export function BottomNav(): JSX.Element {
                 isActive ? 'text-calyx-accent' : 'text-calyx-muted hover:text-calyx-text',
               )}
             >
-              <item.Icon className="h-5 w-5" />
+              <NavIcon icon={item.icon} className="size-5" />
               <span className="text-[9px] font-medium">{item.label}</span>
             </Link>
           );

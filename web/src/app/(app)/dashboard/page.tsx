@@ -160,6 +160,7 @@ export default function DashboardPage(): JSX.Element {
               trend={`RPC $${(metrics?.rpc ?? 0).toFixed(2)}`}
               trendUp
               icon={DollarSign}
+              iconPulseDelayMs={0}
               sparklineData={stats.timeline.map((t) => t.count)}
             />
             <MetricCard
@@ -168,6 +169,7 @@ export default function DashboardPage(): JSX.Element {
               trend={`${stats.uniqueRate.toFixed(1)}% unique`}
               trendUp={stats.uniqueRate >= 50}
               icon={Phone}
+              iconPulseDelayMs={400}
               sparklineData={pingTimeline.map((t) => t.count)}
             />
             <MetricCard
@@ -176,6 +178,7 @@ export default function DashboardPage(): JSX.Element {
               trend={scores.length > 0 ? `${scores.length} scored` : 'No scores yet'}
               trendUp={Number(avgScore) >= 70}
               icon={Star}
+              iconPulseDelayMs={800}
             />
             <div className="calyx-metric-card flex flex-col items-center justify-center">
               <p className="mb-2 self-start text-[10px] font-semibold uppercase tracking-wide text-calyx-muted">

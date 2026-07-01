@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calyx AI — Quick Win + Full Upgrade Merged</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --calyx-bg: #060b14;
+      --calyx-surface: #0d1421;
+      --calyx-card: #111827;
+      --calyx-border: #1f2937;
+      --calyx-text: #f9fafb;
+      --calyx-muted: #b0b8c4;
+      --calyx-dim: #6b7280;
+      --calyx-accent: #6366f1;
+      --calyx-teal: #00c9b7;
+      --calyx-teal-muted: rgba(0, 201, 183, 0.15);
+      --glass-bg: rgba(13, 20, 33, 0.72);
+      --glass-border: rgba(17, 206, 184, 0.12);
+      --aurora-1: #11ceb8;
+      --aurora-2: #015a58;
+      --sidebar-width: 240px;
+      --sidebar-collapsed: 64px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--calyx-bg);
+      color: var(--calyx-text);
+      min-height: 100vh;
+      padding: 40px 32px 48px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .page-header { text-align: center; margin-bottom: 36px; }
+    .page-header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; }
+    .page-header p { font-size: 13px; color: var(--calyx-muted); max-width: 820px; margin: 0 auto; line-height: 1.55; }
+    .merge-formula {
+      display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+      margin-top: 16px; font-size: 12px; font-weight: 500; color: var(--calyx-muted);
+    }
+    .merge-formula .box {
+      padding: 6px 12px; border-radius: 8px; border: 1px solid var(--calyx-border); background: var(--calyx-card);
+    }
+    .merge-formula .plus { color: var(--calyx-dim); }
+    .merge-formula .result {
+      border-color: rgba(0, 201, 183, 0.4); background: rgba(0, 201, 183, 0.1); color: var(--calyx-teal); font-weight: 600;
+    }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1680px; margin: 0 auto; }
+    .option-card { display: flex; flex-direction: column; gap: 12px; }
+    .option-label { text-align: center; }
+    .option-label h2 { font-size: 15px; font-weight: 600; color: var(--calyx-teal); letter-spacing: -0.01em; }
+    .option-label .combo { font-size: 11px; font-weight: 500; color: var(--calyx-muted); margin-top: 4px; }
+    .option-label .tag {
+      display: inline-block; margin-top: 8px; font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em; padding: 3px 10px; border-radius: 999px;
+      border: 1px solid rgba(0, 201, 183, 0.25); background: rgba(0, 201, 183, 0.08); color: var(--calyx-teal);
+    }
+    .option-label .tag.recommended {
+      border-color: rgba(0, 201, 183, 0.55); background: rgba(0, 201, 183, 0.18); color: #fff;
+      box-shadow: 0 0 20px rgba(0, 201, 183, 0.15);
+    }
+    .option-card.recommended .app-frame {
+      border-color: rgba(0, 201, 183, 0.45);
+      box-shadow: 0 0 0 1px rgba(0, 201, 183, 0.2), 0 12px 40px rgba(0, 201, 183, 0.08);
+    }
+    .app-frame {
+      position: relative; height: 540px; border-radius: 12px; border: 1px solid var(--calyx-border);
+      overflow: hidden; background: linear-gradient(135deg, var(--calyx-bg) 0%, var(--calyx-bg) 55%, #051a1a 100%);
+    }
+    .aurora { position: absolute; border-radius: 50%; pointer-events: none; filter: blur(60px); }
+    .aurora-1 { width: 200px; height: 200px; top: -40px; right: -30px; background: var(--aurora-1); opacity: 0.22; }
+    .aurora-2 { width: 180px; height: 180px; bottom: -50px; left: -40px; background: var(--aurora-2); opacity: 0.2; }
+    .app-inner { position: relative; z-index: 1; display: flex; height: 100%; }
+    .sidebar {
+      display: flex; flex-direction: column; flex-shrink: 0;
+      border-right: 1px solid rgba(31, 41, 55, 0.6); background: var(--glass-bg); backdrop-filter: blur(16px);
+    }
+    .sidebar.expanded { width: var(--sidebar-width); }
+    .sidebar-header {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      border-bottom: 1px solid var(--calyx-border); padding: 18px 16px 18px 20px;
+    }
+    .logo-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .logo-text .brand { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+    .logo-text .brand .ai { color: var(--calyx-accent); }
+    .collapse-btn {
+      width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--calyx-border);
+      background: var(--calyx-card); color: var(--calyx-muted);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    nav { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+    .nav-group-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--calyx-dim); padding: 10px 12px 6px;
+    }
+    .nav-group-label:first-child { padding-top: 4px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px;
+      font-size: 14px; font-weight: 500; color: var(--calyx-muted); position: relative;
+    }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-item.active-bar { background: rgba(0, 201, 183, 0.08); color: var(--calyx-teal); }
+    .nav-item.active-bar::before {
+      content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px;
+      border-radius: 0 2px 2px 0; background: var(--calyx-teal);
+    }
+    .sidebar-footer { border-top: 1px solid var(--calyx-border); padding: 16px; }
+    .footer-badge { display: flex; flex-direction: column; gap: 6px; }
+    .mock-pill {
+      display: inline-flex; align-self: flex-start; border-radius: 999px; padding: 2px 8px;
+      font-size: 11px; font-weight: 500; background: var(--calyx-card); border: 1px solid var(--calyx-border); color: var(--calyx-muted);
+    }
+    .tenant-name { font-size: 12px; font-weight: 600; color: var(--calyx-text); }
+    .main-area { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .topbar {
+      height: 56px; border-bottom: 1px solid rgba(31, 41, 55, 0.6); background: var(--glass-bg);
+      backdrop-filter: blur(16px); display: flex; align-items: center; padding: 0 20px; gap: 12px;
+    }
+    .topbar .page-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+    .topbar .search { margin-left: auto; width: 140px; height: 32px; border-radius: 8px; border: 1px solid var(--calyx-border); background: var(--calyx-surface); }
+    .topbar .avatar {
+      width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #015a58, #11ceb8);
+      font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;
+    }
+    .dashboard-preview { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+    .metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .metric-card {
+      border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass-bg); padding: 14px;
+      box-shadow: inset 0 1px 0 rgba(17, 206, 184, 0.08), 0 4px 16px rgba(0,0,0,0.2);
+    }
+    .metric-card .label { font-size: 10px; color: var(--calyx-muted); margin-bottom: 6px; }
+    .metric-card .value { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+    .metric-card .value.teal { color: var(--calyx-teal); }
+    .chart-card {
+      flex: 1; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass-bg);
+      padding: 14px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .chart-card .chart-title { font-size: 12px; font-weight: 600; }
+    .chart-placeholder {
+      flex: 1; min-height: 80px; border-radius: 8px;
+      background: linear-gradient(180deg, rgba(0,201,183,0.12) 0%, transparent 100%);
+      position: relative; overflow: hidden;
+    }
+    .chart-line { position: absolute; bottom: 20px; left: 10px; right: 10px; height: 50px; }
+    .chart-line svg { width: 100%; height: 100%; }
+    .inset-collapsed {
+      position: absolute; bottom: 16px; left: 16px; width: 72px; z-index: 5;
+      border-radius: 10px; border: 1px solid var(--calyx-teal); box-shadow: 0 8px 24px rgba(0,0,0,0.45); overflow: hidden;
+    }
+    .inset-label {
+      position: absolute; bottom: 16px; left: 96px; font-size: 10px; color: var(--calyx-teal); font-weight: 500;
+      background: rgba(6,11,20,0.9); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(0,201,183,0.3);
+    }
+    .sidebar.collapsed { width: 64px; }
+    .sidebar.collapsed .logo-text, .sidebar.collapsed .nav-item span, .sidebar.collapsed .nav-group-label, .sidebar.collapsed .footer-badge { display: none; }
+    .sidebar.collapsed .sidebar-header { flex-direction: column; padding: 14px 8px; gap: 10px; }
+    .sidebar.collapsed .nav-item { justify-content: center; padding: 10px 8px; }
+    .sidebar.collapsed .collapse-btn { transform: rotate(180deg); }
+    .legend {
+      max-width: 1680px; margin: 32px auto 0; padding: 20px 24px; border-radius: 12px;
+      border: 1px solid var(--calyx-border); background: var(--calyx-surface);
+    }
+    .legend h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--calyx-teal); }
+    .legend-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .legend-item { font-size: 12px; line-height: 1.55; color: var(--calyx-muted); }
+    .legend-item strong { color: var(--calyx-text); font-weight: 600; display: block; margin-bottom: 4px; font-size: 13px; }
+    .legend-item.highlight { border-left: 3px solid var(--calyx-teal); padding-left: 12px; }
+    .legend-item code { font-size: 10px; background: var(--calyx-card); padding: 1px 5px; border-radius: 4px; color: var(--calyx-teal); }
+    .diff-table {
+      max-width: 1680px; margin: 24px auto 0; border-collapse: collapse; width: 100%;
+      font-size: 12px; border: 1px solid var(--calyx-border); border-radius: 12px; overflow: hidden;
+    }
+    .diff-table th, .diff-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--calyx-border); }
+    .diff-table th { background: var(--calyx-card); color: var(--calyx-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .diff-table td { color: var(--calyx-muted); }
+    .diff-table tr:last-child td { border-bottom: none; }
+    .diff-table .yes { color: var(--calyx-teal); font-weight: 600; }
+    .diff-table .no { color: var(--calyx-dim); }
+    .diff-table .col-merged { background: rgba(0, 201, 183, 0.06); }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>Quick Win + Full Upgrade — Merged Combo</h1>
+    <p>Dono recommendations compile karke naya option: sab polish features ek saath — collapse toggle, nav groups, active bar, footer badge.</p>
+    <div class="merge-formula">
+      <span class="box">Quick Win (B+C+D)</span>
+      <span class="plus">+</span>
+      <span class="box">Full Upgrade (A+B+D)</span>
+      <span class="plus">=</span>
+      <span class="box result">Best of Both (A+B+C+D)</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- QUICK WIN -->
+    <div class="option-card">
+      <div class="option-label">
+        <h2>Quick Win</h2>
+        <div class="combo">B + C + D</div>
+        <span class="tag">Polish only · no collapse</span>
+      </div>
+      <div class="app-frame">
+        <div class="aurora aurora-1"></div><div class="aurora aurora-2"></div>
+        <div class="app-inner">
+          <aside class="sidebar expanded">
+            <div class="sidebar-header">
+              <div class="logo-wrap">
+                <svg width="36" height="36" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="18" stroke="#6366F1" stroke-width="1.5" opacity="0.4"/><path d="M20 8C14 12 12 18 12 22C12 28 16 32 20 32C24 32 28 28 28 22C28 18 26 12 20 8Z" fill="#00C9B7" fill-opacity="0.9"/><path d="M20 14C17 16.5 16 19 16 22C16 25 17.5 27 20 27C22.5 27 24 25 24 22C24 19 23 16.5 20 14Z" fill="#060B14" fill-opacity="0.35"/></svg>
+                <div class="logo-text"><div class="brand">Calyx <span class="ai">AI</span></div></div>
+              </div>
+            </div>
+            <nav>
+              <div class="nav-group-label">Operations</div>
+              <div class="nav-item active-bar"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2"/></svg><span>Pings</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Scoring</span></div>
+              <div class="nav-group-label">Intelligence</div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/></svg><span>Intelligence</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Reports</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/></svg><span>Coverage</span></div>
+              <div class="nav-group-label">System</div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18"/></svg><span>Settings</span></div>
+            </nav>
+            <div class="sidebar-footer"><div class="footer-badge"><span class="mock-pill">Mock</span><span class="tenant-name">Demo Tenant</span></div></div>
+          </aside>
+          <div class="main-area">
+            <div class="topbar"><span class="page-title">Dashboard</span><div class="search"></div><div class="avatar">CA</div></div>
+            <div class="dashboard-preview">
+              <div class="metrics-row">
+                <div class="metric-card"><div class="label">Total Pings</div><div class="value teal">1,284</div></div>
+                <div class="metric-card"><div class="label">Avg Score</div><div class="value">78</div></div>
+                <div class="metric-card"><div class="label">Compliance</div><div class="value">29</div></div>
+              </div>
+              <div class="chart-card"><div class="chart-title">Ping Volume — 7 days</div><div class="chart-placeholder"><div class="chart-line"><svg viewBox="0 0 300 50" preserveAspectRatio="none"><path d="M0,40 Q50,35 80,28 T160,18 T240,12 T300,8" fill="none" stroke="#00C9B7" stroke-width="2"/></svg></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FULL UPGRADE -->
+    <div class="option-card">
+      <div class="option-label">
+        <h2>Full Upgrade</h2>
+        <div class="combo">A + B + D</div>
+        <span class="tag">Collapse · flat nav list</span>
+      </div>
+      <div class="app-frame">
+        <div class="aurora aurora-1"></div><div class="aurora aurora-2"></div>
+        <div class="app-inner">
+          <aside class="sidebar expanded">
+            <div class="sidebar-header">
+              <div class="logo-wrap">
+                <svg width="36" height="36" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="18" stroke="#6366F1" stroke-width="1.5" opacity="0.4"/><path d="M20 8C14 12 12 18 12 22C12 28 16 32 20 32C24 32 28 28 28 22C28 18 26 12 20 8Z" fill="#00C9B7"/></svg>
+                <div class="logo-text"><div class="brand">Calyx <span class="ai">AI</span></div></div>
+              </div>
+              <div class="collapse-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></div>
+            </div>
+            <nav>
+              <div class="nav-item active-bar"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2"/></svg><span>Pings</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Scoring</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/></svg><span>Intelligence</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Reports</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/></svg><span>Coverage</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></div>
+            </nav>
+            <div class="sidebar-footer"><div class="footer-badge"><span class="mock-pill">Mock</span><span class="tenant-name">Demo Tenant</span></div></div>
+          </aside>
+          <div class="main-area">
+            <div class="topbar"><span class="page-title">Dashboard</span><div class="search"></div><div class="avatar">CA</div></div>
+            <div class="dashboard-preview">
+              <div class="metrics-row">
+                <div class="metric-card"><div class="label">Total Pings</div><div class="value teal">1,284</div></div>
+                <div class="metric-card"><div class="label">Avg Score</div><div class="value">78</div></div>
+                <div class="metric-card"><div class="label">Compliance</div><div class="value">29</div></div>
+              </div>
+              <div class="chart-card"><div class="chart-title">Ping Volume — 7 days</div><div class="chart-placeholder"><div class="chart-line"><svg viewBox="0 0 300 50" preserveAspectRatio="none"><path d="M0,40 Q50,35 80,28 T160,18 T240,12 T300,8" fill="none" stroke="#00C9B7" stroke-width="2"/></svg></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="inset-collapsed">
+          <aside class="sidebar collapsed" style="width:100%;height:220px;border:none;">
+            <div class="sidebar-header">
+              <svg width="28" height="28" viewBox="0 0 40 40" fill="none"><path d="M20 8C14 12 12 18 12 22C12 28 16 32 20 32C24 32 28 28 28 22C28 18 26 12 20 8Z" fill="#00C9B7"/></svg>
+              <div class="collapse-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
+            </div>
+            <nav style="padding:8px;">
+              <div class="nav-item active-bar" style="justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+              <div class="nav-item" style="justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M22 16.92v3a2 2 0 0 1-2.18 2"/></svg></div>
+              <div class="nav-item" style="justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+            </nav>
+          </aside>
+        </div>
+        <span class="inset-label">← Collapsed 64px</span>
+      </div>
+    </div>
+
+    <!-- MERGED: A+B+C+D -->
+    <div class="option-card recommended">
+      <div class="option-label">
+        <h2>Best of Both ★</h2>
+        <div class="combo">A + B + C + D — merged combo</div>
+        <span class="tag recommended">Recommended · ~2.5 hours</span>
+      </div>
+      <div class="app-frame">
+        <div class="aurora aurora-1"></div><div class="aurora aurora-2"></div>
+        <div class="app-inner">
+          <aside class="sidebar expanded">
+            <div class="sidebar-header">
+              <div class="logo-wrap">
+                <svg width="36" height="36" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="18" stroke="#6366F1" stroke-width="1.5" opacity="0.4"/><path d="M20 8C14 12 12 18 12 22C12 28 16 32 20 32C24 32 28 28 28 22C28 18 26 12 20 8Z" fill="#00C9B7" fill-opacity="0.9"/><path d="M20 14C17 16.5 16 19 16 22C16 25 17.5 27 20 27C22.5 27 24 25 24 22C24 19 23 16.5 20 14Z" fill="#060B14" fill-opacity="0.35"/></svg>
+                <div class="logo-text"><div class="brand">Calyx <span class="ai">AI</span></div></div>
+              </div>
+              <div class="collapse-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></div>
+            </div>
+            <nav>
+              <div class="nav-group-label">Operations</div>
+              <div class="nav-item active-bar"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2"/></svg><span>Pings</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Scoring</span></div>
+              <div class="nav-group-label">Intelligence</div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/></svg><span>Intelligence</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Reports</span></div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/></svg><span>Coverage</span></div>
+              <div class="nav-group-label">System</div>
+              <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></div>
+            </nav>
+            <div class="sidebar-footer"><div class="footer-badge"><span class="mock-pill">Mock</span><span class="tenant-name">Demo Tenant</span></div></div>
+          </aside>
+          <div class="main-area">
+            <div class="topbar"><span class="page-title">Dashboard</span><div class="search"></div><div class="avatar">CA</div></div>
+            <div class="dashboard-preview">
+              <div class="metrics-row">
+                <div class="metric-card"><div class="label">Total Pings</div><div class="value teal">1,284</div></div>
+                <div class="metric-card"><div class="label">Avg Score</div><div class="value">78</div></div>
+                <div class="metric-card"><div class="label">Compliance</div><div class="value">29</div></div>
+              </div>
+              <div class="chart-card"><div class="chart-title">Ping Volume — 7 days</div><div class="chart-placeholder"><div class="chart-line"><svg viewBox="0 0 300 50" preserveAspectRatio="none"><path d="M0,40 Q50,35 80,28 T160,18 T240,12 T300,8" fill="none" stroke="#00C9B7" stroke-width="2"/></svg></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="inset-collapsed">
+          <aside class="sidebar collapsed" style="width:100%;height:220px;border:none;">
+            <div class="sidebar-header">
+              <svg width="28" height="28" viewBox="0 0 40 40" fill="none"><path d="M20 8C14 12 12 18 12 22C12 28 16 32 20 32C24 32 28 28 28 22C28 18 26 12 20 8Z" fill="#00C9B7"/></svg>
+              <div class="collapse-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
+            </div>
+            <nav style="padding:8px;">
+              <div class="nav-item active-bar" style="justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+              <div class="nav-item" style="justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M22 16.92v3a2 2 0 0 1-2.18 2"/></svg></div>
+              <div class="nav-item" style="justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+              <div class="nav-item" style="justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77"/></svg></div>
+            </nav>
+          </aside>
+        </div>
+        <span class="inset-label">← Groups hide when collapsed</span>
+      </div>
+    </div>
+  </div>
+
+  <table class="diff-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Quick Win</th>
+        <th>Full Upgrade</th>
+        <th class="col-merged">Best of Both ★</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Active left teal bar (B)</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes col-merged">✓</td></tr>
+      <tr><td>Nav groups — Ops / Intel / System (C)</td><td class="yes">✓</td><td class="no">—</td><td class="yes col-merged">✓</td></tr>
+      <tr><td>Footer Mock pill + tenant (D)</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes col-merged">✓</td></tr>
+      <tr><td>Collapse toggle → 64px rail (A)</td><td class="no">—</td><td class="yes">✓</td><td class="yes col-merged">✓</td></tr>
+      <tr><td>Extra chart space when collapsed</td><td class="no">—</td><td class="yes">+176px</td><td class="yes col-merged">+176px</td></tr>
+      <tr><td>Implement effort</td><td>~1 hr</td><td>~2 hr</td><td class="col-merged">~2.5 hr</td></tr>
+    </tbody>
+  </table>
+
+  <div class="legend">
+    <h3>Verdict</h3>
+    <div class="legend-grid">
+      <div class="legend-item">
+        <strong>Quick Win alone</strong>
+        Polish + organization, lekin collapse nahi — charts ko zyada space nahi milta.
+      </div>
+      <div class="legend-item">
+        <strong>Full Upgrade alone</strong>
+        Space + toggle achha hai, lekin nav groups missing — demo mein thoda flat lag sakta hai.
+      </div>
+      <div class="legend-item highlight">
+        <strong>Best of Both (A+B+C+D)</strong>
+        Dono ke strengths merge: organized groups jab expanded, icon rail jab collapsed. Collapsed state mein group labels auto-hide — clean rail. <code>Implement yeh?</code>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

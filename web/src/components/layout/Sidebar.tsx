@@ -3,48 +3,20 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import {
-  BarChart3,
-  Brain,
-  LayoutDashboard,
-  Map,
-  Phone,
-  Settings,
-  Star,
-} from 'lucide-react';
+import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
+import { NavIcon } from '@/components/layout/NavIcon';
 import { ApiError, fetchMe, MeResult } from '@/lib/api';
+import { NAV_GROUPS, isNavActive } from '@/lib/app-navigation';
 import { getToken } from '@/lib/auth';
+import { isMockModeEnabled } from '@/lib/provider-domains';
+import { useSidebarCollapse } from '@/lib/use-sidebar-collapse';
 import { cn } from '@/lib/utils';
-
-const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/pings', label: 'Pings', icon: Phone },
-  { href: '/scoring', label: 'Scoring', icon: Star },
-  { href: '/intelligence', label: 'Intelligence', icon: Brain },
-  { href: '/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/coverage', label: 'Coverage', icon: Map },
-  { href: '/settings', label: 'Settings', icon: Settings },
-] as const;
-
-function isActive(pathname: string, href: string): boolean {
-  if (href === '/dashboard') return pathname === '/dashboard';
-  if (href === '/intelligence') {
-    return (
-      pathname.startsWith('/intelligence') ||
-      pathname.startsWith('/ask') ||
-      pathname.startsWith('/compliance') ||
-      pathname.startsWith('/attribution')
-    );
-  }
-  if (href === '/reports') return pathname.startsWith('/reports');
-  if (href === '/coverage') return pathname.startsWith('/coverage');
-  return pathname.startsWith(href);
-}
 
 export function Sidebar(): JSX.Element {
   const pathname = usePathname();
   const [me, setMe] = useState<MeResult | null>(null);
+  const { collapsed, toggle, ready } = useSidebarCollapse();
 
   useEffect(() => {
     const token = getToken();
@@ -57,40 +29,103 @@ export function Sidebar(): JSX.Element {
   }, []);
 
   const tenantLabel = me?.tenant_name ?? 'Tenant';
+  const mockMode = isMockModeEnabled();
+  const sidebarWidth = collapsed
+    ? 'var(--sidebar-width-collapsed)'
+    : 'var(--sidebar-width)';
 
   return (
     <aside
-      className="calyx-glass hidden lg:flex lg:flex-col lg:border-r lg:border-calyx-border/60"
-      style={{ width: 'var(--sidebar-width)' }}
+      className={cn(
+        'calyx-glass hidden lg:flex lg:flex-col lg:border-r lg:border-calyx-border/60',
+        !ready && 'opacity-0',
+        ready && 'opacity-100 transition-opacity duration-150',
+      )}
+      style={{ width: sidebarWidth }}
     >
-      <div className="flex items-center gap-2.5 border-b border-calyx-border px-5 py-[18px]">
-        <Logo variant="compact" />
+      <div
+        className={cn(
+          'flex items-center border-b border-calyx-border',
+          collapsed ? 'flex-col gap-2 px-2 py-3' : 'justify-between gap-2 px-4 py-[18px] pl-5',
+        )}
+      >
+        <div
+          className={cn(
+            'min-w-0',
+            collapsed && 'flex justify-center [&_.leading-none]:hidden',
+          )}
+        >
+          <Logo variant="compact" className={collapsed ? 'gap-0' : undefined} />
+        </div>
+        <button
+          type="button"
+          onClick={toggle}
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-calyx-border bg-calyx-card text-calyx-muted transition hover:bg-calyx-surface hover:text-calyx-text"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? (
+            <PanelLeft className="size-4" strokeWidth={2} aria-hidden />
+          ) : (
+            <PanelLeftClose className="size-4" strokeWidth={2} aria-hidden />
+          )}
+        </button>
       </div>
-      <nav className="flex flex-1 flex-col gap-0.5 p-3">
-        {NAV_ITEMS.map((item) => {
-          const active = isActive(pathname, item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                active
-                  ? 'bg-calyx-teal/15 text-calyx-teal'
-                  : 'text-calyx-muted hover:bg-calyx-card hover:text-calyx-text',
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {item.label}
-            </Link>
-          );
-        })}
+
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-3">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.id} className="flex flex-col gap-0.5">
+            {!collapsed && (
+              <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-calyx-dim first:pt-1">
+                {group.label}
+              </p>
+            )}
+            {group.items.map((item) => {
+              const active = isNavActive(pathname, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    'relative flex items-center rounded-lg py-2.5 text-sm font-medium transition-colors',
+                    collapsed ? 'justify-center px-2' : 'gap-3 px-3',
+                    active
+                      ? 'bg-calyx-teal/10 text-calyx-teal before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-r before:bg-calyx-teal'
+                      : 'text-calyx-muted hover:bg-calyx-card hover:text-calyx-text',
+                  )}
+                >
+                  <NavIcon icon={item.icon} />
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
-      <div className="border-t border-calyx-border p-4 text-[11px] text-calyx-dim">
-        <span className="font-medium text-calyx-muted">MOCK_MODE</span>
-        <span className="mx-1.5">·</span>
-        <span>{tenantLabel}</span>
+
+      <div className="border-t border-calyx-border p-4">
+        {collapsed ? (
+          mockMode ? (
+            <span
+              className="mx-auto block size-2 rounded-full bg-calyx-muted"
+              title={`Mock · ${tenantLabel}`}
+            />
+          ) : (
+            <span
+              className="mx-auto block size-2 rounded-full bg-calyx-teal"
+              title={tenantLabel}
+            />
+          )
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {mockMode && (
+              <span className="inline-flex w-fit items-center rounded-full border border-calyx-border bg-calyx-card px-2 py-0.5 text-[11px] font-medium text-calyx-muted">
+                Mock
+              </span>
+            )}
+            <span className="truncate text-xs font-semibold text-calyx-text">{tenantLabel}</span>
+          </div>
+        )}
       </div>
     </aside>
   );

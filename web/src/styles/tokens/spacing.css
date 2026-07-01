@@ -23,6 +23,7 @@
 
   /* App shell metrics */
   --sidebar-width: 240px;
+  --sidebar-width-collapsed: 64px;
   --topbar-height: 56px;
   --content-max: 1200px;
 }

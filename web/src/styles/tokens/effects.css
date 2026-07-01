@@ -29,3 +29,15 @@
   0% { background-color: rgba(0, 201, 183, 0.25); }
   100% { background-color: transparent; }
 }
+
+/* Teal glow pulse for live metric card icons */
+@keyframes calyx-icon-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(0, 201, 183, 0.15));
+  }
+  50% {
+    opacity: 0.55;
+    filter: drop-shadow(0 0 8px rgba(0, 201, 183, 0.55));
+  }
+}

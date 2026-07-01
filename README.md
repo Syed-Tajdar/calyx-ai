@@ -28,9 +28,13 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 **Recent fixes (2026-07-01):**
 
+- **Best of Both sidebar (A+B+C+D):** collapsible 64px icon rail (`localStorage` persist), left teal active bar, nav groups (Operations / Intelligence / System), Mock footer pill + tenant name; shared nav in `web/src/lib/app-navigation.ts` (`Radio` icon for Pings — crisp at 16px); `NavIcon` wrapper for desktop + mobile.
+- **Dashboard metric pulse:** teal glow pulse on KPI card icons (staggered on dashboard); respects `prefers-reduced-motion`.
 - **UI polish pass:** shared `PlatformBadge` + `formatPlatformColor()` (Call Loom = teal); no `mock` platform in charts; compliance ring `29/100`; publishers card (MediaCo, LeadStream, DialPro, CallStream + quality badges); settings alerts (Email/Slack/SMS) and providers (Deepgram, OpenAI, Meta CAPI, DNC.com + Mock/Active status); Top Scores / Publishers table alignment.
 - **Ping chart 7-day curve:** dashboard fetches 100 pings for last 7 days via `ping-timeline.ts` (filled daily buckets) — not the capped 50-row live sample.
 - **API fix:** `GET /pings?from=...` no longer 500 when date filter is set (ClickHouse `received_at` alias collision resolved in `pings.service.ts`).
+
+**Sidebar design mockups:** [`docs/mockups/`](docs/mockups/) (options A–F comparison, Quick Win + Full Upgrade merge, browser verification screenshot).
 
 **One-command full check** (Docker + health + API + web + WS + tests + build + 4/4 pipeline — hard-fail if any layer fails):
 
@@ -159,7 +163,7 @@ WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter, 5-pla
 | `/reports` | Financial analytics (CPA, RPC, ROI, P&L) |
 | `/settings` | Integrations, alerts (Email/Slack/SMS channel badges), provider bindings (real provider names + Mock/Active status) |
 
-**Teal Glass design system:** Geist headings + Inter body, glass sidebar/topbar, teal aurora background, teal gradient CTAs and active nav. Shared platform labels via `web/src/lib/platform-options.ts` (`formatPlatformLabel`, `formatPlatformColor`). `PlatformBadge`, `ScoreBar`, and status pills in `web/src/components/ui/`. Tokens in [`web/src/styles/tokens/`](web/src/styles/tokens/). Dark theme for presentation demo. Storybook: `cd web && npm run storybook`.
+**Teal Glass design system:** Geist headings + Inter body, glass sidebar/topbar (collapsible grouped nav on desktop), teal aurora background, teal gradient CTAs and active nav left-bar. Shared navigation: `web/src/lib/app-navigation.ts`. Shared platform labels via `web/src/lib/platform-options.ts` (`formatPlatformLabel`, `formatPlatformColor`). `PlatformBadge`, `ScoreBar`, `NavIcon`, and status pills in `web/src/components/ui/` and `web/src/components/layout/`. Tokens in [`web/src/styles/tokens/`](web/src/styles/tokens/). Dark theme for presentation demo. Storybook: `cd web && npm run storybook`.
 
 ---
 
@@ -286,6 +290,7 @@ make test
 | `smoke-test.ps1` | Single signed ping → ingestion → API (`-Platform ringba\|retreaver\|trackdrive\|callgrid`) |
 | `smoke-test-all-platforms.ps1` / `make smoke-test-all` | E2E smoke for all four webhook platforms |
 | `ws-smoke-test.mjs` | WebSocket `/live` receives ≥3 mock events (rotates ringba/retreaver/trackdrive/callgrid/callloom-native) |
+| `check-dashboard-browser.mjs` | Playwright smoke: login → dashboard, sidebar groups, metric pulse, charts (10 checks + screenshot) |
 | `demo-seed` | 25 pings for demo-ready dashboard |
 | `step1b-test` | Go providerconfig unit tests |
 | `make test` | Full test matrix (Go + API) |
