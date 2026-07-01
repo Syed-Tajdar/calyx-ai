@@ -19,7 +19,7 @@ const COLOR_MAP = {
 
 function formatRiskScore(score: number): string {
   if (!Number.isFinite(score)) return '—';
-  return score.toFixed(3);
+  return `${Math.round(score)}/100`;
 }
 
 export function ComplianceRiskRing({

@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { ChannelBadge } from '@/components/ui/StatusPill';
 import type { AlertRule } from '@/lib/api';
 import { ApiError, createAlertRule, deleteAlertRule } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -98,7 +99,13 @@ export function AlertRulesSection({
                     score &lt; {rule.threshold}
                   </td>
                   <td className="px-4 py-3 tabular-nums text-calyx-muted">{rule.threshold}</td>
-                  <td className="px-4 py-3 text-calyx-muted">{rule.channels.join(', ')}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {rule.channels.map((ch) => (
+                        <ChannelBadge key={ch} channel={ch} />
+                      ))}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <Button
                       type="button"

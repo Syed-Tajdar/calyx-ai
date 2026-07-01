@@ -8,18 +8,18 @@ INSERT INTO pings (
 )
 SELECT
     toUUID('11111111-1111-1111-1111-111111111111'),
-    multiIf(number % 10 < 5, 'ringba', number % 10 < 7, 'retreaver', number % 10 < 8, 'trackdrive', number % 10 < 9, 'callgrid', 'mock'),
+    multiIf(number % 10 < 5, 'ringba', number % 10 < 7, 'retreaver', number % 10 < 8, 'trackdrive', number % 10 < 9, 'callgrid', 'callloom-native'),
     concat('demo-call-', toString(number + 1)),
     lower(hex(SHA256(concat('demo-ani-', toString(number))))),
     multiIf(number % 3 = 0, 'camp_google', number % 3 = 1, 'camp_bing', 'camp_meta'),
-    concat('pub_', toString((number % 8) + 1)),
+    multiIf(number % 4 = 0, 'MediaCo', number % 4 = 1, 'LeadStream', number % 4 = 2, 'DialPro', 'CallStream'),
     concat('tgt_', toString((number % 5) + 1)),
     multiIf(number % 4 = 0, 'TX', number % 4 = 1, 'CA', number % 4 = 2, 'FL', 'NY'),
     'incoming',
     toDecimal64(8.5 + (number % 12) * 1.25, 4),
     toDecimal64(5.0 + (number % 10) * 0.85, 4),
     toUInt8(number % 17 = 0),
-    now() - INTERVAL (number * 3) HOUR
+    now() - INTERVAL (number % 7) DAY - INTERVAL (number % 12) HOUR
 FROM numbers(50)
 WHERE NOT EXISTS (
     SELECT 1 FROM pings
@@ -34,13 +34,13 @@ INSERT INTO call_scores (
 SELECT
     toUUID('11111111-1111-1111-1111-111111111111'),
     concat('demo-call-', toString(number + 1)),
-    multiIf(number % 10 < 5, 'ringba', number % 10 < 7, 'retreaver', number % 10 < 8, 'trackdrive', number % 10 < 9, 'callgrid', 'mock'),
+    multiIf(number % 10 < 5, 'ringba', number % 10 < 7, 'retreaver', number % 10 < 8, 'trackdrive', number % 10 < 9, 'callgrid', 'callloom-native'),
     62 + (number % 33),
     multiIf(number % 3 = 0, 'positive', number % 3 = 1, 'neutral', 'negative'),
     if(number % 2 = 0, 'medicare-qa-v1', 'final-expense-v1'),
     toUInt16(4 + (number % 3)),
     toUInt16(number % 2),
-    now() - INTERVAL (number * 3) HOUR
+    now() - INTERVAL (number % 7) DAY - INTERVAL (number % 12) HOUR
 FROM numbers(30)
 WHERE NOT EXISTS (
     SELECT 1 FROM call_scores
@@ -57,7 +57,7 @@ SELECT
     concat('Agent greeted caller. Verified intent for call ', toString(number + 1), '. Compliance disclaimer read.'),
     120 + (number % 180),
     180 + (number % 120),
-    now() - INTERVAL (number * 3) HOUR
+    now() - INTERVAL (number % 7) DAY - INTERVAL (number % 12) HOUR
 FROM numbers(10)
 WHERE NOT EXISTS (
     SELECT 1 FROM transcripts
@@ -133,7 +133,7 @@ SELECT
     lower(hex(SHA256(concat('demo-ani-', toString(ani_idx))))),
     concat('attr_', leftPad(toString(attr_n), 3, '0')),
     concat('value_', toString(attr_n)),
-    'mock',
+    'enrollhere',
     now() - INTERVAL 1 DAY
 FROM
 (

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { PingRecord } from '@/lib/api';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
+import { PlatformBadge } from '@/components/ui/PlatformBadge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { pingRowKey } from '@/lib/use-ping-feed';
 import { cn } from '@/lib/utils';
@@ -44,20 +45,18 @@ export function PingsTable({
         >
           <TableCell className="text-calyx-muted">{formatTime(p.received_at)}</TableCell>
           <TableCell>
-            <Badge variant="teal" className="capitalize">
-              {p.platform}
-            </Badge>
+            <PlatformBadge platform={p.platform} />
           </TableCell>
           <TableCell className="font-mono text-xs">
             {linkable ? (
               <Link
                 href={`/calls/${encodeURIComponent(p.external_call_id)}?aniHash=${encodeURIComponent(p.ani_hash)}`}
-                className="text-calyx-accent hover:underline"
+                className="truncate text-calyx-accent hover:underline"
               >
                 {p.external_call_id.slice(0, 10)}…
               </Link>
             ) : (
-              <>{p.external_call_id.slice(0, 10)}…</>
+              <span className="truncate text-calyx-muted">{p.external_call_id.slice(0, 10)}…</span>
             )}
           </TableCell>
           <TableCell>{p.state || '—'}</TableCell>
@@ -77,13 +76,5 @@ export function PingsTable({
 
   if (hideHeader) return table;
 
-  return (
-    <div>
-      <div className="mb-2 px-1">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-calyx-accent">Live Feed</p>
-        <h3 className="text-sm font-semibold text-calyx-text">Recent Pings</h3>
-      </div>
-      {table}
-    </div>
-  );
+  return table;
 }

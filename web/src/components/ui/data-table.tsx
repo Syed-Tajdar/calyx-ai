@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 
 interface DataTableProps {
   columns: string[];
+  columnClassNames?: (string | undefined)[];
   emptyTitle: string;
   emptyDescription?: string;
   isEmpty: boolean;
@@ -14,6 +15,7 @@ interface DataTableProps {
 
 export function DataTable({
   columns,
+  columnClassNames,
   emptyTitle,
   emptyDescription,
   isEmpty,
@@ -33,8 +35,10 @@ export function DataTable({
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            {columns.map((col) => (
-              <TableHead key={col}>{col}</TableHead>
+            {columns.map((col, index) => (
+              <TableHead key={col} className={columnClassNames?.[index]}>
+                {col}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>

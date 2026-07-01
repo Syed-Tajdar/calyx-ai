@@ -2,7 +2,7 @@
 
 Pay-per-call analytics and intelligence platform.
 
-> **Presentation build:** `MOCK_MODE=true` · Teal Glass UI complete · 100% API↔UI coverage · Management docs in [`docs/`](docs/README.md)
+> **Presentation build:** `MOCK_MODE=true` · Teal Glass UI polish complete · 100% API↔UI coverage · Management docs in [`docs/`](docs/README.md)
 
 See [`docs/design-system-v2.md`](docs/design-system-v2.md) for UI/UX specification.  
 UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.md)  
@@ -14,7 +14,7 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 ---
 
-## System verification (last run: 2026-06-22)
+## System verification (last run: 2026-07-01)
 
 | Layer | Result |
 |-------|--------|
@@ -23,9 +23,14 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 | API presentation checks | **20/20** (`verify-presentation.ps1`) |
 | Web routes (`:3001`) | **13/13** (all product pages + `/calls/demo-call-1`) |
 | WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — ≥3 events, multi-platform rotation) |
-| Unit tests (Go + API Jest) | **PASS** |
 | Web production build | **PASS** (16 routes) |
 | Pipeline smoke (multi-platform E2E) | **PASS (4/4)** — `verify-system.ps1` runs `smoke-test-all-platforms.ps1` |
+
+**Recent fixes (2026-07-01):**
+
+- **UI polish pass:** shared `PlatformBadge` + `formatPlatformColor()` (Call Loom = teal); no `mock` platform in charts; compliance ring `29/100`; publishers card (MediaCo, LeadStream, DialPro, CallStream + quality badges); settings alerts (Email/Slack/SMS) and providers (Deepgram, OpenAI, Meta CAPI, DNC.com + Mock/Active status); Top Scores / Publishers table alignment.
+- **Ping chart 7-day curve:** dashboard fetches 100 pings for last 7 days via `ping-timeline.ts` (filled daily buckets) — not the capped 50-row live sample.
+- **API fix:** `GET /pings?from=...` no longer 500 when date filter is set (ClickHouse `received_at` alias collision resolved in `pings.service.ts`).
 
 **One-command full check** (Docker + health + API + web + WS + tests + build + 4/4 pipeline — hard-fail if any layer fails):
 
@@ -141,7 +146,7 @@ WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter, 5-pla
 | Route | Description |
 |-------|-------------|
 | `/login` | Auth (dev credentials below) |
-| `/dashboard` | Overview metrics, platform mix (ClickHouse aggregate), platform filter, live activity strip, hybrid WS + poll feed |
+| `/dashboard` | Overview metrics, **7-day ping chart** (filled timeline), platform mix (ClickHouse aggregate + colored badges), platform filter, live activity strip (colored event pills), hybrid WS + poll feed, publisher quality card, Top Scores table |
 | `/pings` | Ping feed — 5-platform filter (Ringba, Retreaver, TrackDrive, CallGrid, Call Loom), date filters, filtered live WS, accurate total badge, CSV export |
 | `/scoring` | Call quality scores |
 | `/scoring/scorecards` | Scorecard CRUD (rules editor) |
@@ -152,9 +157,9 @@ WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter, 5-pla
 | `/attribution` | Conversion events and platform status |
 | `/coverage` | Geographic ping demand heatmap |
 | `/reports` | Financial analytics (CPA, RPC, ROI, P&L) |
-| `/settings` | Integrations, alerts, provider bindings (create/edit/delete/test) |
+| `/settings` | Integrations, alerts (Email/Slack/SMS channel badges), provider bindings (real provider names + Mock/Active status) |
 
-**Teal Glass design system:** Geist headings + Inter body, glass sidebar/topbar, teal aurora background, teal gradient CTAs. Tokens in [`web/src/styles/tokens/`](web/src/styles/tokens/). Dark theme for presentation demo. Storybook: `cd web && npm run storybook`.
+**Teal Glass design system:** Geist headings + Inter body, glass sidebar/topbar, teal aurora background, teal gradient CTAs and active nav. Shared platform labels via `web/src/lib/platform-options.ts` (`formatPlatformLabel`, `formatPlatformColor`). `PlatformBadge`, `ScoreBar`, and status pills in `web/src/components/ui/`. Tokens in [`web/src/styles/tokens/`](web/src/styles/tokens/). Dark theme for presentation demo. Storybook: `cd web && npm run storybook`.
 
 ---
 
@@ -183,7 +188,7 @@ make dev-up
 
 ### MOCK_MODE switch
 
-Default is `MOCK_MODE=true` — no external API keys required.
+Default is `MOCK_MODE=true` — no external API keys required. Web container sets `NEXT_PUBLIC_MOCK_MODE=true` for provider status badges in Settings.
 
 To go live later:
 
@@ -240,13 +245,17 @@ call_uuid=[uuid]&call_key=[key]&caller=...&state=CA&event=incoming&revenue=9.75
 
 **Cold start:** ClickHouse fixture `000006_demo_fixture` + Postgres alert rules seed load on `clickhouse-init` / `migrate` — dashboard shows data without running the pipeline. Fixture backfills when `demo-call-1` or `demo-callloom-1` is missing (safe after smoke tests). Includes:
 
-- 50 webhook demo pings (`demo-call-*`) across ringba, retreaver, trackdrive, callgrid
+- 50 webhook demo pings (`demo-call-*`) across ringba, retreaver, trackdrive, callgrid, **callloom-native** (no `mock` platform)
+- Pings spread across **7 days** (`received_at` varied by day) for dashboard ping chart curve
+- Named publishers (MediaCo, LeadStream, DialPro, CallStream) in fixture rows
 - 3 **Call Loom native** demo pings (`demo-callloom-1/2/3`) — filterable on `/pings` as **Call Loom**
 - Scores, transcripts, compliance, attribution, enrichment for `/calls/demo-call-1`
+- Postgres alert rules seeded with `email` / `slack` / `sms` channels (not `mock`)
 
-Re-run fixture on existing stacks:
+Re-run fixture on existing stacks (delete demo rows first if dates need refresh):
 
 ```powershell
+docker exec deploy-clickhouse-1 clickhouse-client --password callloom_dev --query "ALTER TABLE pings DELETE WHERE tenant_id=toUUID('11111111-1111-1111-1111-111111111111') AND startsWith(external_call_id, 'demo-')"
 cd deploy
 docker compose run --rm clickhouse-init
 ```

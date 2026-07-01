@@ -22,7 +22,9 @@ export function PlatformStatusGrid({ platforms }: PlatformStatusGridProps): JSX.
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {platforms.map((p) => {
+      {platforms
+        .filter((p) => p.platform !== 'mock')
+        .map((p) => {
         const total = p.fired_count + p.failed_count;
         const successRate = total > 0 ? Math.round((p.fired_count / total) * 100) : 0;
         return (

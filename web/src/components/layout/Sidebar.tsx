@@ -77,7 +77,7 @@ export function Sidebar(): JSX.Element {
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 active
-                  ? 'bg-calyx-accent-muted text-calyx-accent'
+                  ? 'bg-calyx-teal/15 text-calyx-teal'
                   : 'text-calyx-muted hover:bg-calyx-card hover:text-calyx-text',
               )}
             >

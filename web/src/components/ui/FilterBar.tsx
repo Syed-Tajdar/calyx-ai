@@ -18,14 +18,14 @@ export function FilterBar({ showPlatform = false, platforms = [] }: FilterBarPro
   const { preset, platform, setPreset, setPlatform } = useDateFilter();
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium text-calyx-muted">Period</span>
+    <div className="mb-4 flex flex-wrap items-center gap-3">
+      <span className="text-xs font-medium leading-none text-calyx-muted">Period</span>
       {PRESETS.map((p) => (
         <button
           key={p.value}
           type="button"
           onClick={() => setPreset(p.value)}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+          className={`inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium leading-none transition ${
             preset === p.value
               ? 'bg-calyx-accent-muted text-calyx-accent'
               : 'text-calyx-muted hover:bg-calyx-surface hover:text-calyx-text'
@@ -36,11 +36,11 @@ export function FilterBar({ showPlatform = false, platforms = [] }: FilterBarPro
       ))}
       {showPlatform && (
         <>
-          <span className="ml-2 text-xs font-medium text-calyx-muted">Platform</span>
+          <span className="text-xs font-medium leading-none text-calyx-muted">Platform</span>
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value)}
-            className="rounded-md border border-calyx-border bg-calyx-surface px-2 py-1 text-xs text-calyx-text"
+            className="inline-flex h-8 items-center rounded-md border border-calyx-border bg-calyx-surface px-2.5 text-xs leading-none text-calyx-text"
           >
             <option value="">All</option>
             {platforms.map((pl) => (

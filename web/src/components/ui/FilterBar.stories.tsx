@@ -22,6 +22,6 @@ export const DateOnly: Story = {};
 export const WithPlatform: Story = {
   args: {
     showPlatform: true,
-    platforms: ['ringba', 'retreaver', 'mock'],
+    platforms: ['ringba', 'retreaver', 'callloom-native'],
   },
 };

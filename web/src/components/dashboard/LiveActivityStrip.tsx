@@ -1,19 +1,13 @@
 'use client';
 
 import type { LiveEventEnvelope } from '@/lib/use-live-feed';
+import { LiveEventBadge } from '@/components/ui/StatusPill';
 import { cn } from '@/lib/utils';
 
 interface LiveActivityStripProps {
   events: LiveEventEnvelope[];
   className?: string;
 }
-
-const TYPE_LABELS: Record<string, string> = {
-  ping_received: 'Ping',
-  call_scored: 'Scored',
-  conversion_attributed: 'Attributed',
-  compliance_violation: 'Violation',
-};
 
 export function LiveActivityStrip({
   events,
@@ -36,13 +30,11 @@ export function LiveActivityStrip({
           return (
             <li
               key={`${event.type}-${event.emitted_at}-${index}`}
-              className="flex items-center justify-between px-4 py-2 text-xs motion-safe:animate-[calyx-flash_2s_ease-out]"
+              className="flex items-center justify-between gap-3 px-4 py-2 text-xs motion-safe:animate-[calyx-flash_2s_ease-out]"
             >
-              <span className="font-medium text-calyx-teal">
-                {TYPE_LABELS[event.type] ?? event.type}
-              </span>
-              <span className="truncate font-mono text-calyx-muted">{callId}</span>
-              <span className="tabular-nums text-calyx-dim">
+              <LiveEventBadge eventType={event.type} />
+              <span className="min-w-0 flex-1 truncate font-mono text-calyx-muted">{callId}</span>
+              <span className="shrink-0 tabular-nums text-calyx-dim">
                 {new Date(event.emitted_at).toLocaleTimeString()}
               </span>
             </li>

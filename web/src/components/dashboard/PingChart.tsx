@@ -14,6 +14,8 @@ interface PingChartProps {
   data: Array<{ date: string; count: number }>;
 }
 
+const TEAL = '#1D9E75';
+
 export function PingChart({ data }: PingChartProps): JSX.Element {
   const chartData = data.length > 0 ? data : [{ date: '—', count: 0 }];
 
@@ -31,11 +33,12 @@ export function PingChart({ data }: PingChartProps): JSX.Element {
       </div>
       <div className="h-48 w-full sm:h-56">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
+          <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="pingGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--calyx-teal)" stopOpacity={0.45} />
-                <stop offset="100%" stopColor="var(--calyx-teal)" stopOpacity={0.02} />
+                <stop offset="0%" stopColor={TEAL} stopOpacity={0.5} />
+                <stop offset="55%" stopColor={TEAL} stopOpacity={0.12} />
+                <stop offset="100%" stopColor={TEAL} stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid
@@ -49,13 +52,16 @@ export function PingChart({ data }: PingChartProps): JSX.Element {
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: string) => v.slice(5)}
+              interval={0}
+              minTickGap={4}
             />
             <YAxis
               tick={{ fill: 'var(--calyx-chart-tick)', fontSize: 10 }}
               axisLine={false}
               tickLine={false}
               allowDecimals={false}
-              width={30}
+              width={28}
+              domain={[0, 'auto']}
             />
             <Tooltip
               contentStyle={{
@@ -65,13 +71,31 @@ export function PingChart({ data }: PingChartProps): JSX.Element {
                 color: 'var(--calyx-text)',
                 fontSize: '12px',
               }}
+              labelFormatter={(label: string) => {
+                const d = new Date(`${label}T12:00:00`);
+                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              }}
+              formatter={(value: number) => [`${value} pings`, 'Volume']}
             />
             <Area
               type="monotone"
               dataKey="count"
-              stroke="var(--calyx-teal)"
-              strokeWidth={2}
+              stroke={TEAL}
+              strokeWidth={2.5}
               fill="url(#pingGradient)"
+              dot={{
+                r: 4,
+                fill: TEAL,
+                stroke: 'var(--calyx-card)',
+                strokeWidth: 2,
+              }}
+              activeDot={{
+                r: 6,
+                fill: TEAL,
+                stroke: 'var(--calyx-card)',
+                strokeWidth: 2,
+              }}
+              connectNulls
             />
           </AreaChart>
         </ResponsiveContainer>

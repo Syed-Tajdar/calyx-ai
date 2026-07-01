@@ -4,8 +4,8 @@ SELECT
     'CPA spike alert',
     '{"metric":"cpa","operator":"gt","window_minutes":60}'::jsonb,
     45.0000,
-    '{mock}',
-    '[{"type":"notify","channel":"mock"}]'::jsonb
+    '{email}',
+    '[{"type":"notify","channel":"email"}]'::jsonb
 WHERE NOT EXISTS (
     SELECT 1 FROM alert_rules
     WHERE tenant_id = '11111111-1111-1111-1111-111111111111'
@@ -18,8 +18,8 @@ SELECT
     'Compliance risk threshold',
     '{"metric":"compliance_risk","operator":"gte","window_minutes":30}'::jsonb,
     70.0000,
-    '{mock}',
-    '[{"type":"notify","channel":"mock"}]'::jsonb
+    '{slack}',
+    '[{"type":"notify","channel":"slack"}]'::jsonb
 WHERE NOT EXISTS (
     SELECT 1 FROM alert_rules
     WHERE tenant_id = '11111111-1111-1111-1111-111111111111'
@@ -32,8 +32,8 @@ SELECT
     'Low conversion rate',
     '{"metric":"conversion_rate","operator":"lt","window_minutes":120}'::jsonb,
     0.1500,
-    '{mock}',
-    '[{"type":"notify","channel":"mock"}]'::jsonb
+    '{sms}',
+    '[{"type":"notify","channel":"sms"}]'::jsonb
 WHERE NOT EXISTS (
     SELECT 1 FROM alert_rules
     WHERE tenant_id = '11111111-1111-1111-1111-111111111111'

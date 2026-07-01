@@ -1,4 +1,5 @@
 import type { ScoreRecord } from '@/lib/api';
+import { PlatformBadge } from '@/components/ui/PlatformBadge';
 
 interface ScoreCardProps {
   score: ScoreRecord | null;
@@ -39,7 +40,7 @@ export function ScoreCard({ score, loading }: ScoreCardProps): JSX.Element {
         <p className={`text-4xl font-bold ${scoreColor}`}>{score.overall_score.toFixed(1)}</p>
         <div className="mb-1">
           <p className="text-sm capitalize text-calyx-text">{score.sentiment}</p>
-          <p className="text-xs text-calyx-muted">{score.platform}</p>
+          <PlatformBadge platform={score.platform} />
         </div>
       </div>
       <div className="mt-4 flex gap-4 text-xs">

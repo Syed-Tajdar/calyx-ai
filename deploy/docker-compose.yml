@@ -418,10 +418,12 @@ services:
       context: ../web
       args:
         NEXT_PUBLIC_API_URL: http://localhost:3000
+        NEXT_PUBLIC_MOCK_MODE: "true"
     ports:
       - "3001:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3000
+      NEXT_PUBLIC_MOCK_MODE: "true"
     depends_on:
       - api
 

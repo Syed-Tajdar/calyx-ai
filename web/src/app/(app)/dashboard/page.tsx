@@ -20,16 +20,24 @@ import {
   ExposureSummary,
   fetchAnalyticsMetrics,
   fetchComplianceExposure,
+  fetchPings,
   fetchPlatformMix,
   fetchScores,
   MetricsResult,
+  PingRecord,
   PlatformMixRow,
   ScoreRecord,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { computeDashboardStats } from '@/lib/dashboard-stats';
+import { DEMO_PUBLISHERS } from '@/lib/demo-publishers';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
+import { formatPlatformLabel } from '@/lib/platform-options';
+import {
+  buildFilledPingTimeline,
+  chartFiltersForLastDays,
+} from '@/lib/ping-timeline';
 import { useHybridPingFeed } from '@/lib/use-hybrid-ping-feed';
 import { usePlatformOptions } from '@/lib/use-platform-options';
 import { LiveActivityStrip } from '@/components/dashboard/LiveActivityStrip';
@@ -42,10 +50,16 @@ export default function DashboardPage(): JSX.Element {
   const [platformMix, setPlatformMix] = useState<PlatformMixRow[]>([]);
   const [exposure, setExposure] = useState<ExposureSummary | null>(null);
   const [scores, setScores] = useState<ScoreRecord[]>([]);
+  const [chartPings, setChartPings] = useState<PingRecord[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const { pings, newRowKeys, isLive, isPollingFallback, connected, liveEvents } = useHybridPingFeed({
+  const chartFilters = useMemo(
+    () => chartFiltersForLastDays(7, platform || undefined),
+    [platform],
+  );
+
+  const { pings, newRowKeys, isPollingFallback, connected, liveEvents } = useHybridPingFeed({
     limit: 50,
     offset: 0,
     filters,
@@ -62,14 +76,16 @@ export default function DashboardPage(): JSX.Element {
       fetchPlatformMix(token, filters),
       fetchComplianceExposure(token),
       fetchScores(token, { limit: 5, offset: 0 }),
+      fetchPings(token, 100, 0, chartFilters),
     ])
-      .then(([metricsRes, platformMixRes, exposureRes, scoresRes]) => {
+      .then(([metricsRes, platformMixRes, exposureRes, scoresRes, chartPingsRes]) => {
         setMetrics(metricsRes);
         setPlatformMix(platformMixRes);
         setExposure(exposureRes);
         if (scoresRes && 'data' in scoresRes) {
           setScores(scoresRes.data);
         }
+        setChartPings(chartPingsRes.data);
       })
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -79,7 +95,7 @@ export default function DashboardPage(): JSX.Element {
         setError('Failed to load dashboard data');
       })
       .finally(() => setLoading(false));
-  }, [router, filters.from, filters.platform, preset]);
+  }, [router, filters.from, filters.platform, preset, chartFilters.from, chartFilters.platform]);
 
   const platformOptions = usePlatformOptions();
 
@@ -88,13 +104,21 @@ export default function DashboardPage(): JSX.Element {
     [pings],
   );
 
+  const pingTimeline = useMemo(
+    () => buildFilledPingTimeline(chartPings, 7),
+    [chartPings],
+  );
+
   const chartPlatformData = useMemo(
     () =>
-      platformMix.map((row) => ({
-        name: row.platform.charAt(0).toUpperCase() + row.platform.slice(1),
-        value: row.count,
-        percent: row.percent,
-      })),
+      platformMix
+        .filter((row) => row.platform !== 'mock')
+        .map((row) => ({
+          name: formatPlatformLabel(row.platform),
+          slug: row.platform,
+          value: row.count,
+          percent: row.percent,
+        })),
     [platformMix],
   );
 
@@ -109,7 +133,7 @@ export default function DashboardPage(): JSX.Element {
         title="Operations Overview"
         description="Real-time ping pipeline, financial metrics, and intelligence at a glance."
         action={
-          isLive ? (
+          connected ? (
             <Badge variant="teal" className="gap-1.5">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-calyx-teal" />
               Live
@@ -144,7 +168,7 @@ export default function DashboardPage(): JSX.Element {
               trend={`${stats.uniqueRate.toFixed(1)}% unique`}
               trendUp={stats.uniqueRate >= 50}
               icon={Phone}
-              sparklineData={stats.timeline.map((t) => t.count)}
+              sparklineData={pingTimeline.map((t) => t.count)}
             />
             <MetricCard
               label="Avg Call Score"
@@ -166,7 +190,7 @@ export default function DashboardPage(): JSX.Element {
           </section>
 
           <section className="grid gap-4 lg:grid-cols-2">
-            <PingChart data={stats.timeline} />
+            <PingChart data={pingTimeline} />
             <PlatformChart data={chartPlatformData} />
           </section>
 
@@ -177,14 +201,14 @@ export default function DashboardPage(): JSX.Element {
             <IntelligenceHubCards />
           </section>
 
-          <section className="grid gap-4 lg:grid-cols-2">
-            <div>
+          <section className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+            <div className="flex min-h-[320px] flex-col">
               <SubsectionHeader title="Top Scores" icon={Star} />
               <ScoresTable scores={scores} compact />
             </div>
-            <div>
+            <div className="flex min-h-[320px] flex-col">
               <SubsectionHeader title="Publishers" icon={Users} />
-              <PerformanceTable publishers={stats.publishers} />
+              <PerformanceTable publishers={DEMO_PUBLISHERS} />
             </div>
           </section>
 

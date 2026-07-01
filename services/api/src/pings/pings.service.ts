@@ -29,8 +29,17 @@ const PING_SELECT = `
   tenant_id, platform, external_call_id, ani_hash,
   campaign_id, publisher_id, target_id, state,
   event_type, revenue, payout, is_duplicate,
-  formatDateTime(received_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS received_at
+  formatDateTime(received_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS received_at_iso
 `;
+
+interface PingRecordRow extends Omit<PingRecord, 'received_at'> {
+  received_at_iso: string;
+}
+
+function mapPingRow(row: PingRecordRow): PingRecord {
+  const { received_at_iso, ...rest } = row;
+  return { ...rest, received_at: received_at_iso };
+}
 
 @Injectable()
 export class PingsService {
@@ -83,10 +92,10 @@ export class PingsService {
       format: 'JSONEachRow',
     });
 
-    const data = await dataResult.json<PingRecord>();
+    const raw = await dataResult.json<PingRecordRow>();
 
     return {
-      data,
+      data: raw.map(mapPingRow),
       total,
       limit: safeLimit,
       offset: safeOffset,
@@ -114,7 +123,7 @@ export class PingsService {
       format: 'JSONEachRow',
     });
 
-    const rows = await dataResult.json<PingRecord>();
+    const rows = (await dataResult.json<PingRecordRow>()).map(mapPingRow);
     const headers = [
       'received_at',
       'platform',

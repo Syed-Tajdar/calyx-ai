@@ -1,4 +1,5 @@
 import type { PingRecord } from '@/lib/api';
+import { formatPlatformLabel } from '@/lib/platform-options';
 
 export interface DashboardStats {
   totalPings: number;
@@ -37,11 +38,12 @@ export function computeDashboardStats(
 
   const byPlatform = new Map<string, number>();
   for (const ping of pings) {
+    if (ping.platform === 'mock') continue;
     byPlatform.set(ping.platform, (byPlatform.get(ping.platform) ?? 0) + 1);
   }
   const platformTotal = Array.from(byPlatform.values()).reduce((a, b) => a + b, 0) || 1;
   const platforms = Array.from(byPlatform.entries()).map(([name, value]) => ({
-    name: name.charAt(0).toUpperCase() + name.slice(1),
+    name: formatPlatformLabel(name),
     value,
     percent: Math.round((value / platformTotal) * 100),
   }));
