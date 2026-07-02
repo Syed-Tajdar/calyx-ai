@@ -116,7 +116,12 @@
   }
 
   .calyx-metric-card {
-    @apply calyx-glass calyx-glass-lit p-5;
+    @apply calyx-glass rounded-xl p-5;
+    box-shadow:
+      inset 0 1px 0 rgba(17, 206, 184, 0.1),
+      0 1px 0 rgba(255, 255, 255, 0.04),
+      0 4px 14px rgba(0, 0, 0, 0.48),
+      0 12px 28px rgba(0, 0, 0, 0.36);
   }
 
   .calyx-btn-primary {
@@ -157,6 +162,10 @@
     flex-shrink: 0;
   }
 
+  .filter-group-label {
+    @apply text-[10px] font-bold uppercase tracking-wider text-calyx-dim;
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     .calyx-metric-icon-pulse {
       animation: calyx-icon-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -173,6 +182,66 @@
 
   .calyx-table-cell-mono {
     @apply calyx-table-cell font-mono text-xs tabular-nums;
+  }
+
+  .calyx-coverage-map {
+    @apply w-full;
+  }
+}
+
+@keyframes calyx-map-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes calyx-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes calyx-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes calyx-teal-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(0, 201, 183, 0.25));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(0, 201, 183, 0.45));
+  }
+}
+
+/* Teal glow pulse on US state geography borders (coverage map) */
+@keyframes calyx-geo-stroke-pulse {
+  0%,
+  100% {
+    stroke: var(--calyx-border);
+    filter: drop-shadow(0 0 1px rgba(0, 201, 183, 0.12));
+  }
+  50% {
+    stroke: rgba(0, 201, 183, 0.8);
+    filter: drop-shadow(0 0 6px rgba(0, 201, 183, 0.55));
   }
 }
 

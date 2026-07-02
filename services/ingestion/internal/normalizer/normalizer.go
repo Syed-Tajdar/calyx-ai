@@ -6,6 +6,7 @@ import (
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/connectors"
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/crypto"
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/models"
+	usstate "github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/state"
 )
 
 // NormalizeRingba maps a Ringba payload to the internal ping schema.
@@ -35,7 +36,7 @@ func NormalizeRingba(
 		CampaignID:     payload.CampaignID,
 		PublisherID:    payload.PublisherID,
 		TargetID:       payload.TargetID,
-		State:          payload.State,
+		State:          usstate.NormalizeState(payload.State),
 		EventType:      payload.EventType,
 		Revenue:        payload.Revenue,
 		Payout:         payload.Payout,

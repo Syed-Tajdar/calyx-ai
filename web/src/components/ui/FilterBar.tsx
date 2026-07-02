@@ -18,25 +18,27 @@ export function FilterBar({ showPlatform = false, platforms = [] }: FilterBarPro
   const { preset, platform, setPreset, setPlatform } = useDateFilter();
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-3">
-      <span className="text-xs font-medium leading-none text-calyx-muted">Period</span>
-      {PRESETS.map((p) => (
-        <button
-          key={p.value}
-          type="button"
-          onClick={() => setPreset(p.value)}
-          className={`inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium leading-none transition ${
-            preset === p.value
-              ? 'bg-calyx-accent-muted text-calyx-accent'
-              : 'text-calyx-muted hover:bg-calyx-surface hover:text-calyx-text'
-          }`}
-        >
-          {p.label}
-        </button>
-      ))}
+    <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="filter-group-label">Period</span>
+        {PRESETS.map((p) => (
+          <button
+            key={p.value}
+            type="button"
+            onClick={() => setPreset(p.value)}
+            className={`inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium leading-none transition ${
+              preset === p.value
+                ? 'bg-calyx-accent-muted text-calyx-accent'
+                : 'text-calyx-muted hover:bg-calyx-surface hover:text-calyx-text'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
       {showPlatform && (
-        <>
-          <span className="text-xs font-medium leading-none text-calyx-muted">Platform</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="filter-group-label">Platform</span>
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value)}
@@ -49,7 +51,7 @@ export function FilterBar({ showPlatform = false, platforms = [] }: FilterBarPro
               </option>
             ))}
           </select>
-        </>
+        </div>
       )}
     </div>
   );

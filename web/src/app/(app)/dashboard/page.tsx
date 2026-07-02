@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Brain, DollarSign, Phone, Star, Users } from 'lucide-react';
-import { MetricCard } from '@/components/dashboard/MetricCard';
+import { Brain, DollarSign, Phone, Shield, Star, TrendingUp, Users } from 'lucide-react';
+import { MetricCard, MetricCardFrame } from '@/components/dashboard/MetricCard';
 import { PerformanceTable } from '@/components/dashboard/PerformanceTable';
 import { PingChart } from '@/components/dashboard/PingChart';
 import { PingsTable } from '@/components/dashboard/PingsTable';
@@ -127,6 +127,11 @@ export default function DashboardPage(): JSX.Element {
       ? (scores.reduce((sum, s) => sum + s.overall_score, 0) / scores.length).toFixed(1)
       : '—';
 
+  const scoreSparkline = useMemo(
+    () => scores.map((s) => s.overall_score),
+    [scores],
+  );
+
   return (
     <>
       <PageHeader
@@ -158,7 +163,6 @@ export default function DashboardPage(): JSX.Element {
               label="Total Revenue"
               value={`$${(metrics?.total_revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               trend={`RPC $${(metrics?.rpc ?? 0).toFixed(2)}`}
-              trendUp
               icon={DollarSign}
               iconPulseDelayMs={0}
               sparklineData={stats.timeline.map((t) => t.count)}
@@ -167,7 +171,6 @@ export default function DashboardPage(): JSX.Element {
               label="Total Pings"
               value={(metrics?.total_pings ?? 0).toLocaleString()}
               trend={`${stats.uniqueRate.toFixed(1)}% unique`}
-              trendUp={stats.uniqueRate >= 50}
               icon={Phone}
               iconPulseDelayMs={400}
               sparklineData={pingTimeline.map((t) => t.count)}
@@ -176,20 +179,28 @@ export default function DashboardPage(): JSX.Element {
               label="Avg Call Score"
               value={avgScore}
               trend={scores.length > 0 ? `${scores.length} scored` : 'No scores yet'}
-              trendUp={Number(avgScore) >= 70}
-              icon={Star}
+              icon={TrendingUp}
               iconPulseDelayMs={800}
+              sparklineData={scoreSparkline.length > 1 ? scoreSparkline : undefined}
             />
-            <div className="calyx-metric-card flex flex-col items-center justify-center">
-              <p className="mb-2 self-start text-[10px] font-semibold uppercase tracking-wide text-calyx-muted">
-                Compliance Exposure
-              </p>
-              <ComplianceRiskRing
-                score={Math.round(exposure?.avg_risk_score ?? 0)}
-                exposureUsd={exposure?.total_exposure_usd ?? 0}
-                size="sm"
-              />
-            </div>
+            <MetricCardFrame>
+              <div className="flex items-start justify-between">
+                <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-calyx-muted">
+                  Compliance Exposure
+                </p>
+                <span className="calyx-metric-icon-pulse">
+                  <Shield className="size-[18px] text-calyx-teal" strokeWidth={2} aria-hidden />
+                </span>
+              </div>
+              <div className="mt-2">
+                <ComplianceRiskRing
+                  score={Math.round(exposure?.avg_risk_score ?? 0)}
+                  exposureUsd={exposure?.total_exposure_usd ?? 0}
+                  size="sm"
+                  align="start"
+                />
+              </div>
+            </MetricCardFrame>
           </section>
 
           <section className="grid gap-4 lg:grid-cols-2">

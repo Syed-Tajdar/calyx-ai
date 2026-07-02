@@ -4,24 +4,14 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { CoverageMapDynamic } from '@/components/coverage/CoverageMapDynamic';
+import { StateDetailPanel } from '@/components/coverage/StateDetailPanel';
+import { StateHeatmapChart } from '@/components/coverage/StateHeatmapChart';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/button';
-import { StateHeatmapChart } from '@/components/coverage/StateHeatmapChart';
 import { ApiError, fetchCoverageHeatmap, HeatmapStateRow } from '@/lib/api';
 import { getToken } from '@/lib/auth';
-
-const US_STATES_MAX = 60;
-
-function intensityClass(count: number, max: number): string {
-  if (max === 0) return 'bg-calyx-surface';
-  const ratio = count / max;
-  if (ratio > 0.75) return 'bg-calyx-teal';
-  if (ratio > 0.5) return 'bg-calyx-teal/70';
-  if (ratio > 0.25) return 'bg-calyx-teal/40';
-  if (ratio > 0) return 'bg-calyx-teal/20';
-  return 'bg-calyx-surface';
-}
 
 export default function CoveragePage(): JSX.Element {
   const router = useRouter();
@@ -29,6 +19,8 @@ export default function CoveragePage(): JSX.Element {
   const [totalPings, setTotalPings] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [selectionCleared, setSelectionCleared] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -49,10 +41,40 @@ export default function CoveragePage(): JSX.Element {
       .finally(() => setLoading(false));
   }, [router]);
 
-  const maxCount = useMemo(
-    () => Math.max(...rows.map((r) => r.ping_count), 1),
+  const sortedRows = useMemo(
+    () => [...rows].sort((a, b) => b.ping_count - a.ping_count),
     [rows],
   );
+
+  const selectedRow = useMemo(() => {
+    if (selectionCleared && !selectedState) return null;
+    if (selectedState) {
+      return rows.find((r) => r.state.trim().toUpperCase() === selectedState) ?? null;
+    }
+    return sortedRows[0] ?? null;
+  }, [rows, selectedState, selectionCleared, sortedRows]);
+
+  const mapSelectedCode = useMemo(() => {
+    if (selectedState) return selectedState;
+    if (selectionCleared) return null;
+    return sortedRows[0]?.state.trim().toUpperCase() ?? null;
+  }, [selectedState, selectionCleared, sortedRows]);
+
+  const selectedRank = useMemo(() => {
+    if (!selectedRow) return null;
+    const index = sortedRows.findIndex((r) => r.state === selectedRow.state);
+    return index >= 0 ? index + 1 : null;
+  }, [selectedRow, sortedRows]);
+
+  const handleClearSelection = (): void => {
+    setSelectedState(null);
+    setSelectionCleared(true);
+  };
+
+  const handleSelectState = (code: string | null): void => {
+    setSelectedState(code);
+    setSelectionCleared(false);
+  };
 
   return (
     <div className="space-y-8">
@@ -83,26 +105,21 @@ export default function CoveragePage(): JSX.Element {
             </div>
           ) : (
             <>
-            <div className="calyx-card p-4">
-              <div className="grid grid-cols-4 gap-2 xs:grid-cols-5 sm:grid-cols-8 md:grid-cols-10">
-                {rows.slice(0, US_STATES_MAX).map((row) => (
-                  <div
-                    key={row.state}
-                    className={`rounded-md p-2 text-center transition ${intensityClass(row.ping_count, maxCount)}`}
-                    title={`${row.state}: ${row.ping_count} pings, $${row.revenue.toFixed(2)}`}
-                  >
-                    <p className="text-xs font-bold text-calyx-text">{row.state}</p>
-                    <p className="text-[10px] text-calyx-muted">{row.ping_count}</p>
-                  </div>
-                ))}
+              <div className="grid items-start gap-4 lg:grid-cols-[1fr_220px]">
+                <CoverageMapDynamic
+                  data={rows}
+                  selectedState={mapSelectedCode}
+                  onSelectState={handleSelectState}
+                  totalPings={totalPings}
+                />
+                <StateDetailPanel
+                  selected={selectedRow}
+                  rank={selectedRank}
+                  totalPings={totalPings}
+                  onClear={handleClearSelection}
+                />
               </div>
-              <div className="mt-4 flex items-center gap-2 text-xs text-calyx-muted">
-                <span>Low</span>
-                <div className="h-2 flex-1 rounded bg-gradient-to-r from-calyx-surface via-calyx-teal/40 to-calyx-teal" />
-                <span>High</span>
-              </div>
-            </div>
-            <StateHeatmapChart data={rows} />
+              <StateHeatmapChart data={rows} />
             </>
           )}
         </>

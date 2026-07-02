@@ -5,6 +5,7 @@ import (
 
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/crypto"
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/models"
+	usstate "github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/state"
 )
 
 func buildPing(
@@ -45,7 +46,7 @@ func buildPing(
 		CampaignID:     campaignID,
 		PublisherID:    publisherID,
 		TargetID:       targetID,
-		State:          state,
+		State:          usstate.NormalizeState(state),
 		EventType:      eventType,
 		Revenue:        revenue,
 		Payout:         payout,

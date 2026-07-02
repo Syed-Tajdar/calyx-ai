@@ -22,12 +22,21 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 | Service health (`/healthz` + `/readyz`) | **10/10** (ports 8080–8087, API :3000) |
 | API presentation checks | **20/20** (`verify-presentation.ps1`) |
 | Web routes (`:3001`) | **13/13** (all product pages + `/calls/demo-call-1`) |
+| Dashboard browser smoke | **10/10** (`check-dashboard-browser.mjs` — metrics, sidebar, charts) |
 | WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — ≥3 events, multi-platform rotation) |
 | Web production build | **PASS** (16 routes) |
 | Pipeline smoke (multi-platform E2E) | **PASS (4/4)** — `verify-system.ps1` runs `smoke-test-all-platforms.ps1` |
 
+**Recent fixes (2026-06-22):**
+
+- **Coverage Intelligence map:** interactive US choropleth (`react-simple-maps` + `d3-scale`) on `/coverage` — graded teal heatmap by ping volume, hover tooltip, click → compact detail panel; map sits directly on page background (no card wrapper); Top-15 bar chart with adaptive heading; state border teal pulse animation (like dashboard KPI icons); `web/public/geo/us-states-10m.json` self-contained TopoJSON.
+- **State normalizer (ingestion):** `services/ingestion/internal/state` — `NormalizeState()` coerces Ringba/Retreaver full names (`Texas`) and mixed case (`tx`) to 2-letter uppercase at `buildPing` + `NormalizeRingba`; unknown geo → `""` (never drops ping). Verification: [`docs/all-states-verification-report.md`](docs/all-states-verification-report.md), [`docs/coverage-map-report.md`](docs/coverage-map-report.md).
+- **Dashboard metric cards:** teal icons (`text-calyx-teal`); Compliance Exposure card aligned with other KPI headers; `ComplianceRiskRing` optional `align="start"`.
+
 **Recent fixes (2026-07-01):**
 
+- **Dashboard metric cards:** left teal gradient accent bar on all 4 KPI cards; layered **drop shadow** on `.calyx-metric-card` so cards lift off `#060B14` background; `MiniSparkline` area fill + stroke; period delta trend chips (from existing sparkline series via `sparkline-utils.ts`); muted 18px icons ($, phone, trending-up, shield); `ComplianceRiskRing` teal gradient arc; `MetricCardFrame` shared shell with hover depth.
+- **FilterBar headings:** `Period` / `Platform` labels styled as uppercase section headings (not button-like) on dashboard, pings, and reports — `.filter-group-label` in `globals.css`.
 - **Best of Both sidebar (A+B+C+D):** collapsible 64px icon rail (`localStorage` persist), left teal active bar, nav groups (Operations / Intelligence / System), Mock footer pill + tenant name; shared nav in `web/src/lib/app-navigation.ts` (`Radio` icon for Pings — crisp at 16px); `NavIcon` wrapper for desktop + mobile.
 - **Dashboard metric pulse:** teal glow pulse on KPI card icons (staggered on dashboard); respects `prefers-reduced-motion`.
 - **UI polish pass:** shared `PlatformBadge` + `formatPlatformColor()` (Call Loom = teal); no `mock` platform in charts; compliance ring `29/100`; publishers card (MediaCo, LeadStream, DialPro, CallStream + quality badges); settings alerts (Email/Slack/SMS) and providers (Deepgram, OpenAI, Meta CAPI, DNC.com + Mock/Active status); Top Scores / Publishers table alignment.
@@ -72,6 +81,8 @@ Call Loom native (direct source): GET /sources/callloom-native/v1/pings
 | **Call Loom native** | `/sources/callloom-native/v1/pings` | Direct API (not webhook) |
 
 Each tenant integration is resolved by path token via PostgreSQL `lookup_integration_by_token`.
+
+**State normalization:** all platform connectors normalize incoming `state` / `geo_state` to 2-letter uppercase US codes (`TX`, `CA`, …) via `internal/state.NormalizeState`. Full names (`Texas`) and invalid codes (`ZZ`) are coerced or blanked — ingestion never fails on geo data.
 
 **Ingestion notes**
 
@@ -150,8 +161,8 @@ WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter, 5-pla
 | Route | Description |
 |-------|-------------|
 | `/login` | Auth (dev credentials below) |
-| `/dashboard` | Overview metrics, **7-day ping chart** (filled timeline), platform mix (ClickHouse aggregate + colored badges), platform filter, live activity strip (colored event pills), hybrid WS + poll feed, publisher quality card, Top Scores table |
-| `/pings` | Ping feed — 5-platform filter (Ringba, Retreaver, TrackDrive, CallGrid, Call Loom), date filters, filtered live WS, accurate total badge, CSV export |
+| `/dashboard` | Overview metrics with **teal accent-bar KPI cards**, gradient sparklines, period delta chips, compliance ring; **7-day ping chart**; platform mix; **FilterBar** (Period/Platform as section headings); live activity strip; hybrid WS + poll feed; publisher quality card; Top Scores table |
+| `/pings` | Ping feed — 5-platform filter (Ringba, Retreaver, TrackDrive, CallGrid, Call Loom), **FilterBar** date/platform filters, filtered live WS, accurate total badge, CSV export |
 | `/scoring` | Call quality scores |
 | `/scoring/scorecards` | Scorecard CRUD (rules editor) |
 | `/calls/[callId]` | Native deep view (ping + score + compliance + attribution); demo: `/calls/demo-call-1` |
@@ -159,11 +170,11 @@ WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter, 5-pla
 | `/ask` | Natural language analytics chat |
 | `/compliance` | TCPA risk scores, violations table, exposure |
 | `/attribution` | Conversion events and platform status |
-| `/coverage` | Geographic ping demand heatmap |
-| `/reports` | Financial analytics (CPA, RPC, ROI, P&L) |
+| `/coverage` | **Coverage Intelligence** — interactive US map (graded teal heatmap), state detail panel, demand bar chart; data from `GET /coverage/heatmap` (all states, not capped at 10) |
+| `/reports` | Financial analytics (CPA, RPC, ROI, P&L); **FilterBar** period filter |
 | `/settings` | Integrations, alerts (Email/Slack/SMS channel badges), provider bindings (real provider names + Mock/Active status) |
 
-**Teal Glass design system:** Geist headings + Inter body, glass sidebar/topbar (collapsible grouped nav on desktop), teal aurora background, teal gradient CTAs and active nav left-bar. Shared navigation: `web/src/lib/app-navigation.ts`. Shared platform labels via `web/src/lib/platform-options.ts` (`formatPlatformLabel`, `formatPlatformColor`). `PlatformBadge`, `ScoreBar`, `NavIcon`, and status pills in `web/src/components/ui/` and `web/src/components/layout/`. Tokens in [`web/src/styles/tokens/`](web/src/styles/tokens/). Dark theme for presentation demo. Storybook: `cd web && npm run storybook`.
+**Teal Glass design system:** Geist headings + Inter body, glass sidebar/topbar (collapsible grouped nav on desktop), teal aurora background, teal gradient CTAs and active nav left-bar. Dashboard KPI cards: `MetricCardFrame` accent bar, elevated `.calyx-metric-card` drop shadow, `MiniSparkline` gradient fill, `sparkline-utils` delta chips. Shared navigation: `web/src/lib/app-navigation.ts`. Shared platform labels via `web/src/lib/platform-options.ts` (`formatPlatformLabel`, `formatPlatformColor`). `PlatformBadge`, `ScoreBar`, `NavIcon`, `ComplianceRiskRing`, and status pills in `web/src/components/`. Tokens in [`web/src/styles/tokens/`](web/src/styles/tokens/). Dark theme for presentation demo. Storybook: `cd web && npm run storybook`.
 
 ---
 
@@ -290,7 +301,8 @@ make test
 | `smoke-test.ps1` | Single signed ping → ingestion → API (`-Platform ringba\|retreaver\|trackdrive\|callgrid`) |
 | `smoke-test-all-platforms.ps1` / `make smoke-test-all` | E2E smoke for all four webhook platforms |
 | `ws-smoke-test.mjs` | WebSocket `/live` receives ≥3 mock events (rotates ringba/retreaver/trackdrive/callgrid/callloom-native) |
-| `check-dashboard-browser.mjs` | Playwright smoke: login → dashboard, sidebar groups, metric pulse, charts (10 checks + screenshot) |
+| `check-dashboard-browser.mjs` | Playwright smoke: login → dashboard, sidebar, **metric accent bars / delta chips**, charts (**10 checks** + screenshot to `docs/mockups/`) |
+| `check-coverage-map.mjs` | Playwright smoke: login → `/coverage`, map paths, pulse border, API state count |
 | `demo-seed` | 25 pings for demo-ready dashboard |
 | `step1b-test` | Go providerconfig unit tests |
 | `make test` | Full test matrix (Go + API) |
@@ -301,6 +313,16 @@ make test
 make build-web
 make build-api
 ```
+
+**Rebuild web Docker image** after UI changes (picks up `NEXT_PUBLIC_MOCK_MODE` and latest Next.js build):
+
+```powershell
+cd deploy
+docker compose build web
+docker compose up -d web
+```
+
+Then hard-refresh the browser at http://localhost:3001 (`Ctrl+Shift+R`).
 
 ---
 
