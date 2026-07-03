@@ -35,6 +35,7 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 - **Verification:** `scripts/verify-ingestion-slice.ps1` / `make verify-ingestion-slice` — unique ping +1, duplicate resend does not inflate totals, Retreaver ciphertext length check.
 - **Mode scoping (Option B):** ingestion + consumer always real; intelligence services stay `MOCK_MODE=true` until Phases 1–4. Verify dashboard/coverage via **poll/refresh**, not WebSocket.
 - **Coverage map labels:** state abbreviations (TX, CA, …) via `d3-geo` `geoCentroid` + `useMapContext` (no `Marker` — avoids React runtime error).
+- **Docker web deploy:** `deploy-web-1` serves production Next.js on **:3001** (`docker compose up -d --build web`); local `npm run dev` and Docker web cannot share port 3001.
 
 **Recent fixes (2026-06-22):**
 
@@ -222,6 +223,8 @@ cp .env.example .env
 make dev-up
 ```
 
+`make dev-up` starts the full stack including **Web on Docker** at http://localhost:3001 (production Next.js build inside `deploy-web-1`). API at http://localhost:3000.
+
 | Service | Port | Health |
 |---------|------|--------|
 | Ingestion | 8080 | http://localhost:8080/healthz |
@@ -233,10 +236,32 @@ make dev-up
 | Ask AI | 8086 | http://localhost:8086/healthz |
 | Ad attribution | 8087 | http://localhost:8087/healthz |
 | API | 3000 | http://localhost:3000/healthz |
-| Web | 3001 | http://localhost:3001 |
+| **Web (Docker)** | **3001** | http://localhost:3001 |
 
 **Dev login:** `admin@calyx.ai` / `calyx_dev`  
 **Tenant A UUID:** `11111111-1111-1111-1111-111111111111` (displays as **Demo Tenant**)
+
+### Web: Docker vs local dev
+
+Both bind **port 3001** — only one can run at a time.
+
+| Mode | Command | When to use |
+|------|---------|-------------|
+| **Docker (default)** | `cd deploy && docker compose up -d --build web` | Presentation demo, production-like build |
+| **Local dev** | Stop Docker web first, then `cd web && npm run dev -- -p 3001` | Hot reload while editing UI |
+
+```powershell
+# Deploy / rebuild web on Docker (stop local dev on :3001 first if running)
+cd deploy
+docker compose up -d --build web
+
+# Switch to local dev (free port 3001)
+docker compose stop web
+cd ..\web
+npm run dev -- -p 3001
+```
+
+After UI changes, rebuild the Docker image — `npm run dev` does **not** update the container.
 
 ### MOCK_MODE switch
 
@@ -359,8 +384,7 @@ make build-api
 ```powershell
 cd deploy
 docker compose up -d --build ingestion api   # Phase 0 ingestion + aggregate filters
-docker compose build web
-docker compose up -d web
+docker compose up -d --build web             # production web on :3001
 ```
 
 Then hard-refresh the browser at http://localhost:3001 (`Ctrl+Shift+R`).
