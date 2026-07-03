@@ -45,3 +45,38 @@ func EncryptANI(plaintext string, key []byte) ([]byte, error) {
 	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
 	return ciphertext, nil
 }
+
+// DecryptANI decrypts AES-256-GCM blobs produced by EncryptANI. Never log the result.
+func DecryptANI(ciphertext []byte, key []byte) (string, error) {
+	if len(ciphertext) == 0 {
+		return "", nil
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", fmt.Errorf("crypto.DecryptANI: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("crypto.DecryptANI: %w", err)
+	}
+	nonceSize := gcm.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return "", fmt.Errorf("crypto.DecryptANI: ciphertext too short")
+	}
+	nonce, enc := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	plain, err := gcm.Open(nil, nonce, enc, nil)
+	if err != nil {
+		return "", fmt.Errorf("crypto.DecryptANI: open: %w", err)
+	}
+	return string(plain), nil
+}
+
+// EncryptSecret encrypts a credential string (e.g. Retreaver call_key) with the same AES-256-GCM key as ANI.
+func EncryptSecret(plaintext string, key []byte) ([]byte, error) {
+	return EncryptANI(plaintext, key)
+}
+
+// DecryptSecret decrypts a credential blob produced by EncryptSecret.
+func DecryptSecret(ciphertext []byte, key []byte) (string, error) {
+	return DecryptANI(ciphertext, key)
+}

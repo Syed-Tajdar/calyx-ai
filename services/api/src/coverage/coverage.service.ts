@@ -26,6 +26,7 @@ export class CoverageService {
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
           AND state != ''
+          AND is_duplicate = 0
         GROUP BY state
         ORDER BY ping_count DESC
         LIMIT 100

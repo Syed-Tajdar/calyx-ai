@@ -19,7 +19,6 @@ type Ping struct {
 	IsDuplicate    bool
 	ReceivedAt     time.Time
 	// CallKey is Retreaver's private update credential (call_uuid + call_key enable async conversion updates).
-	// Optional — only Retreaver provides it. Never log this value.
-	// TODO(production): encrypt at rest (AES-256-GCM) before MOCK_MODE=false go-live; plaintext in ClickHouse is dev-only.
+	// Plaintext in memory only until producer.Publish encrypts to hex for Kafka/ClickHouse. Never log this value.
 	CallKey string
 }

@@ -34,3 +34,22 @@ func TestEncryptANI_EmptyReturnsNil(t *testing.T) {
 		t.Fatal("expected nil ciphertext for empty ANI")
 	}
 }
+
+func TestEncryptSecret_RoundTrip(t *testing.T) {
+	key := bytes.Repeat([]byte{0xcd}, 32)
+	plain := "retreaver-credential-value"
+	enc, err := EncryptSecret(plain, key)
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	if len(enc) < 32 {
+		t.Fatal("expected non-trivial ciphertext length")
+	}
+	got, err := DecryptSecret(enc, key)
+	if err != nil {
+		t.Fatalf("decrypt: %v", err)
+	}
+	if got != plain {
+		t.Fatal("round-trip mismatch")
+	}
+}

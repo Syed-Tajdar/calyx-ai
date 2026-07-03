@@ -2,7 +2,7 @@
 
 Pay-per-call analytics and intelligence platform.
 
-> **Presentation build:** `MOCK_MODE=true` · Teal Glass UI polish complete · 100% API↔UI coverage · Management docs in [`docs/`](docs/README.md)
+> **Presentation build:** `MOCK_MODE=true` · Phase 0 real ingestion slice · Teal Glass UI · 100% API↔UI coverage · Docs in [`docs/`](docs/README.md)
 
 See [`docs/design-system-v2.md`](docs/design-system-v2.md) for UI/UX specification.  
 UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.md)  
@@ -14,18 +14,27 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 ---
 
-## System verification (last run: 2026-07-01)
+## System verification (last run: 2026-07-03)
 
 | Layer | Result |
 |-------|--------|
 | Docker containers | **14/14** (10 app services running; postgres, redis, clickhouse, redpanda healthy) |
 | Service health (`/healthz` + `/readyz`) | **10/10** (ports 8080–8087, API :3000) |
 | API presentation checks | **20/20** (`verify-presentation.ps1`) |
+| **Phase 0 ingestion slice** | **PASS** (`verify-ingestion-slice.ps1` — dedup aggregates + `call_key` ciphertext) |
 | Web routes (`:3001`) | **13/13** (all product pages + `/calls/demo-call-1`) |
 | Dashboard browser smoke | **10/10** (`check-dashboard-browser.mjs` — metrics, sidebar, charts) |
 | WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — ≥3 events, multi-platform rotation) |
 | Web production build | **PASS** (16 routes) |
 | Pipeline smoke (multi-platform E2E) | **PASS (4/4)** — `verify-system.ps1` runs `smoke-test-all-platforms.ps1` |
+
+**Recent fixes (2026-07-03) — Phase 0: Ingestion Slice Real:**
+
+- **`call_key` encryption at rest:** Retreaver `call_key` encrypted with AES-256-GCM at ingestion `producer.Publish` (reuses `ANI_ENCRYPTION_KEY`); stored as hex ciphertext in Kafka + ClickHouse; never in API/UI/logs. Report: [`docs/ingestion-slice-report.md`](docs/ingestion-slice-report.md).
+- **Dedup-correct aggregates:** `GET /analytics/metrics`, `/analytics/platform-mix`, and `/coverage/heatmap` exclude `is_duplicate = 1` rows; `/pings` list still shows raw rows (including duplicates).
+- **Verification:** `scripts/verify-ingestion-slice.ps1` / `make verify-ingestion-slice` — unique ping +1, duplicate resend does not inflate totals, Retreaver ciphertext length check.
+- **Mode scoping (Option B):** ingestion + consumer always real; intelligence services stay `MOCK_MODE=true` until Phases 1–4. Verify dashboard/coverage via **poll/refresh**, not WebSocket.
+- **Coverage map labels:** state abbreviations (TX, CA, …) via `d3-geo` `geoCentroid` + `useMapContext` (no `Marker` — avoids React runtime error).
 
 **Recent fixes (2026-06-22):**
 
@@ -50,6 +59,34 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1
 # or: make verify-system
+```
+
+---
+
+## Phase 0 — Real ingestion slice (MOCK_MODE=true on intelligence)
+
+First **real** slice of the ping pipeline — webhook auth → Kafka → ClickHouse → API reads. Intelligence (Deepgram, OpenAI, DNC, Meta) stays mock.
+
+```
+Webhook (Ringba/Retreaver/…) → Ingestion (Go) → Kafka → Consumer → ClickHouse
+                                                              ↓
+                                                    API analytics + coverage
+```
+
+| What changed | Detail |
+|--------------|--------|
+| `call_key` | AES-256-GCM encrypt at `producer.Publish`; hex in ClickHouse; API never returns it |
+| Aggregates | `is_duplicate = 0` filter on metrics, platform-mix, coverage heatmap |
+| Dedup | Redis at ingestion; duplicate rows stored with `is_duplicate=1` but excluded from totals |
+| Verify | `make verify-ingestion-slice` |
+
+Full report: [`docs/ingestion-slice-report.md`](docs/ingestion-slice-report.md) · Readiness: [`docs/real-readiness-report.md`](docs/real-readiness-report.md)
+
+**Rebuild after Phase 0 code changes:**
+
+```powershell
+cd deploy
+docker compose up -d --build ingestion api
 ```
 
 ---
@@ -87,8 +124,8 @@ Each tenant integration is resolved by path token via PostgreSQL `lookup_integra
 **Ingestion notes**
 
 - **Retreaver** accepts `call_uuid` plus optional `call_key` (private conversion-update credential for async buyer confirmations).
-- `call_key` is stored in ClickHouse at ingestion time for a future conversion-update flow; it is **never** returned by the API, shown in the UI, or logged (ingestion logs `call_key_present` only).
-- Before `MOCK_MODE=false` production go-live, encrypt `call_key` at rest (AES-256-GCM).
+- `call_key` is **encrypted at rest** (AES-256-GCM via `ANI_ENCRYPTION_KEY`) at ingestion publish; stored as hex ciphertext in ClickHouse. It is **never** returned by the API, shown in the UI, or logged (ingestion logs `call_key_present` only).
+- **Dedup:** duplicate webhooks are stored with `is_duplicate=1`; dashboard/coverage **aggregates** exclude them; `/pings` feed may still list duplicate rows.
 
 ---
 
@@ -288,6 +325,7 @@ Sends 25 signed Ringba pings across US states, waits for pipeline, then verifies
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
 powershell -ExecutionPolicy Bypass -File scripts/verify-presentation.ps1
+powershell -ExecutionPolicy Bypass -File scripts/verify-ingestion-slice.ps1
 powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1
 node scripts/ws-smoke-test.mjs
 make step1b-test
@@ -298,11 +336,13 @@ make test
 |---------|----------------|
 | `verify-system` | Full pre-push gate: Docker + healthz + API 20/20 + web 13/13 + WS + unit tests + web build + **pipeline 4/4** |
 | `verify-presentation` | Phase 3 API + `platform-mix` + `demo-call-1` deep view/score/transcript + scorecard CRUD + fixtures (**20 checks**) |
+| **`verify-ingestion-slice`** | **Phase 0:** dedup-correct analytics/coverage totals + Retreaver `call_key` ciphertext in ClickHouse |
 | `smoke-test.ps1` | Single signed ping → ingestion → API (`-Platform ringba\|retreaver\|trackdrive\|callgrid`) |
 | `smoke-test-all-platforms.ps1` / `make smoke-test-all` | E2E smoke for all four webhook platforms |
 | `ws-smoke-test.mjs` | WebSocket `/live` receives ≥3 mock events (rotates ringba/retreaver/trackdrive/callgrid/callloom-native) |
 | `check-dashboard-browser.mjs` | Playwright smoke: login → dashboard, sidebar, **metric accent bars / delta chips**, charts (**10 checks** + screenshot to `docs/mockups/`) |
 | `check-coverage-map.mjs` | Playwright smoke: login → `/coverage`, map paths, pulse border, API state count |
+| `check-coverage-localhost.mjs` | Localhost coverage map: SVG paths, state labels, API heatmap states |
 | `demo-seed` | 25 pings for demo-ready dashboard |
 | `step1b-test` | Go providerconfig unit tests |
 | `make test` | Full test matrix (Go + API) |
@@ -314,10 +354,11 @@ make build-web
 make build-api
 ```
 
-**Rebuild web Docker image** after UI changes (picks up `NEXT_PUBLIC_MOCK_MODE` and latest Next.js build):
+**Rebuild Docker images** after ingestion/API or UI changes:
 
 ```powershell
 cd deploy
+docker compose up -d --build ingestion api   # Phase 0 ingestion + aggregate filters
 docker compose build web
 docker compose up -d web
 ```

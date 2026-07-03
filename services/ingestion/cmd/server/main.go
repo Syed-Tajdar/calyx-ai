@@ -48,7 +48,7 @@ func main() {
 	defer kafkaClient.Close()
 
 	dedupChecker := dedup.NewChecker(redisClient, cfg.DedupTTL)
-	pingProducer := producer.NewProducer(kafkaClient, cfg.KafkaTopic)
+	pingProducer := producer.NewProducer(kafkaClient, cfg.KafkaTopic, cfg.EncryptionKey)
 
 	health := handlers.NewHealthHandler(dedupChecker, pingProducer, integrationStore)
 	webhook := handlers.NewWebhookHandler(cfg, integrationStore, dedupChecker, pingProducer, logger)

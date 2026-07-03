@@ -5,6 +5,11 @@ declare module 'react-simple-maps' {
     rsmKey: string;
     id?: string | number;
     properties?: Record<string, unknown>;
+    type?: string;
+    geometry?: {
+      type: string;
+      coordinates: unknown;
+    };
   }
 
   export interface ComposableMapProps {
@@ -43,4 +48,17 @@ declare module 'react-simple-maps' {
   export const ComposableMap: ComponentType<ComposableMapProps>;
   export const Geographies: ComponentType<GeographiesProps>;
   export const Geography: ComponentType<GeographyProps>;
+
+  export interface MapContextValue {
+    projection: ((coords: [number, number]) => [number, number] | null) | null;
+  }
+
+  export function useMapContext(): MapContextValue;
+
+  export interface MarkerProps {
+    coordinates: [number, number];
+    children?: ReactNode;
+  }
+
+  export const Marker: ComponentType<MarkerProps>;
 }

@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { geoCentroid } from 'd3-geo';
 import { scaleLinear } from 'd3-scale';
-import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
+import { ComposableMap, Geographies, Geography, useMapContext } from 'react-simple-maps';
+import type { GeographyType } from 'react-simple-maps';
 import type { HeatmapStateRow } from '@/lib/api';
 import { codeFromFips, stateNameFromCode } from '@/lib/us-states';
 import { usePrefersReducedMotion } from '@/lib/use-count-up';
@@ -17,6 +19,88 @@ const COLOR_MID = '#008f82';
 const COLOR_BRIGHT = '#11ceb8';
 
 const SCALE_STOPS = [COLOR_DIM, COLOR_DEEP, COLOR_MID, COLOR_BRIGHT] as const;
+
+/** Pixel nudges for crowded or tiny state labels (projected SVG coords). */
+const STATE_LABEL_OFFSETS: Record<string, [number, number]> = {
+  CT: [0, 5],
+  DC: [2, 3],
+  DE: [3, 0],
+  MA: [0, -2],
+  MD: [5, 3],
+  NH: [0, 5],
+  NJ: [0, 0],
+  RI: [2, 0],
+  VT: [0, -3],
+};
+
+const STATE_LABEL_FONT_SIZE: Record<string, number> = {
+  CT: 7,
+  DC: 7,
+  DE: 7,
+  HI: 8,
+  MA: 8,
+  MD: 7,
+  NH: 7,
+  NJ: 8,
+  RI: 6,
+  VT: 7,
+};
+
+const DEFAULT_LABEL_FONT_SIZE = 10;
+
+interface StateLabelsProps {
+  geographies: GeographyType[];
+  hoveredCode: string | null;
+  visible: boolean;
+  reducedMotion: boolean;
+}
+
+function StateLabels({
+  geographies,
+  hoveredCode,
+  visible,
+  reducedMotion,
+}: StateLabelsProps): JSX.Element | null {
+  const { projection } = useMapContext();
+  if (!projection) return null;
+
+  return (
+    <>
+      {geographies.map((geo) => {
+        const code = codeFromFips(String(geo.id ?? ''));
+        if (!code) return null;
+
+        const projected = projection(geoCentroid(geo));
+        if (!projected) return null;
+
+        const [x, y] = projected;
+        const [labelDx, labelDy] = STATE_LABEL_OFFSETS[code] ?? [0, 0];
+        const labelSize = STATE_LABEL_FONT_SIZE[code] ?? DEFAULT_LABEL_FONT_SIZE;
+        const dimmed = hoveredCode !== null && hoveredCode !== code && !reducedMotion;
+        const labelOpacity = visible ? (dimmed ? 0.45 : 0.92) : 0;
+
+        return (
+          <text
+            key={`label-${geo.rsmKey}`}
+            x={x + labelDx}
+            y={y + labelDy}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="calyx-coverage-map-label"
+            style={{
+              fontSize: labelSize,
+              opacity: labelOpacity,
+              transition: reducedMotion ? undefined : 'opacity 200ms ease',
+            }}
+            aria-hidden
+          >
+            {code}
+          </text>
+        );
+      })}
+    </>
+  );
+}
 
 interface CoverageMapProps {
   data: HeatmapStateRow[];
@@ -130,8 +214,9 @@ export function CoverageMap({
           }}
         >
           <Geographies geography={GEO_URL}>
-            {({ geographies }) =>
-              geographies.map((geo, index) => {
+            {({ geographies }) => (
+              <>
+                {geographies.map((geo, index) => {
                 const fips = String(geo.id ?? '');
                 const code = codeFromFips(fips);
                 if (!code) return null;
@@ -209,8 +294,15 @@ export function CoverageMap({
                     }}
                   />
                 );
-              })
-            }
+                })}
+                <StateLabels
+                  geographies={geographies}
+                  hoveredCode={hoveredCode}
+                  visible={mapVisible || reducedMotion}
+                  reducedMotion={reducedMotion}
+                />
+              </>
+            )}
           </Geographies>
         </ComposableMap>
       </div>

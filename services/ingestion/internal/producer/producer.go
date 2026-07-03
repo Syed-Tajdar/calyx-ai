@@ -2,9 +2,11 @@ package producer
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/crypto"
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/models"
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/pkg/kafka"
 )
@@ -24,24 +26,34 @@ type PingMessage struct {
 	Payout         float64 `json:"payout"`
 	IsDuplicate    bool    `json:"is_duplicate"`
 	ReceivedAt     int64   `json:"received_at_unix_ms"`
-	// CallKey: Retreaver-only; omitempty. Never log. Encrypt at rest before production (MOCK_MODE=false).
+	// CallKey: Retreaver-only; omitempty. Hex-encoded AES-256-GCM ciphertext — never plaintext.
 	CallKey string `json:"call_key,omitempty"`
 }
 
 // Producer publishes normalized pings to Kafka.
 type Producer struct {
-	client *kafka.Client
-	topic  string
+	client        *kafka.Client
+	topic         string
+	encryptionKey []byte
 }
 
 // NewProducer creates a Kafka ping producer.
-func NewProducer(client *kafka.Client, topic string) *Producer {
-	return &Producer{client: client, topic: topic}
+func NewProducer(client *kafka.Client, topic string, encryptionKey []byte) *Producer {
+	return &Producer{client: client, topic: topic, encryptionKey: encryptionKey}
 }
 
 // Publish sends a ping to Kafka. ANI encrypted blob is intentionally omitted from Kafka
 // for Phase 1 — only hash travels to analytics; encrypted blob stays out of hot path logs.
 func (p *Producer) Publish(ctx context.Context, ping models.Ping) error {
+	callKeyStored := ""
+	if ping.CallKey != "" {
+		enc, err := crypto.EncryptSecret(ping.CallKey, p.encryptionKey)
+		if err != nil {
+			return fmt.Errorf("producer.Publish: encrypt call_key: %w", err)
+		}
+		callKeyStored = hex.EncodeToString(enc)
+	}
+
 	msg := PingMessage{
 		TenantID:       ping.TenantID,
 		Platform:       ping.Platform,
@@ -56,7 +68,7 @@ func (p *Producer) Publish(ctx context.Context, ping models.Ping) error {
 		Payout:         ping.Payout,
 		IsDuplicate:    ping.IsDuplicate,
 		ReceivedAt:     ping.ReceivedAt.UTC().UnixMilli(),
-		CallKey:        ping.CallKey,
+		CallKey:        callKeyStored,
 	}
 	body, err := json.Marshal(msg)
 	if err != nil {

@@ -187,6 +187,17 @@
   .calyx-coverage-map {
     @apply w-full;
   }
+
+  .calyx-coverage-map-label {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    fill: rgba(255, 255, 255, 0.92);
+    stroke: rgba(8, 16, 28, 0.65);
+    stroke-width: 0.4px;
+    paint-order: stroke fill;
+    pointer-events: none;
+    user-select: none;
+  }
 }
 
 @keyframes calyx-map-enter {

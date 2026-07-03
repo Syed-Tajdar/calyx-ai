@@ -29,6 +29,7 @@ export interface PlatformMixRow {
 @Injectable()
 export class AnalyticsService {
   private readonly adSpendSource;
+  private readonly nonDuplicateClause = 'AND is_duplicate = 0';
 
   constructor(
     private readonly clickhouse: ClickhouseService,
@@ -54,6 +55,7 @@ export class AnalyticsService {
           sum(payout) AS total_payout
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
+        ${this.nonDuplicateClause}
         ${dateClause}
       `,
       query_params: params,
@@ -109,6 +111,7 @@ export class AnalyticsService {
         SELECT platform, count() AS count
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
+        ${this.nonDuplicateClause}
         ${dateClause}
         ${platformClause}
         GROUP BY platform
