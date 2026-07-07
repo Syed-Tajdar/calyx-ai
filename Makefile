@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down build-ingestion build-consumer build-scoring build-enrichment build-providerconfig build-compliance build-ask-ai build-attribution build-api build-web tidy test smoke-test smoke-test-all demo-seed verify-presentation verify-ingestion-slice verify-system step1b-test
+.PHONY: dev-up dev-down build-ingestion build-consumer build-scoring build-enrichment build-providerconfig build-compliance build-ask-ai build-attribution build-platform-sync build-api build-web tidy test smoke-test smoke-test-all demo-seed verify-presentation verify-ingestion-slice verify-api-sync verify-apisync-retreaver-real verify-apisync-ringba-real verify-apisync-trackdrive-real verify-apisync-callgrid-real verify-retreaver-real verify-system step1b-test
 
 dev-up:
 	docker compose -f deploy/docker-compose.yml up -d --build
@@ -30,6 +30,9 @@ build-ask-ai:
 build-attribution:
 	cd services/ad-attribution && go build -o ../../bin/ad-attribution ./cmd/server
 
+build-platform-sync:
+	cd services/platform-sync && go build -o ../../bin/platform-sync ./cmd/server
+
 build-api:
 	cd services/api && npm install && npm run build
 
@@ -45,6 +48,7 @@ tidy:
 	cd services/compliance-intelligence && go mod tidy
 	cd services/ask-ai && go mod tidy
 	cd services/ad-attribution && go mod tidy
+	cd services/platform-sync && go mod tidy
 
 test:
 	cd services/ingestion && go test ./...
@@ -55,6 +59,7 @@ test:
 	cd services/compliance-intelligence && go test ./...
 	cd services/ask-ai && go test ./...
 	cd services/ad-attribution && go test ./...
+	cd services/platform-sync && go test ./...
 	cd services/api && npm test
 
 step1b-test:
@@ -74,6 +79,24 @@ verify-presentation:
 
 verify-ingestion-slice:
 	powershell -ExecutionPolicy Bypass -File scripts/verify-ingestion-slice.ps1
+
+verify-api-sync:
+	powershell -ExecutionPolicy Bypass -File scripts/verify-api-sync.ps1
+
+verify-apisync-retreaver-real:
+	powershell -ExecutionPolicy Bypass -File scripts/verify-apisync-retreaver-real.ps1
+
+verify-apisync-ringba-real:
+	powershell -ExecutionPolicy Bypass -File scripts/verify-apisync-ringba-real.ps1
+
+verify-apisync-trackdrive-real:
+	powershell -ExecutionPolicy Bypass -File scripts/verify-apisync-trackdrive-real.ps1
+
+verify-apisync-callgrid-real:
+	powershell -ExecutionPolicy Bypass -File scripts/verify-apisync-callgrid-real.ps1
+
+verify-retreaver-real:
+	powershell -ExecutionPolicy Bypass -File scripts/verify-retreaver-real.ps1
 
 verify-system:
 	powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1

@@ -1,7 +1,37 @@
-import { Controller, Delete, Get, HttpCode, Param, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { z } from 'zod';
 import { CurrentTenant } from '../common/tenant.decorator';
-import { IntegrationRecord, IntegrationsService } from './integrations.service';
+import {
+  CreateIntegrationInput,
+  IntegrationRecord,
+  IntegrationsService,
+  TestConnectionResult,
+} from './integrations.service';
+
+const createSchema = z.object({
+  platform: z.enum(['ringba', 'retreaver', 'trackdrive', 'callgrid']),
+  name: z.string().min(1).max(128),
+  connection_mode: z.enum(['webhook', 'api_sync']),
+  webhook_secret: z.string().min(1).max(512).optional(),
+  api_key: z.string().min(1).max(512).optional(),
+  api_token: z.string().min(1).max(512).optional(),
+  account_id: z.string().min(1).max(128).optional(),
+  company_id: z.string().min(1).max(128).optional(),
+  subdomain: z.string().min(1).max(128).optional(),
+  public_key: z.string().min(1).max(512).optional(),
+  private_key: z.string().min(1).max(512).optional(),
+  auth_token: z.string().min(1).max(512).optional(),
+});
 
 @Controller('integrations')
 @UseGuards(AuthGuard('jwt'))
@@ -11,6 +41,36 @@ export class IntegrationsController {
   @Get()
   async list(@CurrentTenant() tenantId: string): Promise<IntegrationRecord[]> {
     return this.integrationsService.list(tenantId);
+  }
+
+  @Get('platform-options')
+  listPlatformOptions(): ReturnType<IntegrationsService['listPlatformOptions']> {
+    return this.integrationsService.listPlatformOptions();
+  }
+
+  @Post()
+  async create(
+    @CurrentTenant() tenantId: string,
+    @Body() body: unknown,
+  ): Promise<IntegrationRecord> {
+    const parsed = createSchema.parse(body) as CreateIntegrationInput;
+    return this.integrationsService.create(tenantId, parsed);
+  }
+
+  @Post(':id/test')
+  async test(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ): Promise<TestConnectionResult> {
+    return this.integrationsService.testConnection(tenantId, id);
+  }
+
+  @Post(':id/sync')
+  async sync(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ): Promise<{ status: string }> {
+    return this.integrationsService.triggerSync(tenantId, id);
   }
 
   @Delete(':id')

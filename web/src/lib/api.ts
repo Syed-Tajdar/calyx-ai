@@ -98,9 +98,44 @@ export interface IntegrationRecord {
   id: string;
   platform: string;
   name: string;
-  webhook_token: string;
+  connection_mode: 'webhook' | 'api_sync';
+  webhook_token: string | null;
   is_active: boolean;
+  last_sync_at: string | null;
+  sync_status: string;
+  last_sync_error: string | null;
   created_at: string;
+  supports_api_sync: boolean;
+  supports_webhook: boolean;
+}
+
+export interface ApiSyncCredentialField {
+  key: string;
+  label: string;
+  secret?: boolean;
+  placeholder?: string;
+}
+
+export interface PlatformConnectionOption {
+  platform: string;
+  supports_webhook: boolean;
+  supports_api_sync: boolean;
+  api_sync_fields?: ApiSyncCredentialField[];
+}
+
+export interface CreateIntegrationInput {
+  platform: string;
+  name: string;
+  connection_mode: 'webhook' | 'api_sync';
+  webhook_secret?: string;
+  api_key?: string;
+  api_token?: string;
+  account_id?: string;
+  company_id?: string;
+  subdomain?: string;
+  public_key?: string;
+  private_key?: string;
+  auth_token?: string;
 }
 
 export interface HeatmapStateRow {
@@ -382,6 +417,42 @@ export async function createAlertRule(
 
 export async function fetchIntegrations(token: string): Promise<IntegrationRecord[]> {
   return fetchWithAuth<IntegrationRecord[]>(token, '/integrations');
+}
+
+export async function fetchPlatformConnectionOptions(
+  token: string,
+): Promise<PlatformConnectionOption[]> {
+  return fetchWithAuth<PlatformConnectionOption[]>(token, '/integrations/platform-options');
+}
+
+export async function createIntegration(
+  token: string,
+  body: CreateIntegrationInput,
+): Promise<IntegrationRecord> {
+  return fetchWithAuth<IntegrationRecord>(token, '/integrations', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function testIntegration(
+  token: string,
+  id: string,
+): Promise<{ ok: boolean; message: string }> {
+  return fetchWithAuth<{ ok: boolean; message: string }>(
+    token,
+    `/integrations/${id}/test`,
+    { method: 'POST' },
+  );
+}
+
+export async function syncIntegration(
+  token: string,
+  id: string,
+): Promise<{ status: string }> {
+  return fetchWithAuth<{ status: string }>(token, `/integrations/${id}/sync`, {
+    method: 'POST',
+  });
 }
 
 export async function fetchCoverageHeatmap(token: string): Promise<HeatmapResult> {

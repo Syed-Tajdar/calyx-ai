@@ -2,7 +2,7 @@
 
 Pay-per-call analytics and intelligence platform.
 
-> **Presentation build:** `MOCK_MODE=true` · Phase 0 real ingestion slice · Teal Glass UI · 100% API↔UI coverage · Docs in [`docs/`](docs/README.md)
+> **Presentation build:** `MOCK_MODE=true` · Phase 0 real ingestion slice · **API sync worker** · Teal Glass UI · 100% API↔UI coverage · Docs in [`docs/`](docs/README.md)
 
 See [`docs/design-system-v2.md`](docs/design-system-v2.md) for UI/UX specification.  
 UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.md)  
@@ -14,19 +14,29 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 ---
 
-## System verification (last run: 2026-07-03)
+## System verification (last run: 2026-07-07)
 
 | Layer | Result |
 |-------|--------|
-| Docker containers | **14/14** (10 app services running; postgres, redis, clickhouse, redpanda healthy) |
-| Service health (`/healthz` + `/readyz`) | **10/10** (ports 8080–8087, API :3000) |
+| Docker containers | **15/15** (11 app services running; postgres, redis, clickhouse, redpanda healthy) |
+| Service health (`/healthz` + `/readyz`) | **11/11** (ports 8080–8088, API :3000) |
 | API presentation checks | **20/20** (`verify-presentation.ps1`) |
-| **Phase 0 ingestion slice** | **PASS** (`verify-ingestion-slice.ps1` — dedup aggregates + `call_key` ciphertext) |
+| **API sync (platform-sync)** | **PASS** (`verify-api-sync.ps1` — mock Retreaver pull → ping count +1) |
+| **Phase 0 ingestion slice** | **PASS** (`verify-ingestion-slice.ps1` — callId landing + dedup aggregates + `call_key` ciphertext; tolerant of concurrent `platform-sync`) |
 | Web routes (`:3001`) | **13/13** (all product pages + `/calls/demo-call-1`) |
 | Dashboard browser smoke | **10/10** (`check-dashboard-browser.mjs` — metrics, sidebar, charts) |
 | WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — ≥3 events, multi-platform rotation) |
 | Web production build | **PASS** (16 routes) |
 | Pipeline smoke (multi-platform E2E) | **PASS (4/4)** — `verify-system.ps1` runs `smoke-test-all-platforms.ps1` |
+
+**Recent (2026-07-07) — API Sync / `platform-sync` worker:**
+
+- **`platform-sync` service (Go, :8088):** polls `api_sync` integrations on an interval; REST adapters for Retreaver, Ringba, TrackDrive, CallGrid (`services/platform-sync/internal/adapter/`); publishes to the same `callloom.pings.v1` Kafka topic as webhooks.
+- **Settings → Integrations:** choose **Webhook** or **API key** per platform; dynamic credential fields (`AddIntegrationForm`); **Sync now** button on API-key rows (`IntegrationsList`).
+- **API:** `GET /integrations/platform-options`, `POST /integrations` (`connection_mode`), `POST /integrations/:id/test`, `POST /integrations/:id/sync`; credentials encrypted at rest (`CREDENTIAL_ENCRYPTION_KEY`).
+- **Postgres:** migrations `000019_api_sync_integrations`, `000020_api_sync_status`; `callloom_sync` role for worker reads.
+- **Verify mock:** `make verify-api-sync` · **Verify real (per platform):** `make verify-apisync-retreaver-real` (etc.) with env creds + `MOCK_MODE=false` on `api` + `platform-sync`.
+- Reports: [`docs/apisync-platform-research.md`](docs/apisync-platform-research.md), per-platform reports in [`docs/apisync-*-report.md`](docs/).
 
 **Recent fixes (2026-07-03) — Phase 0: Ingestion Slice Real:**
 
@@ -60,6 +70,9 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1
 # or: make verify-system
+
+# API sync worker (not included in verify-system yet):
+make verify-api-sync
 ```
 
 ---
@@ -98,8 +111,12 @@ End-to-end multi-platform ping pipeline:
 
 ```
 Ringba / Retreaver / TrackDrive / CallGrid
-        ↓  /webhooks/{platform}/{token}
-Ingestion (Go) → Kafka → Consumer (Go) → ClickHouse
+        ↓  /webhooks/{platform}/{token}          ↓  API key (Settings)
+Ingestion (Go) :8080                    platform-sync (Go) :8088
+        ↓                                        ↓
+        └──────────── Kafka (callloom.pings.v1) ─┘
+                              ↓
+                    Consumer (Go) → ClickHouse
                               ↓
                     API (NestJS) → Web (Next.js)
 
@@ -119,6 +136,31 @@ Call Loom native (direct source): GET /sources/callloom-native/v1/pings
 | **Call Loom native** | `/sources/callloom-native/v1/pings` | Direct API (not webhook) |
 
 Each tenant integration is resolved by path token via PostgreSQL `lookup_integration_by_token`.
+
+**Connection modes (Settings → Integrations)**
+
+| Mode | User setup | Data path |
+|------|------------|-----------|
+| **Webhook** | Paste signing secret; configure postback URL in platform | Platform → Ingestion (:8080) → Kafka → ClickHouse |
+| **API key** | Paste platform credentials only — no callback URL | `platform-sync` (:8088) pulls calls → same Kafka topic → ClickHouse |
+
+API keys are encrypted at rest (`CREDENTIAL_ENCRYPTION_KEY`). Webhook signing and HMAC verification are unchanged.
+
+- `MOCK_MODE=true` — demo `apisync-{platform}-*` calls (no external API)
+- `MOCK_MODE=false` — real REST adapters: Retreaver, Ringba, TrackDrive, CallGrid (`services/platform-sync/internal/adapter/`)
+
+Per-platform API sync credentials (Settings form fields):
+
+| Platform | Fields |
+|----------|--------|
+| Retreaver | API key + company ID |
+| Ringba | API access token + account ID |
+| TrackDrive | Subdomain + public key + private key |
+| CallGrid | API key |
+
+**Integrations API** (JWT, tenant-scoped): `GET /integrations`, `GET /integrations/platform-options`, `POST /integrations`, `POST /integrations/:id/test`, `POST /integrations/:id/sync`, `DELETE /integrations/:id`.
+
+Verify mock: `make verify-api-sync`. Real (per platform): `make verify-apisync-retreaver-real` (etc.) with env creds and `MOCK_MODE=false` on `api` + `platform-sync`.
 
 **State normalization:** all platform connectors normalize incoming `state` / `geo_state` to 2-letter uppercase US codes (`TX`, `CA`, …) via `internal/state.NormalizeState`. Full names (`Texas`) and invalid codes (`ZZ`) are coerced or blanked — ingestion never fails on geo data.
 
@@ -210,7 +252,7 @@ WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter, 5-pla
 | `/attribution` | Conversion events and platform status |
 | `/coverage` | **Coverage Intelligence** — interactive US map (graded teal heatmap), state detail panel, demand bar chart; data from `GET /coverage/heatmap` (all states, not capped at 10) |
 | `/reports` | Financial analytics (CPA, RPC, ROI, P&L); **FilterBar** period filter |
-| `/settings` | Integrations, alerts (Email/Slack/SMS channel badges), provider bindings (real provider names + Mock/Active status) |
+| `/settings` | Integrations (webhook vs API key, per-platform credential fields, **Sync now** for API sync), alerts (Email/Slack/SMS channel badges), provider bindings (real provider names + Mock/Active status) |
 
 **Teal Glass design system:** Geist headings + Inter body, glass sidebar/topbar (collapsible grouped nav on desktop), teal aurora background, teal gradient CTAs and active nav left-bar. Dashboard KPI cards: `MetricCardFrame` accent bar, elevated `.calyx-metric-card` drop shadow, `MiniSparkline` gradient fill, `sparkline-utils` delta chips. Shared navigation: `web/src/lib/app-navigation.ts`. Shared platform labels via `web/src/lib/platform-options.ts` (`formatPlatformLabel`, `formatPlatformColor`). `PlatformBadge`, `ScoreBar`, `NavIcon`, `ComplianceRiskRing`, and status pills in `web/src/components/`. Tokens in [`web/src/styles/tokens/`](web/src/styles/tokens/). Dark theme for presentation demo. Storybook: `cd web && npm run storybook`.
 
@@ -235,6 +277,7 @@ make dev-up
 | Compliance | 8085 | http://localhost:8085/healthz |
 | Ask AI | 8086 | http://localhost:8086/healthz |
 | Ad attribution | 8087 | http://localhost:8087/healthz |
+| **Platform sync** | **8088** | http://localhost:8088/healthz |
 | API | 3000 | http://localhost:3000/healthz |
 | **Web (Docker)** | **3001** | http://localhost:3001 |
 
@@ -351,6 +394,7 @@ Sends 25 signed Ringba pings across US states, waits for pipeline, then verifies
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
 powershell -ExecutionPolicy Bypass -File scripts/verify-presentation.ps1
 powershell -ExecutionPolicy Bypass -File scripts/verify-ingestion-slice.ps1
+powershell -ExecutionPolicy Bypass -File scripts/verify-api-sync.ps1
 powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1
 node scripts/ws-smoke-test.mjs
 make step1b-test
@@ -359,9 +403,11 @@ make test
 
 | Command | What it checks |
 |---------|----------------|
-| `verify-system` | Full pre-push gate: Docker + healthz + API 20/20 + web 13/13 + WS + unit tests + web build + **pipeline 4/4** |
+| `verify-system` | Full pre-push gate: Docker + healthz + API 20/20 + web 13/13 + WS + unit tests + web build + **pipeline 4/4** (run `verify-api-sync` separately for platform-sync) |
 | `verify-presentation` | Phase 3 API + `platform-mix` + `demo-call-1` deep view/score/transcript + scorecard CRUD + fixtures (**20 checks**) |
 | **`verify-ingestion-slice`** | **Phase 0:** dedup-correct analytics/coverage totals + Retreaver `call_key` ciphertext in ClickHouse |
+| **`verify-api-sync`** | API key integration (mock) → `platform-sync` → ping count increases |
+| `verify-apisync-*-real` | Real REST pull per platform (requires env creds + `MOCK_MODE=false`) |
 | `smoke-test.ps1` | Single signed ping → ingestion → API (`-Platform ringba\|retreaver\|trackdrive\|callgrid`) |
 | `smoke-test-all-platforms.ps1` / `make smoke-test-all` | E2E smoke for all four webhook platforms |
 | `ws-smoke-test.mjs` | WebSocket `/live` receives ≥3 mock events (rotates ringba/retreaver/trackdrive/callgrid/callloom-native) |
@@ -370,21 +416,22 @@ make test
 | `check-coverage-localhost.mjs` | Localhost coverage map: SVG paths, state labels, API heatmap states |
 | `demo-seed` | 25 pings for demo-ready dashboard |
 | `step1b-test` | Go providerconfig unit tests |
-| `make test` | Full test matrix (Go + API) |
+| `make test` | Full test matrix (Go incl. `platform-sync` + API) |
 
 ### Web & API build
 
 ```bash
 make build-web
 make build-api
+make build-platform-sync
 ```
 
-**Rebuild Docker images** after ingestion/API or UI changes:
+**Rebuild Docker images** after ingestion/API/platform-sync or UI changes:
 
 ```powershell
 cd deploy
-docker compose up -d --build ingestion api   # Phase 0 ingestion + aggregate filters
-docker compose up -d --build web             # production web on :3001
+docker compose up -d --build ingestion api platform-sync   # ingestion + API + API sync worker
+docker compose up -d --build web                         # production web on :3001
 ```
 
 Then hard-refresh the browser at http://localhost:3001 (`Ctrl+Shift+R`).

@@ -198,12 +198,16 @@ services:
       DEEPGRAM_CALLBACK_SECRET: dev_deepgram_callback_secret_change_me
       ADSPEND_SOURCE: mock
       NOTIFICATION_CHANNEL: mock
+      CREDENTIAL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      PLATFORM_SYNC_URL: http://platform-sync:8088
     depends_on:
       migrate:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
       providerconfig:
+        condition: service_started
+      platform-sync:
         condition: service_started
       clickhouse:
         condition: service_healthy
@@ -345,6 +349,31 @@ services:
         condition: service_completed_successfully
       providerconfig:
         condition: service_started
+
+  platform-sync:
+    build:
+      context: ../services/platform-sync
+    ports:
+      - "8088:8088"
+    environment:
+      PLATFORM_SYNC_PORT: "8088"
+      DATABASE_URL: postgres://callloom_sync:sync_dev@postgres:5432/callloom?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKER: redpanda:9092
+      KAFKA_TOPIC_PINGS: callloom.pings.v1
+      CREDENTIAL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      ANI_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      MOCK_MODE: "true"
+      SYNC_INTERVAL_SEC: "120"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   scoring:
     build:

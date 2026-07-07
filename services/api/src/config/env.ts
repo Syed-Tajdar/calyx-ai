@@ -36,6 +36,11 @@ const envSchema = z.object({
   DEEPGRAM_CALLBACK_SECRET: z.string().optional(),
   ADSPEND_SOURCE: z.string().default('mock'),
   NOTIFICATION_CHANNEL: z.string().default('mock'),
+  CREDENTIAL_ENCRYPTION_KEY: z
+    .string()
+    .length(64)
+    .default('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'),
+  PLATFORM_SYNC_URL: z.string().default('http://localhost:8088'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

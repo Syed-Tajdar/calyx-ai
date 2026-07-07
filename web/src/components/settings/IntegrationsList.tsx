@@ -1,19 +1,21 @@
 'use client';
 
-import { Trash2 } from 'lucide-react';
+import { RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { IntegrationRecord } from '@/lib/api';
-import { ApiError, deleteIntegration } from '@/lib/api';
+import { ApiError, deleteIntegration, syncIntegration } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { useState } from 'react';
 
 interface IntegrationsListProps {
   integrations: IntegrationRecord[];
   onDeleted: (id: string) => void;
+  onUpdated: () => void;
 }
 
-function maskToken(token: string): string {
+function maskToken(token: string | null): string {
+  if (!token) return '—';
   if (token.length <= 8) return '••••••••';
   return `${token.slice(0, 4)}…${token.slice(-4)}`;
 }
@@ -21,8 +23,10 @@ function maskToken(token: string): string {
 export function IntegrationsList({
   integrations,
   onDeleted,
+  onUpdated,
 }: IntegrationsListProps): JSX.Element {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
 
   async function handleDelete(id: string, name: string): Promise<void> {
     if (!window.confirm(`Remove integration "${name}"?`)) return;
@@ -45,6 +49,21 @@ export function IntegrationsList({
     }
   }
 
+  async function handleSync(id: string): Promise<void> {
+    const token = getToken();
+    if (!token) return;
+    setSyncingId(id);
+    try {
+      await syncIntegration(token, id);
+      toast.success('Sync started — refresh Pings in a few seconds');
+      onUpdated();
+    } catch {
+      toast.error('Sync failed — is platform-sync running?');
+    } finally {
+      setSyncingId(null);
+    }
+  }
+
   return (
     <div className="calyx-glass calyx-glass-lit overflow-hidden">
       <div className="border-b border-calyx-border/60 px-4 py-3">
@@ -54,13 +73,15 @@ export function IntegrationsList({
         <h3 className="font-heading text-sm font-semibold text-calyx-text">Connected Platforms</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[400px] text-left text-xs">
+        <table className="w-full min-w-[520px] text-left text-xs">
           <thead>
             <tr className="border-b border-calyx-border text-[10px] uppercase text-calyx-muted">
               <th className="px-4 py-3 font-medium">Platform</th>
               <th className="px-4 py-3 font-medium">Name</th>
+              <th className="px-4 py-3 font-medium">Mode</th>
               <th className="px-4 py-3 font-medium">Token</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Sync</th>
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
@@ -72,6 +93,9 @@ export function IntegrationsList({
               >
                 <td className="px-4 py-3 capitalize text-calyx-text">{item.platform}</td>
                 <td className="px-4 py-3 text-calyx-muted">{item.name}</td>
+                <td className="px-4 py-3 text-calyx-muted">
+                  {item.connection_mode === 'api_sync' ? 'API key' : 'Webhook'}
+                </td>
                 <td className="px-4 py-3 font-mono text-[10px] text-calyx-muted">
                   {maskToken(item.webhook_token)}
                 </td>
@@ -86,24 +110,48 @@ export function IntegrationsList({
                     {item.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
+                <td className="px-4 py-3 text-calyx-muted">
+                  {item.connection_mode === 'api_sync' ? (
+                    <span title={item.last_sync_error ?? undefined}>
+                      {item.sync_status}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-calyx-danger"
-                    disabled={deletingId === item.id}
-                    onClick={() => void handleDelete(item.id, item.name)}
-                    aria-label={`Delete ${item.name}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex justify-end gap-1">
+                    {item.connection_mode === 'api_sync' && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={syncingId === item.id}
+                        onClick={() => void handleSync(item.id)}
+                        aria-label={`Sync ${item.name}`}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-calyx-danger"
+                      disabled={deletingId === item.id}
+                      onClick={() => void handleDelete(item.id, item.name)}
+                      aria-label={`Delete ${item.name}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
             {integrations.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-calyx-muted">
+                <td colSpan={7} className="px-4 py-12 text-center text-calyx-muted">
                   No integrations configured.
                 </td>
               </tr>

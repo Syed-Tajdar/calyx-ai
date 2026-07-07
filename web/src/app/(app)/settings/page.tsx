@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AddIntegrationForm } from '@/components/settings/AddIntegrationForm';
 import { AlertRulesSection } from '@/components/settings/AlertRulesSection';
 import { IntegrationsList } from '@/components/settings/IntegrationsList';
 import { ProviderBindingsSection } from '@/components/settings/ProviderBindingsSection';
@@ -55,6 +56,21 @@ export default function SettingsPage(): JSX.Element {
     setIntegrations((prev) => prev.filter((i) => i.id !== id));
   }
 
+  function handleIntegrationCreated(record: IntegrationRecord): void {
+    setIntegrations((prev) => [record, ...prev]);
+  }
+
+  async function refreshIntegrations(): Promise<void> {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const list = await fetchIntegrations(token);
+      setIntegrations(list);
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -72,10 +88,12 @@ export default function SettingsPage(): JSX.Element {
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             <TabsTrigger value="providers">Providers</TabsTrigger>
           </TabsList>
-          <TabsContent value="integrations">
+          <TabsContent value="integrations" className="space-y-6">
+            <AddIntegrationForm onCreated={handleIntegrationCreated} />
             <IntegrationsList
               integrations={integrations}
               onDeleted={handleIntegrationDeleted}
+              onUpdated={() => void refreshIntegrations()}
             />
           </TabsContent>
           <TabsContent value="alerts">

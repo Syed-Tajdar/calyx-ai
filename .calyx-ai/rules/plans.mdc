@@ -1,0 +1,16 @@
+---
+description: Every build plan must be saved as a docs/*.md file for user verify/cross-check
+alwaysApply: true
+---
+
+# Plans Must Be Saved as Markdown Files
+
+When the user asks to plan a feature, slice, or multi-step build:
+
+1. **Always write a full plan** to `docs/{topic}-plan.md` (or `docs/{topic}-research-plan.md` for research-heavy work).
+2. **Also create** a short pointer in `.cursor/plans/{name}_{id}.plan.md` with YAML frontmatter + todos, linking to the `docs/` file.
+3. The `docs/*.md` plan is the **canonical copy** the user uses to verify and cross-check before/during build. It must be complete enough to paste into another AI or share without Cursor.
+4. Do **not** rely on Cursor Plan UI copy alone — the docs file is required every time.
+5. After each build slice, add or update `docs/{topic}-{slice}-report.md` with raw verify output and PASS/FAIL checklist.
+
+Plan structure should include: goal, current state, step order, file paths, verification commands, and out-of-scope items.
