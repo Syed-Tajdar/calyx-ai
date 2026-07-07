@@ -1,11 +1,13 @@
 -- Sync status and error message for API-key integrations.
 
 DROP FUNCTION IF EXISTS update_integration_sync_state(UUID, TEXT, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS list_api_sync_integrations();
 
 ALTER TABLE integrations
     ADD COLUMN IF NOT EXISTS sync_status TEXT NOT NULL DEFAULT 'idle',
     ADD COLUMN IF NOT EXISTS last_sync_error TEXT;
 
+ALTER TABLE integrations DROP CONSTRAINT IF EXISTS integrations_sync_status_check;
 ALTER TABLE integrations
     ADD CONSTRAINT integrations_sync_status_check
     CHECK (sync_status IN ('idle', 'syncing', 'ok', 'error'));

@@ -1,3 +1,6 @@
+DROP FUNCTION IF EXISTS update_integration_sync_state(UUID, TEXT, TIMESTAMPTZ, TEXT, TEXT);
+DROP FUNCTION IF EXISTS list_api_sync_integrations();
+
 CREATE OR REPLACE FUNCTION update_integration_sync_state(
     p_id UUID,
     p_cursor TEXT,
