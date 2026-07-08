@@ -74,17 +74,9 @@ func (s *IntegrationStore) GetAPISync(ctx context.Context, tenantID, integration
 
 	rows, err := s.pool.Query(ctx, `
 
-		SELECT id, tenant_id, platform, name, api_credentials_blob, sync_cursor,
+		SELECT * FROM get_api_sync_integration($1::uuid, $2::uuid)`,
 
-		       last_sync_at, sync_status, last_sync_error
-
-		FROM integrations
-
-		WHERE id = $1::uuid AND tenant_id = $2::uuid
-
-		  AND connection_mode = 'api_sync' AND is_active = TRUE`,
-
-		integrationID, tenantID,
+		tenantID, integrationID,
 
 	)
 
@@ -138,7 +130,7 @@ func scanIntegration(rows scannable) (models.SyncIntegration, error) {
 
 	if err := rows.Scan(
 
-		&item.ID, &item.TenantID, &item.Platform, &item.Name,
+		&item.ID, &item.TenantID, &item.Platform, &item.Name, &item.SyncMode,
 
 		&item.APICredentialsBlob, &cursor, &lastSync, &syncStatus, &syncError,
 
@@ -165,6 +157,12 @@ func scanIntegration(rows scannable) (models.SyncIntegration, error) {
 	if syncError != nil {
 
 		item.LastSyncError = *syncError
+
+	}
+
+	if item.SyncMode == "" {
+
+		item.SyncMode = "mock"
 
 	}
 

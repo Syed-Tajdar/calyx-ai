@@ -1,5 +1,8 @@
 export type ConnectionMode = 'webhook' | 'api_sync';
 
+/** Per-integration API sync adapter mode (mock demo vs real REST pull). */
+export type SyncMode = 'mock' | 'real';
+
 export const WEBHOOK_PLATFORMS = [
   'ringba',
   'retreaver',

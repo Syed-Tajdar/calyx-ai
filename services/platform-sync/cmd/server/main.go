@@ -122,7 +122,7 @@ func main() {
 
 	st := store.NewIntegrationStore(pool)
 
-	ad := adapter.NewRegistry(cfg.MockMode)
+	ad := adapter.NewRegistry()
 
 	prod := producer.NewProducer(kafkaClient, cfg.KafkaTopic, cfg.ANIEncryptionKey)
 
@@ -160,7 +160,7 @@ func main() {
 
 	go func() {
 
-		logger.Info("platform-sync starting", "addr", cfg.Port, "mock_mode", cfg.MockMode)
+		logger.Info("platform-sync starting", "addr", cfg.Port, "per_integration_sync_mode", true)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 

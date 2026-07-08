@@ -38,6 +38,8 @@ import {
 
   ConnectionMode,
 
+  SyncMode,
+
   supportsApiSync,
 
   supportsWebhook,
@@ -55,6 +57,8 @@ export interface IntegrationRecord {
   name: string;
 
   connection_mode: ConnectionMode;
+
+  sync_mode: SyncMode | null;
 
   webhook_token: string | null;
 
@@ -83,6 +87,8 @@ export interface CreateIntegrationInput {
   name: string;
 
   connection_mode: ConnectionMode;
+
+  sync_mode?: SyncMode;
 
   webhook_secret?: string;
 
@@ -126,6 +132,8 @@ interface IntegrationRow {
 
   connection_mode: ConnectionMode;
 
+  sync_mode: SyncMode | null;
+
   webhook_token: string | null;
 
   is_active: boolean;
@@ -157,11 +165,9 @@ export class IntegrationsService {
       const result = await client.query<IntegrationRow>(
 
         `SELECT id::text, platform, name, connection_mode,
-
+                CASE WHEN connection_mode = 'api_sync' THEN sync_mode ELSE NULL END AS sync_mode,
                 CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
-
                 is_active, last_sync_at::text, sync_status, last_sync_error,
-
                 created_at::text
 
          FROM integrations
@@ -234,24 +240,25 @@ export class IntegrationsService {
 
 
 
+    const syncMode: SyncMode =
+      input.connection_mode === 'api_sync' ? (input.sync_mode ?? 'mock') : 'mock';
+
     return this.postgres.withTenant(tenantId, async (client) => {
 
       const result = await client.query<IntegrationRow>(
 
         `INSERT INTO integrations (
 
-           tenant_id, platform, name, connection_mode,
+           tenant_id, platform, name, connection_mode, sync_mode,
 
            webhook_token, webhook_secret, api_credentials_blob
 
-         ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7)
+         ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
 
          RETURNING id::text, platform, name, connection_mode,
-
+                   CASE WHEN connection_mode = 'api_sync' THEN sync_mode ELSE NULL END AS sync_mode,
                    CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
-
                    is_active, last_sync_at::text, sync_status, last_sync_error,
-
                    created_at::text`,
 
         [
@@ -263,6 +270,8 @@ export class IntegrationsService {
           input.name.trim(),
 
           input.connection_mode,
+
+          syncMode,
 
           webhookToken,
 
@@ -330,15 +339,15 @@ export class IntegrationsService {
 
     }
 
-    const mockMode = process.env.MOCK_MODE !== 'false';
+    const syncMode = row.sync_mode ?? 'mock';
 
-    if (mockMode) {
+    if (syncMode === 'mock') {
 
       return {
 
         ok: true,
 
-        message: `MOCK_MODE: credentials stored for ${row.platform}. Sync worker will pull demo calls.`,
+        message: `Test mode: credentials stored for ${row.platform}. Sync worker will pull demo calls.`,
 
       };
 
@@ -421,6 +430,60 @@ export class IntegrationsService {
     }
 
     return { status: 'sync_triggered' };
+
+  }
+
+
+
+  async updateSyncMode(
+
+    tenantId: string,
+
+    id: string,
+
+    syncMode: SyncMode,
+
+  ): Promise<IntegrationRecord> {
+
+    if (syncMode !== 'mock' && syncMode !== 'real') {
+
+      throw new BadRequestException('sync_mode must be mock or real');
+
+    }
+
+    return this.postgres.withTenant(tenantId, async (client) => {
+
+      const result = await client.query<IntegrationRow>(
+
+        `UPDATE integrations
+
+         SET sync_mode = $3, updated_at = NOW()
+
+         WHERE id = $1::uuid AND tenant_id = $2::uuid
+
+           AND connection_mode = 'api_sync' AND is_active = TRUE
+
+         RETURNING id::text, platform, name, connection_mode,
+
+                   sync_mode, NULL AS webhook_token,
+
+                   is_active, last_sync_at::text, sync_status, last_sync_error,
+
+                   created_at::text`,
+
+        [id, tenantId, syncMode],
+
+      );
+
+      if (result.rowCount === 0) {
+
+        throw new NotFoundException('API sync integration not found');
+
+      }
+
+      return this.toRecord(result.rows[0]);
+
+    });
 
   }
 
@@ -558,6 +621,12 @@ export class IntegrationsService {
 
       }
 
+      if (input.sync_mode && input.sync_mode !== 'mock' && input.sync_mode !== 'real') {
+
+        throw new BadRequestException('sync_mode must be mock or real');
+
+      }
+
     }
 
   }
@@ -576,6 +645,8 @@ export class IntegrationsService {
 
     platform: string;
 
+    sync_mode: SyncMode | null;
+
     api_credentials_blob: Buffer | null;
 
   }> {
@@ -588,11 +659,13 @@ export class IntegrationsService {
 
         platform: string;
 
+        sync_mode: SyncMode | null;
+
         api_credentials_blob: Buffer | null;
 
       }>(
 
-        `SELECT connection_mode, platform, api_credentials_blob
+        `SELECT connection_mode, platform, sync_mode, api_credentials_blob
 
          FROM integrations WHERE id = $1::uuid AND is_active = TRUE`,
 
@@ -625,6 +698,8 @@ export class IntegrationsService {
       name: row.name,
 
       connection_mode: row.connection_mode,
+
+      sync_mode: row.sync_mode,
 
       webhook_token: row.webhook_token,
 

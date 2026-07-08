@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ const createSchema = z.object({
   platform: z.enum(['ringba', 'retreaver', 'trackdrive', 'callgrid']),
   name: z.string().min(1).max(128),
   connection_mode: z.enum(['webhook', 'api_sync']),
+  sync_mode: z.enum(['mock', 'real']).optional(),
   webhook_secret: z.string().min(1).max(512).optional(),
   api_key: z.string().min(1).max(512).optional(),
   api_token: z.string().min(1).max(512).optional(),
@@ -31,6 +33,10 @@ const createSchema = z.object({
   public_key: z.string().min(1).max(512).optional(),
   private_key: z.string().min(1).max(512).optional(),
   auth_token: z.string().min(1).max(512).optional(),
+});
+
+const syncModeSchema = z.object({
+  sync_mode: z.enum(['mock', 'real']),
 });
 
 @Controller('integrations')
@@ -71,6 +77,20 @@ export class IntegrationsController {
     @Param('id') id: string,
   ): Promise<{ status: string }> {
     return this.integrationsService.triggerSync(tenantId, id);
+  }
+
+  @Patch(':id/sync-mode')
+  async updateSyncMode(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<IntegrationRecord> {
+    const parsed = syncModeSchema.parse(body);
+    return this.integrationsService.updateSyncMode(
+      tenantId,
+      id,
+      parsed.sync_mode,
+    );
   }
 
   @Delete(':id')

@@ -126,6 +126,8 @@ $goServices = @(
   "services\providerconfig", "services\compliance-intelligence", "services\ask-ai",
   "services\ad-attribution"
 )
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 foreach ($svc in $goServices) {
   Push-Location (Join-Path $repoRoot $svc)
   go test ./... 2>&1 | Out-Host
@@ -133,13 +135,11 @@ foreach ($svc in $goServices) {
   Pop-Location
 }
 Push-Location (Join-Path $repoRoot "services\api")
-$prevEap = $ErrorActionPreference
-$ErrorActionPreference = "Continue"
 npm test 2>&1 | Out-Host
 $apiTestExit = $LASTEXITCODE
-$ErrorActionPreference = $prevEap
 if ($apiTestExit -ne 0) { $testFailed = $true }
 Pop-Location
+$ErrorActionPreference = $prevEap
 $summary.UnitTests = if (-not $testFailed) { "PASS" } else { "FAIL" }
 
 Write-Section "Web production build"

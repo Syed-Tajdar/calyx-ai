@@ -14,20 +14,30 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 ---
 
-## System verification (last run: 2026-07-07)
+## System verification (last run: 2026-07-08)
 
 | Layer | Result |
 |-------|--------|
-| Docker containers | **15/15** (11 app services running; postgres, redis, clickhouse, redpanda healthy) |
-| Service health (`/healthz` + `/readyz`) | **11/11** (ports 8080–8088, API :3000) |
+| Docker containers | **14/14** app + infra running (`verify-system.ps1`) |
+| Service health (`/healthz` + `/readyz`) | **12/12** (ports 8080–8088 incl. **platform-sync**, API :3000) |
+| Full system gate | **PASS** (`verify-system.ps1` — Docker, health, API 20/20, web 13/13, WS, unit tests, web build, pipeline 4/4) |
 | API presentation checks | **20/20** (`verify-presentation.ps1`) |
-| **API sync (platform-sync)** | **PASS** (`verify-api-sync.ps1` — mock Retreaver pull → ping count +1) |
-| **Phase 0 ingestion slice** | **PASS** (`verify-ingestion-slice.ps1` — callId landing + dedup aggregates + `call_key` ciphertext; tolerant of concurrent `platform-sync`) |
+| **API sync (platform-sync)** | **PASS** (`verify-api-sync.ps1` — per-row `sync_mode=mock` → test + sync → ping +1) |
+| **Phase 0 ingestion slice** | **PASS** (`verify-ingestion-slice.ps1` — dedup aggregates + `call_key` ciphertext) |
 | Web routes (`:3001`) | **13/13** (all product pages + `/calls/demo-call-1`) |
-| Dashboard browser smoke | **10/10** (`check-dashboard-browser.mjs` — metrics, sidebar, charts) |
-| WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — ≥3 events, multi-platform rotation) |
+| Dashboard browser smoke | **10/10** (`check-dashboard-browser.mjs`) |
+| Settings sync_mode toggle | **PASS** (API `PATCH /integrations/:id/sync-mode` + `/settings` 200) |
+| WebSocket live feed | **PASS** (`ws-smoke-test.mjs`) |
 | Web production build | **PASS** (16 routes) |
-| Pipeline smoke (multi-platform E2E) | **PASS (4/4)** — `verify-system.ps1` runs `smoke-test-all-platforms.ps1` |
+| Pipeline smoke (multi-platform E2E) | **PASS (4/4)** |
+
+**Recent (2026-07-08) — Per-integration `sync_mode` (Test / Live):**
+
+- **`integrations.sync_mode`** (`mock` | `real`, default `mock`) — migration `000021_api_sync_sync_mode`; manual sync lookup via `get_api_sync_integration()` (`000022`).
+- **platform-sync:** adapter choice is **per integration row**, not global `MOCK_MODE`; Retreaver can be Live while Ringba stays Test on the same stack.
+- **API:** `POST /integrations` accepts `sync_mode`; `POST /integrations/:id/test` uses per-row mode; **`PATCH /integrations/:id/sync-mode`** for existing rows.
+- **Settings UI:** Test / Live radio on add form; Test | Live toggle on API-key rows in the integrations list.
+- Report: [`docs/mode-strategy-report.md`](docs/mode-strategy-report.md)
 
 **Recent (2026-07-07) — API Sync / `platform-sync` worker:**
 
@@ -35,7 +45,7 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 - **Settings → Integrations:** choose **Webhook** or **API key** per platform; dynamic credential fields (`AddIntegrationForm`); **Sync now** button on API-key rows (`IntegrationsList`).
 - **API:** `GET /integrations/platform-options`, `POST /integrations` (`connection_mode`), `POST /integrations/:id/test`, `POST /integrations/:id/sync`; credentials encrypted at rest (`CREDENTIAL_ENCRYPTION_KEY`).
 - **Postgres:** migrations `000019_api_sync_integrations`, `000020_api_sync_status`; `callloom_sync` role for worker reads.
-- **Verify mock:** `make verify-api-sync` · **Verify real (per platform):** `make verify-apisync-retreaver-real` (etc.) with env creds + `MOCK_MODE=false` on `api` + `platform-sync`.
+- **Verify mock:** `make verify-api-sync` · **Verify real (per platform):** `make verify-apisync-retreaver-real` (etc.) with env creds + integration **`sync_mode=real`** (Settings → Live).
 - Reports: [`docs/apisync-platform-research.md`](docs/apisync-platform-research.md), per-platform reports in [`docs/apisync-*-report.md`](docs/).
 
 **Recent fixes (2026-07-03) — Phase 0: Ingestion Slice Real:**
@@ -65,15 +75,16 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 **Sidebar design mockups:** [`docs/mockups/`](docs/mockups/) (options A–F comparison, Quick Win + Full Upgrade merge, browser verification screenshot).
 
-**One-command full check** (Docker + health + API + web + WS + tests + build + 4/4 pipeline — hard-fail if any layer fails):
+**One-command full check** (Docker + health + API + web + WS + tests + build + 4/4 pipeline):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/verify-system.ps1
-# or: make verify-system
-
-# API sync worker (not included in verify-system yet):
-make verify-api-sync
+powershell -ExecutionPolicy Bypass -File scripts/verify-ingestion-slice.ps1
+powershell -ExecutionPolicy Bypass -File scripts/verify-api-sync.ps1
+# or: make verify-system && make verify-ingestion-slice && make verify-api-sync
 ```
+
+**Pre-push gate:** all three scripts above must exit 0 before pushing to `main`.
 
 ---
 
@@ -146,8 +157,14 @@ Each tenant integration is resolved by path token via PostgreSQL `lookup_integra
 
 API keys are encrypted at rest (`CREDENTIAL_ENCRYPTION_KEY`). Webhook signing and HMAC verification are unchanged.
 
-- `MOCK_MODE=true` — demo `apisync-{platform}-*` calls (no external API)
-- `MOCK_MODE=false` — real REST adapters: Retreaver, Ringba, TrackDrive, CallGrid (`services/platform-sync/internal/adapter/`)
+**Per-integration sync mode (API key rows only):**
+
+| `sync_mode` | UI label | Behavior |
+|-------------|----------|----------|
+| `mock` (default) | **Test** | Demo `apisync-{platform}-*` calls via mock adapter; test connection passes without real platform auth |
+| `real` | **Live** | REST adapter for that platform; test connection calls `platform-sync /test-auth` |
+
+Global `MOCK_MODE` still controls intelligence services (scoring, ask-ai, enrichment, etc.) — not API sync adapter selection.
 
 Per-platform API sync credentials (Settings form fields):
 
@@ -158,9 +175,9 @@ Per-platform API sync credentials (Settings form fields):
 | TrackDrive | Subdomain + public key + private key |
 | CallGrid | API key |
 
-**Integrations API** (JWT, tenant-scoped): `GET /integrations`, `GET /integrations/platform-options`, `POST /integrations`, `POST /integrations/:id/test`, `POST /integrations/:id/sync`, `DELETE /integrations/:id`.
+**Integrations API** (JWT, tenant-scoped): `GET /integrations`, `GET /integrations/platform-options`, `POST /integrations`, `POST /integrations/:id/test`, `POST /integrations/:id/sync`, **`PATCH /integrations/:id/sync-mode`**, `DELETE /integrations/:id`.
 
-Verify mock: `make verify-api-sync`. Real (per platform): `make verify-apisync-retreaver-real` (etc.) with env creds and `MOCK_MODE=false` on `api` + `platform-sync`.
+Verify mock: `make verify-api-sync`. Real (per platform): set integration to **Live** in Settings, then `make verify-apisync-retreaver-real` (etc.) with platform env creds.
 
 **State normalization:** all platform connectors normalize incoming `state` / `geo_state` to 2-letter uppercase US codes (`TX`, `CA`, …) via `internal/state.NormalizeState`. Full names (`Texas`) and invalid codes (`ZZ`) are coerced or blanked — ingestion never fails on geo data.
 
@@ -403,11 +420,11 @@ make test
 
 | Command | What it checks |
 |---------|----------------|
-| `verify-system` | Full pre-push gate: Docker + healthz + API 20/20 + web 13/13 + WS + unit tests + web build + **pipeline 4/4** (run `verify-api-sync` separately for platform-sync) |
+| `verify-system` | Full gate: Docker + healthz + API 20/20 + web 13/13 + WS + unit tests + web build + **pipeline 4/4** |
 | `verify-presentation` | Phase 3 API + `platform-mix` + `demo-call-1` deep view/score/transcript + scorecard CRUD + fixtures (**20 checks**) |
-| **`verify-ingestion-slice`** | **Phase 0:** dedup-correct analytics/coverage totals + Retreaver `call_key` ciphertext in ClickHouse |
-| **`verify-api-sync`** | API key integration (mock) → `platform-sync` → ping count increases |
-| `verify-apisync-*-real` | Real REST pull per platform (requires env creds + `MOCK_MODE=false`) |
+| **`verify-ingestion-slice`** | **Phase 0:** dedup-correct analytics/coverage totals + Retreaver `call_key` ciphertext (**required pre-push**) |
+| **`verify-api-sync`** | API key integration (`sync_mode=mock`) → `platform-sync` sync → ping count increases (**required pre-push**) |
+| `verify-apisync-*-real` | Real REST pull per platform (requires platform creds + integration **`sync_mode=real`**) |
 | `smoke-test.ps1` | Single signed ping → ingestion → API (`-Platform ringba\|retreaver\|trackdrive\|callgrid`) |
 | `smoke-test-all-platforms.ps1` / `make smoke-test-all` | E2E smoke for all four webhook platforms |
 | `ws-smoke-test.mjs` | WebSocket `/live` receives ≥3 mock events (rotates ringba/retreaver/trackdrive/callgrid/callloom-native) |
@@ -435,6 +452,28 @@ docker compose up -d --build web                         # production web on :30
 ```
 
 Then hard-refresh the browser at http://localhost:3001 (`Ctrl+Shift+R`).
+
+---
+
+## Staging and real-time testing
+
+### Staging process (recommended order)
+
+1. **Local Docker (mock-default):** `MOCK_MODE=true` for intelligence; all API-key integrations on **Test** — run `make verify-system`, `make verify-ingestion-slice`, `make verify-api-sync`.
+2. **Staging namespace (EKS):** separate Postgres / ClickHouse / Redis; secrets via AWS Secrets Manager; Kong gateway as the only public entry.
+3. **One platform Live at a time:** flip a single integration to **Live** in Settings → Integrations; run `make verify-apisync-retreaver-real` (or ringba / trackdrive / callgrid) with platform creds in env — do not flip global `MOCK_MODE` until intelligence providers are ready.
+4. **Webhook path:** keep webhook integrations on real ingestion; validate with `smoke-test-all-platforms.ps1`.
+5. **Rollback:** set integration back to **Test** — no global flag change required.
+
+### Real-time testing
+
+| Layer | Tool | Notes |
+|-------|------|-------|
+| Live feed | `node scripts/ws-smoke-test.mjs` | MOCK_MODE emitter; multi-platform rotation |
+| Aggregates | `verify-ingestion-slice.ps1` | Poll / refresh dashboard — dedup excludes `is_duplicate=1` |
+| API sync | `verify-api-sync.ps1` | Scheduled + manual sync; mock adapter generates `apisync-*` pings |
+| Real REST | `verify-apisync-*-real.ps1` | Requires platform creds + integration `sync_mode=real` |
+| UI | `check-dashboard-browser.mjs` + `/settings` | Playwright (Edge channel); Test / Live toggle on API-key rows |
 
 ---
 

@@ -99,6 +99,7 @@ export interface IntegrationRecord {
   platform: string;
   name: string;
   connection_mode: 'webhook' | 'api_sync';
+  sync_mode: 'mock' | 'real' | null;
   webhook_token: string | null;
   is_active: boolean;
   last_sync_at: string | null;
@@ -127,6 +128,7 @@ export interface CreateIntegrationInput {
   platform: string;
   name: string;
   connection_mode: 'webhook' | 'api_sync';
+  sync_mode?: 'mock' | 'real';
   webhook_secret?: string;
   api_key?: string;
   api_token?: string;
@@ -452,6 +454,17 @@ export async function syncIntegration(
 ): Promise<{ status: string }> {
   return fetchWithAuth<{ status: string }>(token, `/integrations/${id}/sync`, {
     method: 'POST',
+  });
+}
+
+export async function updateIntegrationSyncMode(
+  token: string,
+  id: string,
+  syncMode: 'mock' | 'real',
+): Promise<IntegrationRecord> {
+  return fetchWithAuth<IntegrationRecord>(token, `/integrations/${id}/sync-mode`, {
+    method: 'PATCH',
+    body: JSON.stringify({ sync_mode: syncMode }),
   });
 }
 

@@ -20,6 +20,7 @@ import {
   buildCredentialBlob,
   validateApiSyncCredentials,
 } from '@/lib/platform-credentials';
+import { formatPlatformLabel } from '@/lib/platform-options';
 
 interface AddIntegrationFormProps {
   onCreated: (record: IntegrationRecord) => void;
@@ -30,6 +31,7 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
   const [platform, setPlatform] = useState('retreaver');
   const [name, setName] = useState('');
   const [connectionMode, setConnectionMode] = useState<'webhook' | 'api_sync'>('api_sync');
+  const [syncMode, setSyncMode] = useState<'mock' | 'real'>('mock');
   const [webhookSecret, setWebhookSecret] = useState('');
   const [credValues, setCredValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -92,6 +94,7 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
     if (connectionMode === 'webhook') {
       body.webhook_secret = webhookSecret.trim();
     } else {
+      body.sync_mode = syncMode;
       try {
         const blob = buildCredentialBlob(platform, credValues);
         Object.assign(body, blob);
@@ -156,31 +159,31 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label htmlFor="platform" className="mb-1 block text-xs text-calyx-muted">
+          <label htmlFor="platform" className="block text-xs text-calyx-muted">
             Platform
           </label>
           <select
             id="platform"
-            className="flex h-9 w-full rounded-md border border-calyx-border bg-calyx-surface px-3 text-sm"
+            className="calyx-input cursor-pointer"
             value={platform}
             onChange={(e) => handlePlatformChange(e.target.value)}
           >
             {platformOptions.map((o) => (
               <option key={o.platform} value={o.platform}>
-                {o.platform}
+                {formatPlatformLabel(o.platform)}
               </option>
             ))}
           </select>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="integration-name" className="mb-1 block text-xs text-calyx-muted">
+          <label htmlFor="integration-name" className="block text-xs text-calyx-muted">
             Name
           </label>
           <Input
             id="integration-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="My Retreaver account"
+            placeholder={`My ${formatPlatformLabel(platform)} account`}
           />
         </div>
       </div>
@@ -221,6 +224,29 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
 
       {connectionMode === 'api_sync' ? (
         <div className="space-y-3">
+          <div className="space-y-2">
+            <p className="text-xs text-calyx-muted">Data source</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-calyx-border px-3 py-2 text-sm">
+                <input
+                  type="radio"
+                  name="sync_mode"
+                  checked={syncMode === 'mock'}
+                  onChange={() => setSyncMode('mock')}
+                />
+                Test — demo calls (default)
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-calyx-border px-3 py-2 text-sm">
+                <input
+                  type="radio"
+                  name="sync_mode"
+                  checked={syncMode === 'real'}
+                  onChange={() => setSyncMode('real')}
+                />
+                Live — pull from platform API
+              </label>
+            </div>
+          </div>
           {apiFields.map((field) => (
             <div key={field.key} className="space-y-1.5">
               <label htmlFor={`cred-${field.key}`} className="mb-1 block text-xs text-calyx-muted">

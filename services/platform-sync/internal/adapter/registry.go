@@ -9,18 +9,16 @@ const maxPagesPerSync = 10
 
 // Registry resolves platform adapters and coordinates paginated fetch.
 type Registry struct {
-	mockMode bool
 	http     *HTTPClient
 	adapters map[string]PlatformAdapter
 	mock     *mockAdapter
 }
 
-func NewRegistry(mockMode bool) *Registry {
+func NewRegistry() *Registry {
 	http := NewHTTPClient()
 	return &Registry{
-		mockMode: mockMode,
-		http:     http,
-		mock:     &mockAdapter{},
+		http: http,
+		mock: &mockAdapter{},
 		adapters: map[string]PlatformAdapter{
 			"retreaver":  NewRetreaverAdapter(http),
 			"ringba":     NewRingbaAdapter(http),
@@ -30,8 +28,8 @@ func NewRegistry(mockMode bool) *Registry {
 	}
 }
 
-func (r *Registry) Get(platform string) (PlatformAdapter, error) {
-	if r.mockMode {
+func (r *Registry) Get(platform string, syncMode string) (PlatformAdapter, error) {
+	if syncMode != "real" {
 		return r.mock, nil
 	}
 	ad, ok := r.adapters[platform]
@@ -41,8 +39,8 @@ func (r *Registry) Get(platform string) (PlatformAdapter, error) {
 	return ad, nil
 }
 
-func (r *Registry) TestAuth(ctx context.Context, platform string, creds map[string]string) error {
-	ad, err := r.Get(platform)
+func (r *Registry) TestAuth(ctx context.Context, platform string, syncMode string, creds map[string]string) error {
+	ad, err := r.Get(platform, syncMode)
 	if err != nil {
 		return err
 	}
@@ -52,11 +50,12 @@ func (r *Registry) TestAuth(ctx context.Context, platform string, creds map[stri
 func (r *Registry) FetchAllPages(
 	ctx context.Context,
 	platform string,
+	syncMode string,
 	creds map[string]string,
 	syncCursor string,
 	lastSyncAt string,
 ) (PageResult, error) {
-	ad, err := r.Get(platform)
+	ad, err := r.Get(platform, syncMode)
 	if err != nil {
 		return PageResult{}, err
 	}

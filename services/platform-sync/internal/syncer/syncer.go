@@ -138,7 +138,7 @@ func (s *Service) TestAuth(ctx context.Context, tenantID, integrationID string) 
 
 	}
 
-	return s.adapter.TestAuth(ctx, item.Platform, creds)
+	return s.adapter.TestAuth(ctx, item.Platform, item.SyncMode, creds)
 
 }
 
@@ -174,7 +174,7 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration) erro
 
 
 
-	result, err := s.adapter.FetchAllPages(ctx, item.Platform, creds, item.SyncCursor, lastSync)
+	result, err := s.adapter.FetchAllPages(ctx, item.Platform, item.SyncMode, creds, item.SyncCursor, lastSync)
 
 	if err != nil {
 

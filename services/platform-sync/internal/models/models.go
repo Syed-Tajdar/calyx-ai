@@ -3,15 +3,16 @@ package models
 import "time"
 
 type SyncIntegration struct {
-	ID                   string
-	TenantID             string
-	Platform             string
-	Name                 string
-	APICredentialsBlob   []byte
-	SyncCursor           string
-	LastSyncAt           *time.Time
-	SyncStatus           string
-	LastSyncError        string
+	ID                 string
+	TenantID           string
+	Platform           string
+	Name               string
+	SyncMode           string
+	APICredentialsBlob []byte
+	SyncCursor         string
+	LastSyncAt         *time.Time
+	SyncStatus         string
+	LastSyncError      string
 }
 
 type RemoteCall struct {

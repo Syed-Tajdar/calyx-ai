@@ -20,6 +20,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   retreaver: 'Retreaver',
   trackdrive: 'TrackDrive',
   callgrid: 'CallGrid',
+  callloom: 'Call Loom',
   'callloom-native': 'Call Loom',
 };
 

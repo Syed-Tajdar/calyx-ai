@@ -4,8 +4,9 @@ import { RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { IntegrationRecord } from '@/lib/api';
-import { ApiError, deleteIntegration, syncIntegration } from '@/lib/api';
+import { ApiError, deleteIntegration, syncIntegration, updateIntegrationSyncMode } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { formatPlatformLabel } from '@/lib/platform-options';
 import { useState } from 'react';
 
 interface IntegrationsListProps {
@@ -27,6 +28,7 @@ export function IntegrationsList({
 }: IntegrationsListProps): JSX.Element {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [updatingModeId, setUpdatingModeId] = useState<string | null>(null);
 
   async function handleDelete(id: string, name: string): Promise<void> {
     if (!window.confirm(`Remove integration "${name}"?`)) return;
@@ -64,6 +66,28 @@ export function IntegrationsList({
     }
   }
 
+  async function handleSyncModeChange(
+    id: string,
+    nextMode: 'mock' | 'real',
+  ): Promise<void> {
+    const token = getToken();
+    if (!token) return;
+    setUpdatingModeId(id);
+    try {
+      await updateIntegrationSyncMode(token, id, nextMode);
+      toast.success(nextMode === 'mock' ? 'Switched to Test mode' : 'Switched to Live mode');
+      onUpdated();
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else {
+        toast.error('Failed to update sync mode');
+      }
+    } finally {
+      setUpdatingModeId(null);
+    }
+  }
+
   return (
     <div className="calyx-glass calyx-glass-lit overflow-hidden">
       <div className="border-b border-calyx-border/60 px-4 py-3">
@@ -79,6 +103,7 @@ export function IntegrationsList({
               <th className="px-4 py-3 font-medium">Platform</th>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Mode</th>
+              <th className="px-4 py-3 font-medium">Data</th>
               <th className="px-4 py-3 font-medium">Token</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Sync</th>
@@ -91,10 +116,42 @@ export function IntegrationsList({
                 key={item.id}
                 className="border-b border-calyx-border/40 hover:bg-white/[0.03]"
               >
-                <td className="px-4 py-3 capitalize text-calyx-text">{item.platform}</td>
+                <td className="px-4 py-3 text-calyx-text">{formatPlatformLabel(item.platform)}</td>
                 <td className="px-4 py-3 text-calyx-muted">{item.name}</td>
                 <td className="px-4 py-3 text-calyx-muted">
                   {item.connection_mode === 'api_sync' ? 'API key' : 'Webhook'}
+                </td>
+                <td className="px-4 py-3">
+                  {item.connection_mode === 'api_sync' ? (
+                    <div className="inline-flex rounded-md border border-calyx-border p-0.5">
+                      <button
+                        type="button"
+                        disabled={updatingModeId === item.id}
+                        className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                          (item.sync_mode ?? 'mock') === 'mock'
+                            ? 'bg-calyx-teal/20 text-calyx-teal'
+                            : 'text-calyx-muted hover:text-calyx-text'
+                        }`}
+                        onClick={() => void handleSyncModeChange(item.id, 'mock')}
+                      >
+                        Test
+                      </button>
+                      <button
+                        type="button"
+                        disabled={updatingModeId === item.id}
+                        className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                          item.sync_mode === 'real'
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'text-calyx-muted hover:text-calyx-text'
+                        }`}
+                        onClick={() => void handleSyncModeChange(item.id, 'real')}
+                      >
+                        Live
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-calyx-muted">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 font-mono text-[10px] text-calyx-muted">
                   {maskToken(item.webhook_token)}
@@ -151,7 +208,7 @@ export function IntegrationsList({
             ))}
             {integrations.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-calyx-muted">
+                <td colSpan={8} className="px-4 py-12 text-center text-calyx-muted">
                   No integrations configured.
                 </td>
               </tr>
