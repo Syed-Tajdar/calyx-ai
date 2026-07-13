@@ -24,6 +24,7 @@ const createSchema = z.object({
   name: z.string().min(1).max(128),
   connection_mode: z.enum(['webhook', 'api_sync']),
   sync_mode: z.enum(['mock', 'real']).optional(),
+  initial_lookback_days: z.number().int().min(1).max(365).optional(),
   webhook_secret: z.string().min(1).max(512).optional(),
   api_key: z.string().min(1).max(512).optional(),
   api_token: z.string().min(1).max(512).optional(),
@@ -37,6 +38,7 @@ const createSchema = z.object({
 
 const syncModeSchema = z.object({
   sync_mode: z.enum(['mock', 'real']),
+  initial_lookback_days: z.number().int().min(1).max(365).optional(),
 });
 
 @Controller('integrations')
@@ -79,6 +81,14 @@ export class IntegrationsController {
     return this.integrationsService.triggerSync(tenantId, id);
   }
 
+  @Post(':id/backfill')
+  async backfill(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ): Promise<{ status: string }> {
+    return this.integrationsService.triggerBackfill(tenantId, id);
+  }
+
   @Patch(':id/sync-mode')
   async updateSyncMode(
     @CurrentTenant() tenantId: string,
@@ -90,6 +100,7 @@ export class IntegrationsController {
       tenantId,
       id,
       parsed.sync_mode,
+      parsed.initial_lookback_days,
     );
   }
 

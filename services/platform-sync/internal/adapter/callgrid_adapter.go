@@ -36,7 +36,7 @@ func (a *CallGridAdapter) TestAuth(ctx context.Context, creds map[string]string)
 	return err
 }
 
-func (a *CallGridAdapter) FetchPage(ctx context.Context, creds map[string]string, cursor string, lastSyncAt string) (PageResult, error) {
+func (a *CallGridAdapter) FetchPage(ctx context.Context, creds map[string]string, cursor string, lastSyncAt string, _ int) (PageResult, error) {
 	cs := callgridDefaultCursor(lastSyncAt)
 	if cursor != "" {
 		_ = DecodeCursor(cursor, &cs)

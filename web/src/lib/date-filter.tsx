@@ -49,15 +49,14 @@ export function useDateFilter(): DateFilterState {
   return ctx;
 }
 
-export function filterByDateAndPlatform<T extends { received_at?: string; platform?: string }>(
-  rows: T[],
-  startDate: Date | null,
-  platform: string,
-): T[] {
+export function filterByDateAndPlatform<
+  T extends { received_at?: string; occurred_at?: string; platform?: string },
+>(rows: T[], startDate: Date | null, platform: string): T[] {
   return rows.filter((row) => {
     if (platform && row.platform && row.platform !== platform) return false;
-    if (startDate && row.received_at) {
-      const t = new Date(row.received_at).getTime();
+    const eventAt = row.occurred_at || row.received_at;
+    if (startDate && eventAt) {
+      const t = new Date(eventAt).getTime();
       if (t < startDate.getTime()) return false;
     }
     return true;

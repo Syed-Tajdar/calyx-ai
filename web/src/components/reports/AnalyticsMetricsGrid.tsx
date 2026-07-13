@@ -1,4 +1,4 @@
-import { DollarSign, Phone, TrendingUp, Wallet } from 'lucide-react';
+import { Copy, DollarSign, Phone, TrendingUp, Wallet } from 'lucide-react';
 import type { MetricsResult } from '@/lib/api';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 
@@ -10,7 +10,7 @@ export function AnalyticsMetricsGrid({ metrics }: AnalyticsMetricsGridProps): JS
   if (!metrics) {
     return (
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
+        {Array.from({ length: 7 }).map((_, i) => (
           <div key={i} className="calyx-metric-card h-24 animate-pulse bg-calyx-card/50" />
         ))}
       </div>
@@ -41,6 +41,11 @@ export function AnalyticsMetricsGrid({ metrics }: AnalyticsMetricsGridProps): JS
         value={`${metrics.roi.toFixed(1)}%`}
         trendUp={metrics.roi >= 0}
         icon={TrendingUp}
+      />
+      <MetricCard
+        label="Duplicate rate"
+        value={`${((metrics.duplicate_rate ?? 0) * 100).toFixed(1)}%`}
+        icon={Copy}
       />
     </section>
   );

@@ -8,6 +8,7 @@ import { ChannelBadge } from '@/components/ui/StatusPill';
 import type { AlertRule } from '@/lib/api';
 import { ApiError, createAlertRule, deleteAlertRule } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { formatTitleCase } from '@/lib/text-format';
 
 interface AlertRulesSectionProps {
   rules: AlertRule[];
@@ -94,7 +95,7 @@ export function AlertRulesSection({
                   key={rule.id}
                   className="border-b border-calyx-border/40 hover:bg-white/[0.03]"
                 >
-                  <td className="px-4 py-3 text-calyx-text">{rule.name}</td>
+                  <td className="px-4 py-3 text-calyx-text">{formatTitleCase(rule.name)}</td>
                   <td className="px-4 py-3 font-mono text-[10px] text-calyx-muted">
                     score &lt; {rule.threshold}
                   </td>
@@ -136,11 +137,11 @@ export function AlertRulesSection({
       <form onSubmit={handleSubmit} className="calyx-glass calyx-glass-lit space-y-4 p-4">
         <p className="font-heading text-sm font-semibold text-calyx-text">Create Alert Rule</p>
         <p className="text-xs text-calyx-muted">
-          Fires when call overall_score is below threshold.
+          Fires when call Overall Score is below threshold.
         </p>
         <div>
           <label htmlFor="rule-name" className="mb-1 block text-xs text-calyx-muted">
-            Rule name
+            Rule Name
           </label>
           <input
             id="rule-name"
@@ -149,12 +150,12 @@ export function AlertRulesSection({
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            placeholder="Low score alert"
+            placeholder="Low Score Alert"
           />
         </div>
         <div>
           <label htmlFor="rule-threshold" className="mb-1 block text-xs text-calyx-muted">
-            Score threshold (alert if below)
+            Score Threshold (Alert If Below)
           </label>
           <input
             id="rule-threshold"
@@ -170,7 +171,7 @@ export function AlertRulesSection({
         </div>
         {error && <p className="text-sm text-red-300">{error}</p>}
         <button type="submit" disabled={submitting} className="calyx-btn-primary text-sm">
-          {submitting ? 'Creating…' : 'Create rule'}
+          {submitting ? 'Creating…' : 'Create Rule'}
         </button>
       </form>
     </div>

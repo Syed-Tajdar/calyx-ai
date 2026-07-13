@@ -18,9 +18,14 @@ export const pingEventPayloadSchema = z.object({
   ani_hash: z.string().optional(),
   campaign_id: z.string().optional(),
   publisher_id: z.string().optional(),
+  target_id: z.string().optional(),
+  state: z.string().optional(),
   event_type: z.string().optional(),
+  revenue: z.number().optional(),
+  payout: z.number().optional(),
   is_duplicate: z.boolean().optional(),
   received_at_unix_ms: z.number().int(),
+  occurred_at_unix_ms: z.number().int().optional(),
 });
 
 export const callScoredPayloadSchema = z.object({

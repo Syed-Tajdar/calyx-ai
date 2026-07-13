@@ -16,6 +16,8 @@ const envSchema = z.object({
   CLICKHOUSE_URL: z.string().default('http://localhost:8123'),
   CLICKHOUSE_DB: z.string().default('default'),
   MOCK_MODE: boolFromEnv,
+  /** When false, API skips synthetic /live pings and uses Kafka instead (even if MOCK_MODE=true). */
+  MOCK_EMITTER_ENABLED: boolFromEnv,
   SINGLE_TENANT_MODE: boolFromEnv,
   REDIS_URL: z.string().default('redis://localhost:6379'),
   PROVIDER_CATALOG_PATH: z.string().optional(),

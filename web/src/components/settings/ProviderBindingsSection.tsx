@@ -25,6 +25,7 @@ import {
   findBindingForRow,
   PROVIDER_DOMAIN_ROWS,
 } from '@/lib/provider-domains';
+import { formatProviderDomainLabel } from '@/lib/text-format';
 
 const FORM_DOMAINS = ['attribution', 'dnc', 'llm', 'enrichment'] as const;
 
@@ -168,7 +169,7 @@ export function ProviderBindingsSection(): JSX.Element {
             >
               {FORM_DOMAINS.map((d) => (
                 <option key={d} value={d}>
-                  {d}
+                  {formatProviderDomainLabel(d)}
                 </option>
               ))}
             </select>

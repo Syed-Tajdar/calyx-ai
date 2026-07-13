@@ -32,6 +32,8 @@ import (
 
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/producer"
 
+	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/redact"
+
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/store"
 
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/syncer"
@@ -126,7 +128,7 @@ func main() {
 
 	prod := producer.NewProducer(kafkaClient, cfg.KafkaTopic, cfg.ANIEncryptionKey)
 
-	dedupChecker := dedup.NewChecker(redisClient, 24*time.Hour)
+	dedupChecker := dedup.NewChecker(redisClient, cfg.DedupTTL)
 
 	svc := syncer.NewService(st, ad, prod, dedupChecker, decryptor, logger)
 
@@ -186,7 +188,7 @@ func main() {
 
 			if err := svc.RunAll(runCtx); err != nil {
 
-				logger.Error("scheduled sync failed", "error", err)
+				logger.Error("scheduled sync failed", "error", redact.SanitizeErr(err))
 
 			}
 
@@ -250,7 +252,7 @@ func handleIntegrationAction(
 
 	if err := fn(ctx, req.TenantID, req.IntegrationID); err != nil {
 
-		logger.Error("request failed", "error", err)
+		logger.Error("request failed", "error", redact.SanitizeErr(err))
 
 		http.Error(w, "request failed", http.StatusInternalServerError)
 
@@ -292,11 +294,13 @@ func handleTestAuth(w http.ResponseWriter, r *http.Request, logger *slog.Logger,
 
 	if err := svc.TestAuth(ctx, req.TenantID, req.IntegrationID); err != nil {
 
-		logger.Error("test-auth failed", "error", err)
+		safeMsg := redact.SanitizeErr(err)
+
+		logger.Error("test-auth failed", "error", safeMsg)
 
 		w.WriteHeader(http.StatusUnauthorized)
 
-		_ = json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
+		_ = json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": safeMsg})
 
 		return
 

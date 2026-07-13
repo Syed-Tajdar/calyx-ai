@@ -3,6 +3,7 @@ import { ClickhouseService } from '../database/clickhouse.service';
 import { PostgresService } from '../database/postgres.service';
 import { loadEnv } from '../config/env';
 import { AdSpendRow, createAdSpendSource } from './adspend.source';
+import { EVENT_AT_EXPR } from '../common/ping-event-time';
 
 export interface MetricsResult {
   total_pings: number;
@@ -11,6 +12,8 @@ export interface MetricsResult {
   cpa: number;
   rpc: number;
   roi: number;
+  /** Fraction of distinct calls with platform_duplicate=1 (0..1). */
+  duplicate_rate: number;
 }
 
 export interface PnLResult {
@@ -29,7 +32,17 @@ export interface PlatformMixRow {
 @Injectable()
 export class AnalyticsService {
   private readonly adSpendSource;
-  private readonly nonDuplicateClause = 'AND is_duplicate = 0';
+  /** Distinct calls; revenue/payout kept for conditional sum (exclude platform_duplicate). */
+  private readonly dedupedCallsSubquery = `
+        SELECT
+          platform,
+          external_call_id,
+          argMax(revenue, received_at) AS revenue,
+          argMax(payout, received_at) AS payout,
+          argMax(platform_duplicate, received_at) AS platform_duplicate
+        FROM pings
+        WHERE tenant_id = {tenant_id:UUID}
+          AND external_call_id != ''`;
 
   constructor(
     private readonly clickhouse: ClickhouseService,
@@ -51,24 +64,38 @@ export class AnalyticsService {
       query: `
         SELECT
           count() AS total_pings,
-          sum(revenue) AS total_revenue,
-          sum(payout) AS total_payout
-        FROM pings
-        WHERE tenant_id = {tenant_id:UUID}
-        ${this.nonDuplicateClause}
-        ${dateClause}
+          sumIf(revenue, platform_duplicate = 0) AS total_revenue,
+          sumIf(payout, platform_duplicate = 0) AS total_payout,
+          countIf(platform_duplicate = 1) AS duplicate_pings
+        FROM (
+          ${this.dedupedCallsSubquery}
+          ${dateClause}
+          GROUP BY platform, external_call_id
+        )
       `,
       query_params: params,
       format: 'JSONEachRow',
     });
-    const rows = await result.json<{ total_pings: string; total_revenue: string; total_payout: string }>();
-    const row = rows[0] ?? { total_pings: '0', total_revenue: '0', total_payout: '0' };
+    const rows = await result.json<{
+      total_pings: string;
+      total_revenue: string;
+      total_payout: string;
+      duplicate_pings: string;
+    }>();
+    const row = rows[0] ?? {
+      total_pings: '0',
+      total_revenue: '0',
+      total_payout: '0',
+      duplicate_pings: '0',
+    };
     const totalPings = Number(row.total_pings);
     const revenue = Number(row.total_revenue);
     const payout = Number(row.total_payout);
+    const duplicatePings = Number(row.duplicate_pings);
     const spendRows = await this.adSpendSource.getSpend(tenantId);
     const adSpend = spendRows.reduce((sum, r) => sum + r.amount, 0);
     const conversions = Math.max(totalPings, 1);
+    const duplicateRate = totalPings > 0 ? duplicatePings / totalPings : 0;
 
     return {
       total_pings: totalPings,
@@ -77,6 +104,7 @@ export class AnalyticsService {
       cpa: adSpend > 0 ? adSpend / conversions : 0,
       rpc: conversions > 0 ? revenue / conversions : 0,
       roi: adSpend > 0 ? ((revenue - payout - adSpend) / adSpend) * 100 : 0,
+      duplicate_rate: duplicateRate,
     };
   }
 
@@ -109,11 +137,12 @@ export class AnalyticsService {
     const result = await this.clickhouse.getClient().query({
       query: `
         SELECT platform, count() AS count
-        FROM pings
-        WHERE tenant_id = {tenant_id:UUID}
-        ${this.nonDuplicateClause}
-        ${dateClause}
-        ${platformClause}
+        FROM (
+          ${this.dedupedCallsSubquery}
+          ${dateClause}
+          ${platformClause}
+          GROUP BY platform, external_call_id
+        )
         GROUP BY platform
         ORDER BY count DESC
       `,
@@ -156,8 +185,8 @@ export class AnalyticsService {
 
   private buildDateClause(from?: string, to?: string): string {
     const parts: string[] = [];
-    if (from) parts.push('AND received_at >= parseDateTimeBestEffort({from:String})');
-    if (to) parts.push('AND received_at < parseDateTimeBestEffort({to:String})');
-    return parts.join('\n        ');
+    if (from) parts.push(`AND ${EVENT_AT_EXPR} >= parseDateTimeBestEffort({from:String})`);
+    if (to) parts.push(`AND ${EVENT_AT_EXPR} < parseDateTimeBestEffort({to:String})`);
+    return parts.join('\n          ');
   }
 }

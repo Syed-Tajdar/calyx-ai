@@ -55,6 +55,9 @@ func (p *Producer) Publish(ctx context.Context, tenantID, platform string, call 
 		ReceivedAt:     receivedAt,
 		CallKey:        callKeyStored,
 	}
+	if !call.OccurredAt.IsZero() {
+		msg.OccurredAt = call.OccurredAt.UTC().UnixMilli()
+	}
 	body, err := json.Marshal(msg)
 	if err != nil {
 		return err

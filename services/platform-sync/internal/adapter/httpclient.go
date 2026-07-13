@@ -7,12 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/redact"
 	"github.com/sony/gobreaker"
 )
 
 const maxBodyBytes = 4 << 20 // 4MB
 
-// HTTPClient wraps http.Client with per-host circuit breaker and 429 retry.
+// HTTPClient wraps http.Client with per-host circuit breaker, 429 retry, and network retry.
 type HTTPClient struct {
 	client   *http.Client
 	breakers map[string]*gobreaker.CircuitBreaker
@@ -37,7 +38,7 @@ func (c *HTTPClient) breaker(host string) *gobreaker.CircuitBreaker {
 	return b
 }
 
-// Do executes an HTTP request with circuit breaker and limited 429 retry.
+// Do executes an HTTP request with circuit breaker, 429 retry, and transient network retry.
 func (c *HTTPClient) Do(req *http.Request) (*http.Response, []byte, error) {
 	host := req.URL.Host
 	var lastErr error
@@ -65,10 +66,10 @@ func (c *HTTPClient) Do(req *http.Request) (*http.Response, []byte, error) {
 		})
 		if err != nil {
 			lastErr = err
-			if strings.Contains(err.Error(), "429") {
+			if strings.Contains(err.Error(), "429") || redact.IsRetryableNetwork(err) {
 				continue
 			}
-			return nil, nil, err
+			return nil, nil, sanitizeHTTPError(err)
 		}
 		hr := result.(*httpResult)
 		if hr.status == http.StatusTooManyRequests {
@@ -77,7 +78,17 @@ func (c *HTTPClient) Do(req *http.Request) (*http.Response, []byte, error) {
 		}
 		return &http.Response{StatusCode: hr.status}, hr.body, nil
 	}
-	return nil, nil, lastErr
+	if lastErr != nil {
+		return nil, nil, sanitizeHTTPError(lastErr)
+	}
+	return nil, nil, fmt.Errorf("request failed after retries")
+}
+
+func sanitizeHTTPError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s", redact.SanitizeErr(err))
 }
 
 type httpResult struct {

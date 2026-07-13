@@ -20,10 +20,11 @@ func buildPing(
 	eventType string,
 	revenue float64,
 	payout float64,
-	isDuplicate bool,
+	platformDuplicate bool,
 	encryptionKey []byte,
 	receivedAt time.Time,
 ) (models.Ping, error) {
+
 	aniHash := ""
 	var aniEncrypted []byte
 	if callerID != "" {
@@ -48,9 +49,11 @@ func buildPing(
 		TargetID:       targetID,
 		State:          usstate.NormalizeState(state),
 		EventType:      eventType,
-		Revenue:        revenue,
-		Payout:         payout,
-		IsDuplicate:    isDuplicate,
-		ReceivedAt:     receivedAt,
+		Revenue:           revenue,
+		Payout:            payout,
+		IsDuplicate:       false, // Redis dedup owns this; set in webhook handler
+		PlatformDuplicate: platformDuplicate,
+		ReceivedAt:        receivedAt,
+
 	}, nil
 }

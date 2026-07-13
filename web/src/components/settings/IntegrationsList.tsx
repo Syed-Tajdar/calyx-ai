@@ -1,10 +1,16 @@
 'use client';
 
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { History, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { IntegrationRecord } from '@/lib/api';
-import { ApiError, deleteIntegration, syncIntegration, updateIntegrationSyncMode } from '@/lib/api';
+import {
+  ApiError,
+  backfillIntegration,
+  deleteIntegration,
+  syncIntegration,
+  updateIntegrationSyncMode,
+} from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { formatPlatformLabel } from '@/lib/platform-options';
 import { useState } from 'react';
@@ -28,6 +34,7 @@ export function IntegrationsList({
 }: IntegrationsListProps): JSX.Element {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [backfillingId, setBackfillingId] = useState<string | null>(null);
   const [updatingModeId, setUpdatingModeId] = useState<string | null>(null);
 
   async function handleDelete(id: string, name: string): Promise<void> {
@@ -63,6 +70,32 @@ export function IntegrationsList({
       toast.error('Sync failed — is platform-sync running?');
     } finally {
       setSyncingId(null);
+    }
+  }
+
+  async function handleBackfill(id: string, days: number): Promise<void> {
+    if (
+      !window.confirm(
+        `Backfill last ${days} days? This clears the sync cursor and re-pulls from the lookback window.`,
+      )
+    ) {
+      return;
+    }
+    const token = getToken();
+    if (!token) return;
+    setBackfillingId(id);
+    try {
+      await backfillIntegration(token, id);
+      toast.success(`Backfill started (last ${days} days)`);
+      onUpdated();
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 429) {
+        toast.error(err.message || 'Backfill rate limited — try again later');
+      } else {
+        toast.error('Backfill failed — is platform-sync running?');
+      }
+    } finally {
+      setBackfillingId(null);
     }
   }
 
@@ -104,6 +137,7 @@ export function IntegrationsList({
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Mode</th>
               <th className="px-4 py-3 font-medium">Data</th>
+              <th className="px-4 py-3 font-medium">Lookback</th>
               <th className="px-4 py-3 font-medium">Token</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Sync</th>
@@ -111,7 +145,9 @@ export function IntegrationsList({
             </tr>
           </thead>
           <tbody>
-            {integrations.map((item) => (
+            {integrations.map((item) => {
+              const lookbackDays = item.initial_lookback_days ?? 30;
+              return (
               <tr
                 key={item.id}
                 className="border-b border-calyx-border/40 hover:bg-white/[0.03]"
@@ -153,6 +189,11 @@ export function IntegrationsList({
                     <span className="text-calyx-muted">—</span>
                   )}
                 </td>
+                <td className="px-4 py-3 text-calyx-muted">
+                  {item.connection_mode === 'api_sync'
+                    ? `Syncing last ${lookbackDays} days`
+                    : '—'}
+                </td>
                 <td className="px-4 py-3 font-mono text-[10px] text-calyx-muted">
                   {maskToken(item.webhook_token)}
                 </td>
@@ -179,17 +220,32 @@ export function IntegrationsList({
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-1">
                     {item.connection_mode === 'api_sync' && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        disabled={syncingId === item.id}
-                        onClick={() => void handleSync(item.id)}
-                        aria-label={`Sync ${item.name}`}
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={syncingId === item.id || backfillingId === item.id}
+                          onClick={() => void handleSync(item.id)}
+                          aria-label={`Sync ${item.name}`}
+                          title="Sync"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={syncingId === item.id || backfillingId === item.id}
+                          onClick={() => void handleBackfill(item.id, lookbackDays)}
+                          aria-label={`Backfill ${item.name}`}
+                          title={`Backfill last ${lookbackDays} days`}
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
                     <Button
                       type="button"
@@ -205,10 +261,11 @@ export function IntegrationsList({
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {integrations.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-calyx-muted">
+                <td colSpan={9} className="px-4 py-12 text-center text-calyx-muted">
                   No integrations configured.
                 </td>
               </tr>

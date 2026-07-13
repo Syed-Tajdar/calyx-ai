@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
+import { EVENT_AT_EXPR } from '../common/ping-event-time';
 import { buildPingWhereClause, PingListFilters } from './pings.filters';
 
 export interface PingRecord {
@@ -15,7 +16,13 @@ export interface PingRecord {
   revenue: number;
   payout: number;
   is_duplicate: number;
+  /** Ingestion timestamp (when Calyx received the ping). */
   received_at: string;
+  /**
+   * Source call time when known (e.g. Retreaver created_at); otherwise same as received_at.
+   * Use this for Ping Feed TIME, period filters, and charts.
+   */
+  occurred_at: string;
 }
 
 export interface PingListResult {
@@ -25,20 +32,29 @@ export interface PingListResult {
   offset: number;
 }
 
+/** Prefer platform source time; fall back to ingestion time. */
+export { EVENT_AT_EXPR } from '../common/ping-event-time';
+
 const PING_SELECT = `
   tenant_id, platform, external_call_id, ani_hash,
   campaign_id, publisher_id, target_id, state,
   event_type, revenue, payout, is_duplicate,
-  formatDateTime(received_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS received_at_iso
+  formatDateTime(received_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS received_at_iso,
+  formatDateTime(${EVENT_AT_EXPR}, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS occurred_at_iso
 `;
 
-interface PingRecordRow extends Omit<PingRecord, 'received_at'> {
+interface PingRecordRow extends Omit<PingRecord, 'received_at' | 'occurred_at'> {
   received_at_iso: string;
+  occurred_at_iso: string;
 }
 
 function mapPingRow(row: PingRecordRow): PingRecord {
-  const { received_at_iso, ...rest } = row;
-  return { ...rest, received_at: received_at_iso };
+  const { received_at_iso, occurred_at_iso, ...rest } = row;
+  return {
+    ...rest,
+    received_at: received_at_iso,
+    occurred_at: occurred_at_iso,
+  };
 }
 
 @Injectable()
@@ -84,7 +100,7 @@ export class PingsService {
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
         ${clause}
-        ORDER BY received_at DESC
+        ORDER BY ${EVENT_AT_EXPR} DESC
         LIMIT {limit:UInt32}
         OFFSET {offset:UInt32}
       `,
@@ -116,7 +132,7 @@ export class PingsService {
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
         ${clause}
-        ORDER BY received_at DESC
+        ORDER BY ${EVENT_AT_EXPR} DESC
         LIMIT {limit:UInt32}
       `,
       query_params: params,
@@ -125,6 +141,7 @@ export class PingsService {
 
     const rows = (await dataResult.json<PingRecordRow>()).map(mapPingRow);
     const headers = [
+      'occurred_at',
       'received_at',
       'platform',
       'external_call_id',
@@ -137,6 +154,7 @@ export class PingsService {
     ];
     const lines = rows.map((row) =>
       [
+        row.occurred_at,
         row.received_at,
         row.platform,
         row.external_call_id,

@@ -22,7 +22,9 @@ export class MockLiveEmitterService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     const env = loadEnv();
-    if (!(env.MOCK_MODE ?? true)) {
+    // Synthetic WS pings only when both global mock and emitter flag are on.
+    if (!(env.MOCK_MODE ?? true) || !(env.MOCK_EMITTER_ENABLED ?? true)) {
+      this.logger.log('mock live emitter disabled');
       return;
     }
     this.scheduleNext();
@@ -48,6 +50,13 @@ export class MockLiveEmitterService implements OnModuleInit, OnModuleDestroy {
     this.tick += 1;
     const now = Date.now();
     const callId = randomUUID();
+    const platform =
+      MockLiveEmitterService.PING_PLATFORMS[
+        this.tick % MockLiveEmitterService.PING_PLATFORMS.length
+      ];
+    const states = ['TX', 'CA', 'FL', 'NY', 'WA', 'GA', 'IL', 'NC'] as const;
+    const state = states[this.tick % states.length];
+    const revenue = Number((5 + (this.tick % 20) * 1.25).toFixed(2));
 
     const pingEvent: LiveEventEnvelope = {
       type: 'ping_received',
@@ -56,13 +65,14 @@ export class MockLiveEmitterService implements OnModuleInit, OnModuleDestroy {
         event_id: randomUUID(),
         tenant_id: DEMO_TENANT_ID,
         call_id: callId,
-        platform:
-          MockLiveEmitterService.PING_PLATFORMS[
-            this.tick % MockLiveEmitterService.PING_PLATFORMS.length
-          ],
+        platform,
+        state,
         event_type: 'incoming',
+        revenue,
+        payout: Number((revenue * 0.7).toFixed(2)),
         is_duplicate: false,
         received_at_unix_ms: now,
+        occurred_at_unix_ms: now,
       },
       emitted_at: new Date(now).toISOString(),
     };

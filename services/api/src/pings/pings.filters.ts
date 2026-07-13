@@ -1,3 +1,5 @@
+import { EVENT_AT_EXPR } from '../common/ping-event-time';
+
 export interface PingListFilters {
   platform?: string;
   from?: string;
@@ -17,16 +19,24 @@ export function buildPingWhereClause(filters: PingListFilters): {
     params.platform = filters.platform;
   }
   if (filters.from) {
-    parts.push('AND received_at >= parseDateTimeBestEffort({from:String})');
+    parts.push(
+      `AND ${EVENT_AT_EXPR} >= parseDateTimeBestEffort({from:String})`,
+    );
     params.from = filters.from;
   }
   if (filters.to) {
-    parts.push('AND received_at < parseDateTimeBestEffort({to:String})');
+    parts.push(
+      `AND ${EVENT_AT_EXPR} < parseDateTimeBestEffort({to:String})`,
+    );
     params.to = filters.to;
   }
   if (filters.search) {
+    // Exact match first, then prefix (Retreaver Call Log shows truncated UUID).
     parts.push(
-      "AND positionCaseInsensitive(external_call_id, {search:String}) > 0",
+      `AND (
+          external_call_id = {search:String}
+          OR startsWith(lowerUTF8(external_call_id), lowerUTF8({search:String}))
+        )`,
     );
     params.search = filters.search;
   }

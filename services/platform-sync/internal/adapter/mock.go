@@ -17,7 +17,7 @@ func (m *mockAdapter) TestAuth(_ context.Context, _ map[string]string) error {
 	return nil
 }
 
-func (m *mockAdapter) FetchPage(_ context.Context, creds map[string]string, _ string, _ string) (PageResult, error) {
+func (m *mockAdapter) FetchPage(_ context.Context, creds map[string]string, _ string, _ string, _ int) (PageResult, error) {
 	platform := creds["platform"]
 	if platform == "" {
 		platform = "unknown"

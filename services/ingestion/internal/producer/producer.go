@@ -24,11 +24,13 @@ type PingMessage struct {
 	EventType      string  `json:"event_type"`
 	Revenue        float64 `json:"revenue"`
 	Payout         float64 `json:"payout"`
-	IsDuplicate    bool    `json:"is_duplicate"`
-	ReceivedAt     int64   `json:"received_at_unix_ms"`
+	IsDuplicate       bool  `json:"is_duplicate"`
+	PlatformDuplicate bool  `json:"platform_duplicate"`
+	ReceivedAt        int64 `json:"received_at_unix_ms"`
 	// CallKey: Retreaver-only; omitempty. Hex-encoded AES-256-GCM ciphertext — never plaintext.
 	CallKey string `json:"call_key,omitempty"`
 }
+
 
 // Producer publishes normalized pings to Kafka.
 type Producer struct {
@@ -66,9 +68,11 @@ func (p *Producer) Publish(ctx context.Context, ping models.Ping) error {
 		EventType:      ping.EventType,
 		Revenue:        ping.Revenue,
 		Payout:         ping.Payout,
-		IsDuplicate:    ping.IsDuplicate,
-		ReceivedAt:     ping.ReceivedAt.UTC().UnixMilli(),
-		CallKey:        callKeyStored,
+		IsDuplicate:       ping.IsDuplicate,
+		PlatformDuplicate: ping.PlatformDuplicate,
+		ReceivedAt:        ping.ReceivedAt.UTC().UnixMilli(),
+		CallKey:           callKeyStored,
+
 	}
 	body, err := json.Marshal(msg)
 	if err != nil {

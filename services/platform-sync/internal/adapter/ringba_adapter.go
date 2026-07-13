@@ -37,7 +37,7 @@ func (a *RingbaAdapter) TestAuth(ctx context.Context, creds map[string]string) e
 	return err
 }
 
-func (a *RingbaAdapter) FetchPage(ctx context.Context, creds map[string]string, cursor string, lastSyncAt string) (PageResult, error) {
+func (a *RingbaAdapter) FetchPage(ctx context.Context, creds map[string]string, cursor string, lastSyncAt string, _ int) (PageResult, error) {
 	cs := ringbaDefaultCursor(lastSyncAt)
 	if cursor != "" {
 		_ = DecodeCursor(cursor, &cs)

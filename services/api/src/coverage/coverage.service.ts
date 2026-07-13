@@ -22,11 +22,20 @@ export class CoverageService {
         SELECT
           state,
           count() AS ping_count,
-          sum(revenue) AS revenue
-        FROM pings
-        WHERE tenant_id = {tenant_id:UUID}
-          AND state != ''
-          AND is_duplicate = 0
+          sumIf(revenue, platform_duplicate = 0) AS revenue
+        FROM (
+          SELECT
+            platform,
+            external_call_id,
+            argMax(state, received_at) AS state,
+            argMax(revenue, received_at) AS revenue,
+            argMax(platform_duplicate, received_at) AS platform_duplicate
+          FROM pings
+          WHERE tenant_id = {tenant_id:UUID}
+            AND external_call_id != ''
+          GROUP BY platform, external_call_id
+        )
+        WHERE state != ''
         GROUP BY state
         ORDER BY ping_count DESC
         LIMIT 100

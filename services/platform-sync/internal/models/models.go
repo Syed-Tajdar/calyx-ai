@@ -3,16 +3,17 @@ package models
 import "time"
 
 type SyncIntegration struct {
-	ID                 string
-	TenantID           string
-	Platform           string
-	Name               string
-	SyncMode           string
-	APICredentialsBlob []byte
-	SyncCursor         string
-	LastSyncAt         *time.Time
-	SyncStatus         string
-	LastSyncError      string
+	ID                  string
+	TenantID            string
+	Platform            string
+	Name                string
+	SyncMode            string
+	APICredentialsBlob  []byte
+	SyncCursor          string
+	LastSyncAt          *time.Time
+	SyncStatus          string
+	LastSyncError       string
+	InitialLookbackDays int
 }
 
 type RemoteCall struct {
@@ -26,6 +27,10 @@ type RemoteCall struct {
 	CampaignID     string
 	PublisherID    string
 	TargetID       string
+	// OccurredAt is the platform source call time (e.g. Retreaver created_at). Zero if unknown.
+	OccurredAt time.Time
+	// UpdatedAt is the platform last-modified time (e.g. Retreaver updated_at). Zero if unknown.
+	UpdatedAt time.Time
 }
 
 type PingMessage struct {
@@ -42,5 +47,7 @@ type PingMessage struct {
 	Payout         float64 `json:"payout"`
 	IsDuplicate    bool    `json:"is_duplicate"`
 	ReceivedAt     int64   `json:"received_at_unix_ms"`
-	CallKey        string  `json:"call_key,omitempty"`
+	// OccurredAt: platform source call time (unix ms). 0 if unknown — consumers fall back to ReceivedAt.
+	OccurredAt int64  `json:"occurred_at_unix_ms,omitempty"`
+	CallKey    string `json:"call_key,omitempty"`
 }

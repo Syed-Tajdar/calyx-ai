@@ -51,6 +51,12 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
       {view.ping && (
         <Section title="Ping / RTB">
           <dl className="grid grid-cols-2 gap-2 text-xs">
+            <div className="col-span-2">
+              <dt className="text-calyx-muted">Call ID</dt>
+              <dd className="break-all font-mono text-calyx-text" title={view.call_id}>
+                {view.call_id || '—'}
+              </dd>
+            </div>
             <div>
               <dt className="text-calyx-muted">Platform</dt>
               <dd className="text-calyx-text">{view.ping.platform}</dd>

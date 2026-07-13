@@ -1,10 +1,11 @@
-import Link from 'next/link';
 import type { PingRecord } from '@/lib/api';
+import { CallIdCell } from '@/components/dashboard/CallIdCell';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { PlatformBadge } from '@/components/ui/PlatformBadge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { pingRowKey } from '@/lib/use-ping-feed';
+import { pingEventAt } from '@/lib/ping-event-time';
 import { cn } from '@/lib/utils';
 
 interface PingsTableProps {
@@ -43,21 +44,19 @@ export function PingsTable({
           key={pingRowKey(p)}
           className={cn(highlightKeys?.has(pingRowKey(p)) && 'calyx-row-new')}
         >
-          <TableCell className="text-calyx-muted">{formatTime(p.received_at)}</TableCell>
+          <TableCell className="text-calyx-muted">{formatTime(pingEventAt(p))}</TableCell>
           <TableCell>
             <PlatformBadge platform={p.platform} />
           </TableCell>
-          <TableCell className="font-mono text-xs">
-            {linkable ? (
-              <Link
-                href={`/calls/${encodeURIComponent(p.external_call_id)}?aniHash=${encodeURIComponent(p.ani_hash)}`}
-                className="truncate text-calyx-accent hover:underline"
-              >
-                {p.external_call_id.slice(0, 10)}…
-              </Link>
-            ) : (
-              <span className="truncate text-calyx-muted">{p.external_call_id.slice(0, 10)}…</span>
-            )}
+          <TableCell>
+            <CallIdCell
+              callId={p.external_call_id}
+              href={
+                linkable
+                  ? `/calls/${encodeURIComponent(p.external_call_id)}?aniHash=${encodeURIComponent(p.ani_hash)}&platform=${encodeURIComponent(p.platform)}`
+                  : undefined
+              }
+            />
           </TableCell>
           <TableCell>{p.state || '—'}</TableCell>
           <TableCell className="capitalize text-calyx-muted">{p.event_type}</TableCell>

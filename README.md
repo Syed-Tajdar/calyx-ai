@@ -2,7 +2,7 @@
 
 Pay-per-call analytics and intelligence platform.
 
-> **Presentation build:** `MOCK_MODE=true` · Phase 0 real ingestion slice · **API sync worker** · Teal Glass UI · 100% API↔UI coverage · Docs in [`docs/`](docs/README.md)
+> **Presentation build:** `MOCK_MODE=true` (intelligence) · `MOCK_EMITTER_ENABLED=false` (Kafka → `/live`) · **Retreaver CERTIFIED** (D9 YES · D8b PASS) · **clean slate for new Retreaver account** · API sync Test/Live · Teal Glass UI · Docs in [`docs/`](docs/README.md)
 
 See [`docs/design-system-v2.md`](docs/design-system-v2.md) for UI/UX specification.  
 UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.md)  
@@ -14,22 +14,71 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 ---
 
-## System verification (last run: 2026-07-08)
+## System verification (last run: 2026-07-13)
 
 | Layer | Result |
 |-------|--------|
-| Docker containers | **14/14** app + infra running (`verify-system.ps1`) |
-| Service health (`/healthz` + `/readyz`) | **12/12** (ports 8080–8088 incl. **platform-sync**, API :3000) |
-| Full system gate | **PASS** (`verify-system.ps1` — Docker, health, API 20/20, web 13/13, WS, unit tests, web build, pipeline 4/4) |
+| Docker containers | App + infra up (`api` / `platform-sync` / `web` rebuilt for Phase 1.6 + final cert) |
+| Service health (`/healthz` + `/readyz`) | **PASS** (ports 8080–8088, API :3000, Web :3001) |
 | API presentation checks | **20/20** (`verify-presentation.ps1`) |
-| **API sync (platform-sync)** | **PASS** (`verify-api-sync.ps1` — per-row `sync_mode=mock` → test + sync → ping +1) |
-| **Phase 0 ingestion slice** | **PASS** (`verify-ingestion-slice.ps1` — dedup aggregates + `call_key` ciphertext) |
-| Web routes (`:3001`) | **13/13** (all product pages + `/calls/demo-call-1`) |
-| Dashboard browser smoke | **10/10** (`check-dashboard-browser.mjs`) |
-| Settings sync_mode toggle | **PASS** (API `PATCH /integrations/:id/sync-mode` + `/settings` 200) |
-| WebSocket live feed | **PASS** (`ws-smoke-test.mjs`) |
-| Web production build | **PASS** (16 routes) |
-| Pipeline smoke (multi-platform E2E) | **PASS (4/4)** |
+| **API sync (platform-sync)** | **PASS** (`verify-api-sync.ps1`) |
+| **Phase 0 ingestion slice** | **PASS** (`verify-ingestion-slice.ps1`) |
+| Pipeline smoke (multi-platform E2E) | **PASS (4/4)** (`smoke-test-all-platforms.ps1`) |
+| WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — seeds Kafka webhooks when mock WS emitter is off) |
+| **Retreaver FINAL cert** | **YES** — D9 0→nonzero live + D8b two-way/prefix/deep-link ([`docs/retreaver-final-certification-report.md`](docs/retreaver-final-certification-report.md)) |
+| **Platform certification** | Retreaver **CERTIFIED**; Ringba next ([`docs/platform-certification.md`](docs/platform-certification.md)) |
+| **Retreaver account reset** | **DONE** — CH/Redis wipe + old `api_sync` removed; new account = Settings UI ([`docs/retreaver-account-reset-report.md`](docs/retreaver-account-reset-report.md)) |
+
+**Deploy note (2026-07-13):** Rebuild after certification / Phase 1.6 / account reset:
+
+```powershell
+cd deploy
+docker compose build api platform-sync web
+docker compose up -d --force-recreate api platform-sync web
+# Confirm: :3000/healthz, :8088/healthz, :3001 → 200
+# Browser: Ctrl+Shift+R on http://localhost:3001
+```
+
+Compose defaults: API `MOCK_EMITTER_ENABLED=false` (real Kafka → Socket.IO `/live`); intelligence `MOCK_MODE=true`. Postgres migration `000023_initial_lookback_days`. ClickHouse init includes `000008`/`000009`.
+
+**Recent (2026-07-13) — Retreaver clean account reset (new login):**
+
+- **Why:** earlier Live pulls used a **different** Retreaver account than the one operators can log into now; old rows mixed with new and broke cross-verification.
+- **Wipe:** `ALTER TABLE pings DELETE WHERE platform='retreaver'` → **0** rows; Redis `*:dedup:retreaver:*` cleared; all Retreaver **`api_sync`** integrations deleted (webhook **Retreaver Dev Postback** kept).
+- **Next (UI only):** Settings → new Retreaver API-key integration → **Test** first → then **Live** + sync; credentials never in git/logs. Hard-refresh Ping Feed / Coverage / Settings.
+- **D8b:** prefix match was already correct — prior “not found” was the **wrong account**. Re-confirm two-way prefix + deep link on the new account after Live.
+- Report: [`docs/retreaver-account-reset-report.md`](docs/retreaver-account-reset-report.md).
+
+**Recent (2026-07-13) — Retreaver FINAL certification + Phase 1.6:**
+
+- **D9 API-level YES:** live call `c525ed11-…` revenue **0 → 13.51**; `updated_at` moved; Sync #2 second/third CH row; `argMax` once — [`docs/retreaver-final-certification-report.md`](docs/retreaver-final-certification-report.md).
+- **D8b PASS (Case A):** Call Log truncated UUID / detail full UUID = `external_call_id`; exact-then-**prefix** search; copy + **Open in Retreaver** (`shared/providers/platform-deep-links.json`).
+- **Update cursor:** `updated_at_start` + `sort_by=updated_at` + **15m safety delta**; empty/backfill window **per-integration** `initial_lookback_days` (default 30) + Settings **“Syncing last N days”** + **Backfill** action.
+- **`platform_duplicate` rule (b):** exclude from revenue/payout; keep in ping counts; `duplicate_rate` on analytics.
+- **Known limitation (not a blocker):** deep-page backfill can **delay** concurrent updates until the page walk catches up (not data loss) — Phase 2: content-hash dedup + `page=1` refresh ([`docs/platform-certification.md`](docs/platform-certification.md)).
+- **Live WS:** API mock ping emitter **off** by default; Kafka consumer feeds `/live`. `ws-smoke-test.mjs` seeds signed webhooks.
+- Docker: web build bakes `NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN` (`web/Dockerfile` + compose args).
+- Plans/reports: [`docs/phase1.6-official-evidence-plan.md`](docs/phase1.6-official-evidence-plan.md), [`docs/phase1.6-evidence-report.md`](docs/phase1.6-evidence-report.md), [`docs/phase1.6-b1-b3-report.md`](docs/phase1.6-b1-b3-report.md), [`docs/phase1.6-b4-d8b-report.md`](docs/phase1.6-b4-d8b-report.md), [`docs/phase1.6-b5-d9-report.md`](docs/phase1.6-b5-d9-report.md).
+
+**Recent (2026-07-10) — Retreaver API D9 mechanism + shared foundation:**
+
+- **Update re-fetch (mechanism):** Retreaver incremental cursor is `updated_at_start` (not `created_at_start`); empty-cursor / backfill lookback default **30 days** (now per-integration). Early proof: [`docs/retreaver-api-d9-proof-report.md`](docs/retreaver-api-d9-proof-report.md). **Value-change YES:** [`docs/retreaver-final-certification-report.md`](docs/retreaver-final-certification-report.md).
+- **Update-blindness fix:** analytics/coverage aggregates **no longer** filter `is_duplicate = 0`; identity is `(platform, external_call_id)` + `argMax(..., received_at)`. `/pings` still shows raw rows (DUP badge).
+- **`platform_duplicate` column:** webhook payload “duplicate lead” split from Redis `is_duplicate` (CH migration `000009`); **rule (b)** — exclude from revenue; include in counts; `duplicate_rate` metric.
+- **Timeline dedupe:** dashboard ping chart buckets distinct `(platform, external_call_id)`.
+- **`occurred_at`:** Ping Feed / filters prefer platform call time (Retreaver `created_at`); fallback `received_at`.
+- **Conformance harness:** `services/platform-sync/internal/adapter/conformance_test.go` — Retreaver certified; others pending.
+- Rollout status: [`docs/platform-certification.md`](docs/platform-certification.md) · Phase reports: [`docs/phase0-shared-foundation-report.md`](docs/phase0-shared-foundation-report.md), [`docs/phase1-retreaver-certified.md`](docs/phase1-retreaver-certified.md), [`docs/phase1.5-close-gaps-report.md`](docs/phase1.5-close-gaps-report.md).
+
+**Recent (2026-07-09) — Retreaver hardening + durable dedup (pre-Live):**
+
+- **Credential redaction:** platform-sync never logs or persists raw `api_key` / `company_id` from HTTP URLs — `SanitizeErr` / `ClassifySyncError` on every sync log + `last_sync_error`. Transport-error path proven with bogus key + unresolvable host (`REDACTED >= 1`).
+- **Durable aggregates:** analytics + coverage group by **`(platform, external_call_id)`** with `argMax(..., received_at)` (matches Redis dedup identity). **Update (2026-07-10):** `is_duplicate = 0` filter **removed** from aggregate inner queries so API re-syncs (revenue updates) are visible; `/pings` still shows DUP rows.
+- **Dedup TTL:** `DEDUP_TTL_HOURS=168` (7 days) shared by ingestion + platform-sync (was 24h hardcoded on sync).
+- **Retreaver V2 mapper:** unwraps `[{"call":{...}}]`; field fallbacks (`uuid`/`call_uuid`, `afid`/`client_afid`, `system_campaign_id`/`campaign_id`); empty `external_call_id` skipped (not published).
+- **DNS resilience:** HTTP client retries transient network errors; platform-sync uses explicit DNS (`1.1.1.1`, `8.8.8.8`) in local compose; `last_sync_error` prefixed `network` / `authentication` / `mapping`.
+- **Dev webhook re-seed:** `make seed-dev-integrations` restores Ringba/Retreaver/TrackDrive/CallGrid dev tokens (idempotent).
+- Reports: [`docs/retreaver-hardening-report.md`](docs/retreaver-hardening-report.md), [`docs/pre-live-gate-report.md`](docs/pre-live-gate-report.md), [`docs/final-live-gate-report.md`](docs/final-live-gate-report.md), [`docs/dedup-path-answer.md`](docs/dedup-path-answer.md)
 
 **Recent (2026-07-08) — Per-integration `sync_mode` (Test / Live):**
 
@@ -51,7 +100,7 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 **Recent fixes (2026-07-03) — Phase 0: Ingestion Slice Real:**
 
 - **`call_key` encryption at rest:** Retreaver `call_key` encrypted with AES-256-GCM at ingestion `producer.Publish` (reuses `ANI_ENCRYPTION_KEY`); stored as hex ciphertext in Kafka + ClickHouse; never in API/UI/logs. Report: [`docs/ingestion-slice-report.md`](docs/ingestion-slice-report.md).
-- **Dedup-correct aggregates:** `GET /analytics/metrics`, `/analytics/platform-mix`, and `/coverage/heatmap` exclude `is_duplicate = 1` rows; `/pings` list still shows raw rows (including duplicates).
+- **Dedup-correct aggregates:** `GET /analytics/metrics`, `/analytics/platform-mix`, and `/coverage/heatmap` use `(platform, external_call_id)` + `argMax` (as of 2026-07-10 they **do not** exclude `is_duplicate=1` — re-syncs are updates); `/pings` list still shows raw rows (including duplicates).
 - **Verification:** `scripts/verify-ingestion-slice.ps1` / `make verify-ingestion-slice` — unique ping +1, duplicate resend does not inflate totals, Retreaver ciphertext length check.
 - **Mode scoping (Option B):** ingestion + consumer always real; intelligence services stay `MOCK_MODE=true` until Phases 1–4. Verify dashboard/coverage via **poll/refresh**, not WebSocket.
 - **Coverage map labels:** state abbreviations (TX, CA, …) via `d3-geo` `geoCentroid` + `useMapContext` (no `Marker` — avoids React runtime error).
@@ -101,8 +150,8 @@ Webhook (Ringba/Retreaver/…) → Ingestion (Go) → Kafka → Consumer → Cli
 | What changed | Detail |
 |--------------|--------|
 | `call_key` | AES-256-GCM encrypt at `producer.Publish`; hex in ClickHouse; API never returns it |
-| Aggregates | `is_duplicate = 0` filter on metrics, platform-mix, coverage heatmap |
-| Dedup | Redis at ingestion; duplicate rows stored with `is_duplicate=1` but excluded from totals |
+| Aggregates | `GROUP BY (platform, external_call_id)` + `argMax(..., received_at)` on metrics, platform-mix, coverage (**no** `is_duplicate = 0` filter — re-syncs are updates) |
+| Dedup | Redis SET NX (`DEDUP_TTL_HOURS`, default **168h**) on webhook **and** API-sync; duplicates stored with `is_duplicate=1`, never dropped |
 | Verify | `make verify-ingestion-slice` |
 
 Full report: [`docs/ingestion-slice-report.md`](docs/ingestion-slice-report.md) · Readiness: [`docs/real-readiness-report.md`](docs/real-readiness-report.md)
@@ -170,12 +219,12 @@ Per-platform API sync credentials (Settings form fields):
 
 | Platform | Fields |
 |----------|--------|
-| Retreaver | API key + company ID |
-| Ringba | API access token + account ID |
-| TrackDrive | Subdomain + public key + private key |
-| CallGrid | API key |
+| Retreaver | API key + company ID | Incremental: `updated_at_start` + 15m safety delta; lookback `initial_lookback_days` (default 30); `occurred_at` ← `created_at` |
+| Ringba | API access token + account ID | Date-range `CallLogs/Date` (`occurred_at` mapping pending Phase 2) |
+| TrackDrive | Subdomain + public key + private key | `created_at_from` cursor (`occurred_at` mapping pending Phase 3) |
+| CallGrid | API key | `startDate`/`endDate` + cursor (`occurred_at` mapping pending Phase 4) |
 
-**Integrations API** (JWT, tenant-scoped): `GET /integrations`, `GET /integrations/platform-options`, `POST /integrations`, `POST /integrations/:id/test`, `POST /integrations/:id/sync`, **`PATCH /integrations/:id/sync-mode`**, `DELETE /integrations/:id`.
+**Integrations API** (JWT, tenant-scoped): `GET /integrations`, `GET /integrations/platform-options`, `POST /integrations`, `POST /integrations/:id/test`, `POST /integrations/:id/sync`, **`POST /integrations/:id/backfill`**, **`PATCH /integrations/:id/sync-mode`** (optional `initial_lookback_days`), `DELETE /integrations/:id`.
 
 Verify mock: `make verify-api-sync`. Real (per platform): set integration to **Live** in Settings, then `make verify-apisync-retreaver-real` (etc.) with platform env creds.
 
@@ -185,7 +234,7 @@ Verify mock: `make verify-api-sync`. Real (per platform): set integration to **L
 
 - **Retreaver** accepts `call_uuid` plus optional `call_key` (private conversion-update credential for async buyer confirmations).
 - `call_key` is **encrypted at rest** (AES-256-GCM via `ANI_ENCRYPTION_KEY`) at ingestion publish; stored as hex ciphertext in ClickHouse. It is **never** returned by the API, shown in the UI, or logged (ingestion logs `call_key_present` only).
-- **Dedup:** duplicate webhooks are stored with `is_duplicate=1`; dashboard/coverage **aggregates** exclude them; `/pings` feed may still list duplicate rows.
+- **Dedup:** webhook and API-sync both use Redis `{tenant}:dedup:{platform}:{external_call_id}` (TTL `DEDUP_TTL_HOURS`, default 168h). Duplicates are **stored-and-flagged** (`is_duplicate=1`), never dropped with 409. Dashboard/coverage aggregates use `(platform, external_call_id)` + `argMax` (**do not** filter `is_duplicate`) so re-synced revenue updates win; `/pings` still lists raw rows (DUP badge). Platform-declared duplicate leads use `platform_duplicate` — **rule (b):** excluded from revenue/payout, included in ping counts, surfaced as `duplicate_rate`.
 
 ---
 
@@ -228,7 +277,7 @@ Ask AI (Go) → intent → safe SQL → ClickHouse read + Postgres query log
 Ping → Attribution bridge → conversions → Ad platforms (mock) → ClickHouse
 API native deep view → single call story (ping + score + compliance + attribution)
 Provider config (Go) → tenant bindings + secret resolve (Redis cache)
-WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter, 5-platform rotation)
+WebSocket /live → Kafka live consumer (default); mock WS emitter off via `MOCK_EMITTER_ENABLED=false`
 ```
 
 **Core:** TCPA compliance intelligence, natural-language Ask AI, ad attribution, native deep call view, provider config bindings, live dashboard feed.
@@ -259,17 +308,17 @@ WebSocket /live → real-time ping + conversion events (MOCK_MODE emitter, 5-pla
 |-------|-------------|
 | `/login` | Auth (dev credentials below) |
 | `/dashboard` | Overview metrics with **teal accent-bar KPI cards**, gradient sparklines, period delta chips, compliance ring; **7-day ping chart**; platform mix; **FilterBar** (Period/Platform as section headings); live activity strip; hybrid WS + poll feed; publisher quality card; Top Scores table |
-| `/pings` | Ping feed — 5-platform filter (Ringba, Retreaver, TrackDrive, CallGrid, Call Loom), **FilterBar** date/platform filters, filtered live WS, accurate total badge, CSV export |
+| `/pings` | Ping feed — platform filter, **exact-then-prefix** call-ID search, Call ID copy, **FilterBar**, hybrid Kafka WS + poll, CSV export |
 | `/scoring` | Call quality scores |
 | `/scoring/scorecards` | Scorecard CRUD (rules editor) |
-| `/calls/[callId]` | Native deep view (ping + score + compliance + attribution); demo: `/calls/demo-call-1` |
+| `/calls/[callId]` | Native deep view; **Open in Retreaver** deep link when platform=retreaver; demo: `/calls/demo-call-1` |
 | `/intelligence` | Intelligence hub (Ask AI, compliance, attribution) |
 | `/ask` | Natural language analytics chat |
 | `/compliance` | TCPA risk scores, violations table, exposure |
 | `/attribution` | Conversion events and platform status |
 | `/coverage` | **Coverage Intelligence** — interactive US map (graded teal heatmap), state detail panel, demand bar chart; data from `GET /coverage/heatmap` (all states, not capped at 10) |
-| `/reports` | Financial analytics (CPA, RPC, ROI, P&L); **FilterBar** period filter |
-| `/settings` | Integrations (webhook vs API key, per-platform credential fields, **Sync now** for API sync), alerts (Email/Slack/SMS channel badges), provider bindings (real provider names + Mock/Active status) |
+| `/reports` | Financial analytics (CPA, RPC, ROI, P&L, **duplicate rate**); **FilterBar** period filter |
+| `/settings` | Integrations (webhook vs API key, Test/Live, **Syncing last N days**, Sync / **Backfill**), alerts, provider bindings |
 
 **Teal Glass design system:** Geist headings + Inter body, glass sidebar/topbar (collapsible grouped nav on desktop), teal aurora background, teal gradient CTAs and active nav left-bar. Dashboard KPI cards: `MetricCardFrame` accent bar, elevated `.calyx-metric-card` drop shadow, `MiniSparkline` gradient fill, `sparkline-utils` delta chips. Shared navigation: `web/src/lib/app-navigation.ts`. Shared platform labels via `web/src/lib/platform-options.ts` (`formatPlatformLabel`, `formatPlatformColor`). `PlatformBadge`, `ScoreBar`, `NavIcon`, `ComplianceRiskRing`, and status pills in `web/src/components/`. Tokens in [`web/src/styles/tokens/`](web/src/styles/tokens/). Dark theme for presentation demo. Storybook: `cd web && npm run storybook`.
 
@@ -323,11 +372,15 @@ npm run dev -- -p 3001
 
 After UI changes, rebuild the Docker image — `npm run dev` does **not** update the container.
 
-### MOCK_MODE switch
+### MOCK_MODE / live feed switches
 
-Default is `MOCK_MODE=true` — no external API keys required. Web container sets `NEXT_PUBLIC_MOCK_MODE=true` for provider status badges in Settings.
+| Env | Default (compose) | Meaning |
+|-----|-------------------|---------|
+| `MOCK_MODE` | `true` | Intelligence providers (scoring/ask-ai/enrichment/…) stay mock unless flipped |
+| `MOCK_EMITTER_ENABLED` (API) | `false` | Off = Kafka → `/live` only (no synthetic ping UUIDs). On = demo WS emitter |
+| `NEXT_PUBLIC_MOCK_MODE` | `true` | Settings provider Mock/Active badges |
 
-To go live later:
+To go live on external AI/transcription later:
 
 ```env
 MOCK_MODE=false
@@ -364,6 +417,9 @@ http://localhost:8080/webhooks/ringba/dev_ringba_token_change_me?CallID=[Call:In
 | CallGrid | `dev_callgrid_token_change_me` | HMAC secret: `dev_callgrid_hmac_secret_change_me` |
 
 ```powershell
+# Re-seed missing dev webhook tokens (idempotent — run if smoke returns unauthorized)
+make seed-dev-integrations
+
 # All four webhook platforms
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test-all-platforms.ps1
 # or: make smoke-test-all
@@ -422,12 +478,13 @@ make test
 |---------|----------------|
 | `verify-system` | Full gate: Docker + healthz + API 20/20 + web 13/13 + WS + unit tests + web build + **pipeline 4/4** |
 | `verify-presentation` | Phase 3 API + `platform-mix` + `demo-call-1` deep view/score/transcript + scorecard CRUD + fixtures (**20 checks**) |
-| **`verify-ingestion-slice`** | **Phase 0:** dedup-correct analytics/coverage totals + Retreaver `call_key` ciphertext (**required pre-push**) |
+| **`verify-ingestion-slice`** | **Phase 0:** durable dedup analytics/coverage + Retreaver `call_key` ciphertext (**required pre-push**) |
 | **`verify-api-sync`** | API key integration (`sync_mode=mock`) → `platform-sync` sync → ping count increases (**required pre-push**) |
 | `verify-apisync-*-real` | Real REST pull per platform (requires platform creds + integration **`sync_mode=real`**) |
+| **`seed-dev-integrations`** | Re-seed Ringba/Retreaver/TrackDrive/CallGrid dev webhook tokens (idempotent) |
 | `smoke-test.ps1` | Single signed ping → ingestion → API (`-Platform ringba\|retreaver\|trackdrive\|callgrid`) |
 | `smoke-test-all-platforms.ps1` / `make smoke-test-all` | E2E smoke for all four webhook platforms |
-| `ws-smoke-test.mjs` | WebSocket `/live` receives ≥3 mock events (rotates ringba/retreaver/trackdrive/callgrid/callloom-native) |
+| `ws-smoke-test.mjs` | WebSocket `/live` ≥3 events (seeds signed webhooks when API mock emitter is off) |
 | `check-dashboard-browser.mjs` | Playwright smoke: login → dashboard, sidebar, **metric accent bars / delta chips**, charts (**10 checks** + screenshot to `docs/mockups/`) |
 | `check-coverage-map.mjs` | Playwright smoke: login → `/coverage`, map paths, pulse border, API state count |
 | `check-coverage-localhost.mjs` | Localhost coverage map: SVG paths, state labels, API heatmap states |
@@ -447,11 +504,24 @@ make build-platform-sync
 
 ```powershell
 cd deploy
-docker compose up -d --build ingestion api platform-sync   # ingestion + API + API sync worker
-docker compose up -d --build web                         # production web on :3001
+# Full stack app rebuild (recommended after Phase 1.6 / cert changes)
+docker compose build api platform-sync web
+docker compose up -d --force-recreate api platform-sync web
+
+# Or targeted:
+docker compose up -d --build ingestion api platform-sync
+docker compose up -d --build web
 ```
 
-Then hard-refresh the browser at http://localhost:3001 (`Ctrl+Shift+R`).
+After Live-gate / certification / hardening:
+
+```powershell
+cd deploy
+docker compose build api platform-sync web
+docker compose up -d --force-recreate api platform-sync web
+# Confirm: http://localhost:8088/healthz and http://localhost:3000/healthz → 200
+# Web: http://localhost:3001 — hard-refresh Ctrl+Shift+R
+```
 
 ---
 
@@ -459,21 +529,38 @@ Then hard-refresh the browser at http://localhost:3001 (`Ctrl+Shift+R`).
 
 ### Staging process (recommended order)
 
-1. **Local Docker (mock-default):** `MOCK_MODE=true` for intelligence; all API-key integrations on **Test** — run `make verify-system`, `make verify-ingestion-slice`, `make verify-api-sync`.
+1. **Local Docker (mock-default):** `MOCK_MODE=true` for intelligence; all API-key integrations on **Test** — run `make verify-system`, `make verify-ingestion-slice`, `make verify-api-sync`, `make smoke-test-all` (seed first if needed: `make seed-dev-integrations`).
 2. **Staging namespace (EKS):** separate Postgres / ClickHouse / Redis; secrets via AWS Secrets Manager; Kong gateway as the only public entry.
-3. **One platform Live at a time:** flip a single integration to **Live** in Settings → Integrations; run `make verify-apisync-retreaver-real` (or ringba / trackdrive / callgrid) with platform creds in env — do not flip global `MOCK_MODE` until intelligence providers are ready.
+3. **One platform Live at a time:** paste credentials in Settings UI only (never in code/logs/git); flip a single integration to **Live**; confirm `sync_status=ok`, real UUIDs + state in ClickHouse, and **no `api_key` in `docker logs deploy-platform-sync-1`**.
 4. **Webhook path:** keep webhook integrations on real ingestion; validate with `smoke-test-all-platforms.ps1`.
 5. **Rollback:** set integration back to **Test** — no global flag change required.
+
+### Retreaver Live checklist (CERTIFIED · clean slate)
+
+Status: [`docs/platform-certification.md`](docs/platform-certification.md) · Final proof: [`docs/retreaver-final-certification-report.md`](docs/retreaver-final-certification-report.md) · Account reset: [`docs/retreaver-account-reset-report.md`](docs/retreaver-account-reset-report.md).
+
+Local DB was wiped of prior Retreaver rows/integrations so the **new** account does not mix with old test data. Create a **new** API-key row in Settings (do not reuse deleted ids).
+
+1. Paste **new-account** Retreaver `api_key` + `company_id` in Settings (UI only — never commit).
+2. Keep Data source = **Test** → Save → confirm mock sync ok.
+3. Flip **only that row** to **Live** → Sync (or **Backfill** for empty cursor / lookback — UI shows **Syncing last N days**).
+4. Verify: `sync_status=ok`; real UUIDs + 2-letter state + `occurred_at` + revenue; logs contain **no** raw `api_key`; `/pings` (exact **or prefix** call ID) + coverage update.
+5. Cross-check in the **same** Retreaver account you can log into (prefix search works; prior miss = wrong account).
+6. After a revenue change on the platform → Sync again → `/pings` may show DUP row; metrics count once with **latest** revenue (`argMax`).
+7. Call detail → **Open in Retreaver** opens `retreaver.com/calls/{full-uuid}` (config-driven).
+8. If anything is off → flip back to **Test** (one click). Keep only one platform Live at a time.
+
+**Known limitation:** during deep-page initial backfill, concurrent updates may be delayed until the page walk catches up (not data loss) — see certification doc.
 
 ### Real-time testing
 
 | Layer | Tool | Notes |
 |-------|------|-------|
-| Live feed | `node scripts/ws-smoke-test.mjs` | MOCK_MODE emitter; multi-platform rotation |
-| Aggregates | `verify-ingestion-slice.ps1` | Poll / refresh dashboard — dedup excludes `is_duplicate=1` |
+| Live feed | `node scripts/ws-smoke-test.mjs` | Kafka → `/live` when `MOCK_EMITTER_ENABLED=false`; seeds webhooks |
+| Aggregates | `verify-ingestion-slice.ps1` | Poll / refresh — `(platform, external_call_id)` + `argMax` (no `is_duplicate` filter) |
 | API sync | `verify-api-sync.ps1` | Scheduled + manual sync; mock adapter generates `apisync-*` pings |
-| Real REST | `verify-apisync-*-real.ps1` | Requires platform creds + integration `sync_mode=real` |
-| UI | `check-dashboard-browser.mjs` + `/settings` | Playwright (Edge channel); Test / Live toggle on API-key rows |
+| Real REST | Settings → Live + sync (or `verify-apisync-*-real.ps1`) | Creds in UI/env only; never commit secrets |
+| UI | `check-dashboard-browser.mjs` + `/settings` | Playwright; Test/Live + Backfill on API-key rows |
 
 ---
 

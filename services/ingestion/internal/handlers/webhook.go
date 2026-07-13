@@ -147,6 +147,7 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"external_call_id", ping.ExternalCallID,
 		"event_type", ping.EventType,
 		"is_duplicate", ping.IsDuplicate,
+		"platform_duplicate", ping.PlatformDuplicate,
 		"call_key_present", ping.CallKey != "",
 	)
 

@@ -22,9 +22,11 @@ type PingRow struct {
 	EventType      string
 	Revenue        float64
 	Payout         float64
-	IsDuplicate    uint8
-	ReceivedAt     time.Time
-	CallKey        string
+	IsDuplicate       uint8
+	PlatformDuplicate uint8
+	ReceivedAt        time.Time
+	OccurredAt        time.Time
+	CallKey           string
 }
 
 // Client wraps the ClickHouse native connection.
@@ -61,7 +63,8 @@ func (c *Client) InsertPings(ctx context.Context, rows []PingRow) error {
 		INSERT INTO pings (
 			tenant_id, platform, external_call_id, ani_hash,
 			campaign_id, publisher_id, target_id, state,
-			event_type, revenue, payout, is_duplicate, received_at, call_key
+			event_type, revenue, payout, is_duplicate, platform_duplicate,
+			received_at, call_key, occurred_at
 		)
 	`)
 	if err != nil {
@@ -82,8 +85,10 @@ func (c *Client) InsertPings(ctx context.Context, rows []PingRow) error {
 			decimal.NewFromFloat(row.Revenue),
 			decimal.NewFromFloat(row.Payout),
 			row.IsDuplicate,
+			row.PlatformDuplicate,
 			row.ReceivedAt,
 			row.CallKey,
+			row.OccurredAt,
 		); err != nil {
 			return fmt.Errorf("clickhouse.InsertPings: append: %w", err)
 		}

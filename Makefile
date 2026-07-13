@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down build-ingestion build-consumer build-scoring build-enrichment build-providerconfig build-compliance build-ask-ai build-attribution build-platform-sync build-api build-web tidy test smoke-test smoke-test-all demo-seed verify-presentation verify-ingestion-slice verify-api-sync verify-apisync-retreaver-real verify-apisync-ringba-real verify-apisync-trackdrive-real verify-apisync-callgrid-real verify-retreaver-real verify-system step1b-test
+.PHONY: dev-up dev-down build-ingestion build-consumer build-scoring build-enrichment build-providerconfig build-compliance build-ask-ai build-attribution build-platform-sync build-api build-web tidy test smoke-test smoke-test-all demo-seed seed-dev-integrations verify-presentation verify-ingestion-slice verify-api-sync verify-apisync-retreaver-real verify-apisync-ringba-real verify-apisync-trackdrive-real verify-apisync-callgrid-real verify-retreaver-real verify-system step1b-test
 
 dev-up:
 	docker compose -f deploy/docker-compose.yml up -d --build
@@ -73,6 +73,9 @@ smoke-test-all:
 
 demo-seed:
 	powershell -ExecutionPolicy Bypass -File scripts/demo-seed.ps1
+
+seed-dev-integrations:
+	powershell -ExecutionPolicy Bypass -File scripts/seed-dev-integrations.ps1
 
 verify-presentation:
 	powershell -ExecutionPolicy Bypass -File scripts/verify-presentation.ps1

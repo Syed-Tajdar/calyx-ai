@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"fmt"
+	"sort"
 )
 
 const maxPagesPerSync = 10
@@ -39,6 +40,16 @@ func (r *Registry) Get(platform string, syncMode string) (PlatformAdapter, error
 	return ad, nil
 }
 
+// Platforms returns sorted registered REST adapter names (excludes mock).
+func (r *Registry) Platforms() []string {
+	out := make([]string, 0, len(r.adapters))
+	for name := range r.adapters {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
 func (r *Registry) TestAuth(ctx context.Context, platform string, syncMode string, creds map[string]string) error {
 	ad, err := r.Get(platform, syncMode)
 	if err != nil {
@@ -54,6 +65,7 @@ func (r *Registry) FetchAllPages(
 	creds map[string]string,
 	syncCursor string,
 	lastSyncAt string,
+	lookbackDays int,
 ) (PageResult, error) {
 	ad, err := r.Get(platform, syncMode)
 	if err != nil {
@@ -62,7 +74,7 @@ func (r *Registry) FetchAllPages(
 	final := PageResult{}
 	cur := syncCursor
 	for page := 0; page < maxPagesPerSync; page++ {
-		res, err := ad.FetchPage(ctx, creds, cur, lastSyncAt)
+		res, err := ad.FetchPage(ctx, creds, cur, lastSyncAt, lookbackDays)
 		if err != nil {
 			return PageResult{}, err
 		}

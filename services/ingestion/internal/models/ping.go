@@ -16,8 +16,12 @@ type Ping struct {
 	EventType      string
 	Revenue        float64
 	Payout         float64
-	IsDuplicate    bool
-	ReceivedAt     time.Time
+	// IsDuplicate is set only by Redis ingestion dedup (same call seen twice).
+	IsDuplicate bool
+	// PlatformDuplicate is the platform's own "duplicate lead" flag from the webhook payload.
+	PlatformDuplicate bool
+	ReceivedAt        time.Time
+
 	// CallKey is Retreaver's private update credential (call_uuid + call_key enable async conversion updates).
 	// Plaintext in memory only until producer.Publish encrypts to hex for Kafka/ClickHouse. Never log this value.
 	CallKey string

@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import type { PingFetchFilters, PingRecord } from '@/lib/api';
 import { useLiveFeed, type LiveEventEnvelope } from '@/lib/use-live-feed';
 import { usePingFeed, pingRowKey } from '@/lib/use-ping-feed';
+import { pingEventAt } from '@/lib/ping-event-time';
 
 interface UseHybridPingFeedOptions {
   limit: number;
@@ -35,6 +36,13 @@ function wsPingToRecord(payload: Record<string, unknown>): PingRecord | null {
 
   const receivedMs =
     typeof payload.received_at_unix_ms === 'number' ? payload.received_at_unix_ms : Date.now();
+  const occurredMs =
+    typeof payload.occurred_at_unix_ms === 'number' && payload.occurred_at_unix_ms > 0
+      ? payload.occurred_at_unix_ms
+      : receivedMs;
+
+  const revenue = typeof payload.revenue === 'number' ? payload.revenue : 0;
+  const payout = typeof payload.payout === 'number' ? payload.payout : 0;
 
   return {
     tenant_id: tenantId,
@@ -43,24 +51,27 @@ function wsPingToRecord(payload: Record<string, unknown>): PingRecord | null {
     ani_hash: typeof payload.ani_hash === 'string' ? payload.ani_hash : '',
     campaign_id: typeof payload.campaign_id === 'string' ? payload.campaign_id : '',
     publisher_id: typeof payload.publisher_id === 'string' ? payload.publisher_id : '',
-    target_id: '',
-    state: '',
+    target_id: typeof payload.target_id === 'string' ? payload.target_id : '',
+    state: typeof payload.state === 'string' ? payload.state : '',
     event_type: typeof payload.event_type === 'string' ? payload.event_type : 'incoming',
-    revenue: 0,
-    payout: 0,
+    revenue,
+    payout,
     is_duplicate: payload.is_duplicate === true ? 1 : 0,
     received_at: new Date(receivedMs).toISOString(),
+    occurred_at: new Date(occurredMs).toISOString(),
   };
 }
 
 function pingMatchesFilters(row: PingRecord, filters: PingFetchFilters): boolean {
   if (filters.platform && row.platform !== filters.platform) return false;
-  if (filters.from && row.received_at) {
-    if (new Date(row.received_at).getTime() < new Date(filters.from).getTime()) return false;
+  if (filters.from) {
+    if (new Date(pingEventAt(row)).getTime() < new Date(filters.from).getTime()) return false;
   }
   if (filters.search) {
     const needle = filters.search.toLowerCase();
-    if (!row.external_call_id.toLowerCase().includes(needle)) return false;
+    const hay = row.external_call_id.toLowerCase();
+    // Exact-then-prefix (Retreaver list shows truncated uuid).
+    if (hay !== needle && !hay.startsWith(needle)) return false;
   }
   return true;
 }
@@ -92,17 +103,30 @@ export function useHybridPingFeed({
     return rows;
   }, [events, filters]);
 
+  // Cap live prepend so mock/WS ticks cannot drown ClickHouse history
+  // (WS buffer holds up to 100 events; page size is typically 25).
+  const LIVE_PREPEND_CAP = 5;
+
   const mergedPings = useMemo(() => {
     if (!connected || wsPings.length === 0) return poll.pings;
     const seen = new Set<string>();
     const merged: PingRecord[] = [];
-    for (const row of [...wsPings, ...poll.pings]) {
+    // Prefer poll rows when keys collide — they carry full CH fields.
+    for (const row of poll.pings) {
       const key = pingRowKey(row);
       if (seen.has(key)) continue;
       seen.add(key);
       merged.push(row);
     }
-    return merged.slice(0, limit);
+    const liveOnly: PingRecord[] = [];
+    for (const row of wsPings) {
+      const key = pingRowKey(row);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      liveOnly.push(row);
+      if (liveOnly.length >= LIVE_PREPEND_CAP) break;
+    }
+    return [...liveOnly, ...merged].slice(0, limit);
   }, [connected, wsPings, poll.pings, limit]);
 
   const newRowKeys = useMemo(() => {

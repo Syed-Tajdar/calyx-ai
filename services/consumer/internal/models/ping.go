@@ -15,12 +15,22 @@ type PingMessage struct {
 	EventType      string  `json:"event_type"`
 	Revenue        float64 `json:"revenue"`
 	Payout         float64 `json:"payout"`
-	IsDuplicate    bool    `json:"is_duplicate"`
-	ReceivedAt     int64   `json:"received_at_unix_ms"`
-	CallKey        string  `json:"call_key,omitempty"`
+	IsDuplicate       bool    `json:"is_duplicate"`
+	PlatformDuplicate bool    `json:"platform_duplicate"`
+	ReceivedAt        int64   `json:"received_at_unix_ms"`
+	OccurredAt        int64   `json:"occurred_at_unix_ms,omitempty"`
+	CallKey           string  `json:"call_key,omitempty"`
 }
 
 // ReceivedTime converts the unix millis field to UTC time.
 func (m PingMessage) ReceivedTime() time.Time {
 	return time.UnixMilli(m.ReceivedAt).UTC()
+}
+
+// OccurredTime returns the source call time when present; otherwise zero.
+func (m PingMessage) OccurredTime() time.Time {
+	if m.OccurredAt <= 0 {
+		return time.Time{}
+	}
+	return time.UnixMilli(m.OccurredAt).UTC()
 }

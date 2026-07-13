@@ -1,5 +1,6 @@
 import type { PingRecord } from '@/lib/api';
 import { formatPlatformLabel } from '@/lib/platform-options';
+import { pingEventAt } from '@/lib/ping-event-time';
 
 export interface DashboardStats {
   totalPings: number;
@@ -29,7 +30,7 @@ export function computeDashboardStats(
 
   const byDate = new Map<string, number>();
   for (const ping of pings) {
-    const date = ping.received_at.slice(0, 10);
+    const date = pingEventAt(ping).slice(0, 10);
     byDate.set(date, (byDate.get(date) ?? 0) + 1);
   }
   const timeline = Array.from(byDate.entries())

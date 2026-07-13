@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, Copy, ExternalLink } from 'lucide-react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import {
@@ -12,6 +12,7 @@ import { EnrichmentPanel } from '@/components/enrichment/EnrichmentPanel';
 import { ScoreCard } from '@/components/scoring/ScoreCard';
 import { TranscriptPanel } from '@/components/scoring/TranscriptPanel';
 import { CallDeepViewPanel } from '@/components/native/CallDeepViewPanel';
+import { Button } from '@/components/ui/button';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import { PageHeader } from '@/components/ui/PageHeader';
 import {
@@ -24,6 +25,8 @@ import {
   TranscriptRecord,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { buildPlatformCallUrl } from '@/lib/platform-deep-links';
+import { formatPlatformLabel } from '@/lib/platform-options';
 
 function CallDetailContent(): JSX.Element {
   const params = useParams();
@@ -31,12 +34,14 @@ function CallDetailContent(): JSX.Element {
   const router = useRouter();
   const callId = decodeURIComponent(params.callId as string);
   const aniHash = searchParams.get('aniHash') ?? '';
+  const platformParam = searchParams.get('platform') ?? '';
 
   const [score, setScore] = useState<ScoreRecord | null>(null);
   const [transcript, setTranscript] = useState<TranscriptRecord | null>(null);
   const [deepView, setDeepView] = useState<CallDeepView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -109,6 +114,20 @@ function CallDetailContent(): JSX.Element {
     [deepView, score, aniHash],
   );
 
+  const platform =
+    deepView?.ping?.platform ?? score?.platform ?? displayScore?.platform ?? platformParam;
+  const platformCallUrl = buildPlatformCallUrl(platform, callId);
+
+  async function handleCopyCallId(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(callId);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // title / labelled field still show full id
+    }
+  }
+
   return (
     <>
       <nav className="mb-4 flex items-center gap-1 text-sm text-calyx-muted">
@@ -116,12 +135,48 @@ function CallDetailContent(): JSX.Element {
           Pings
         </Link>
         <ChevronRight className="h-4 w-4" />
-        <span className="truncate font-mono text-calyx-text">{callId}</span>
+        <span className="truncate font-mono text-calyx-text" title={callId}>
+          {callId}
+        </span>
       </nav>
 
       <PageHeader
         title="Call detail"
-        description={callId}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="text-calyx-muted">Call ID</span>
+            <span className="break-all font-mono text-calyx-text" title={callId}>
+              {callId}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-calyx-muted hover:text-calyx-text"
+              aria-label={copied ? 'Copied call ID' : 'Copy call ID'}
+              title={copied ? 'Copied' : 'Copy call ID'}
+              onClick={() => {
+                void handleCopyCallId();
+              }}
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-calyx-success" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </span>
+        }
+        action={
+          platformCallUrl ? (
+            <Button type="button" variant="outline" size="sm" asChild>
+              <a href={platformCallUrl} target="_blank" rel="noopener noreferrer" className="gap-2">
+                <ExternalLink className="h-4 w-4" />
+                Open in {formatPlatformLabel(platform)}
+              </a>
+            </Button>
+          ) : undefined
+        }
       />
 
       {loading && <PageLoader />}

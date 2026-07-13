@@ -31,21 +31,31 @@ func (w *BatchWriter) InsertBatch(ctx context.Context, pings []models.PingMessag
 		if p.IsDuplicate {
 			dup = 1
 		}
+		platDup := uint8(0)
+		if p.PlatformDuplicate {
+			platDup = 1
+		}
+		occurred := p.OccurredTime()
+		if occurred.IsZero() {
+			occurred = time.Unix(0, 0).UTC()
+		}
 		rows = append(rows, clickhouse.PingRow{
-			TenantID:       p.TenantID,
-			Platform:       p.Platform,
-			ExternalCallID: p.ExternalCallID,
-			ANIHash:        p.ANIHash,
-			CampaignID:     p.CampaignID,
-			PublisherID:    p.PublisherID,
-			TargetID:       p.TargetID,
-			State:          p.State,
-			EventType:      p.EventType,
-			Revenue:        p.Revenue,
-			Payout:         p.Payout,
-			IsDuplicate:    dup,
-			ReceivedAt:     p.ReceivedTime(),
-			CallKey:        p.CallKey,
+			TenantID:          p.TenantID,
+			Platform:          p.Platform,
+			ExternalCallID:    p.ExternalCallID,
+			ANIHash:           p.ANIHash,
+			CampaignID:        p.CampaignID,
+			PublisherID:       p.PublisherID,
+			TargetID:          p.TargetID,
+			State:             p.State,
+			EventType:         p.EventType,
+			Revenue:           p.Revenue,
+			Payout:            p.Payout,
+			IsDuplicate:       dup,
+			PlatformDuplicate: platDup,
+			ReceivedAt:        p.ReceivedTime(),
+			OccurredAt:        occurred,
+			CallKey:           p.CallKey,
 		})
 	}
 

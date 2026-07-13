@@ -20,7 +20,10 @@ export class KafkaLiveConsumerService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     const env = loadEnv();
-    if (env.MOCK_MODE ?? true) {
+    // Prefer Kafka live whenever the synthetic emitter is off (real integration path).
+    const useKafkaLive =
+      !(env.MOCK_MODE ?? true) || !(env.MOCK_EMITTER_ENABLED ?? true);
+    if (!useKafkaLive) {
       return;
     }
 
@@ -78,7 +81,38 @@ export class KafkaLiveConsumerService implements OnModuleInit, OnModuleDestroy {
     const emittedAt = new Date().toISOString();
 
     if (topic === env.KAFKA_TOPIC_PINGS) {
-      const parsed = pingEventPayloadSchema.safeParse(raw);
+      // Kafka ping envelope uses external_call_id; live WS schema uses call_id.
+      const normalized = {
+        schema_version: '1' as const,
+        event_id:
+          typeof raw.event_id === 'string' && raw.event_id.length > 0
+            ? raw.event_id
+            : typeof raw.external_call_id === 'string'
+              ? `${raw.external_call_id}:${String(raw.received_at_unix_ms ?? '')}`
+              : '',
+        tenant_id: tenantId,
+        call_id:
+          typeof raw.call_id === 'string'
+            ? raw.call_id
+            : typeof raw.external_call_id === 'string'
+              ? raw.external_call_id
+              : '',
+        platform: typeof raw.platform === 'string' ? raw.platform : '',
+        ani_hash: typeof raw.ani_hash === 'string' ? raw.ani_hash : undefined,
+        campaign_id: typeof raw.campaign_id === 'string' ? raw.campaign_id : undefined,
+        publisher_id: typeof raw.publisher_id === 'string' ? raw.publisher_id : undefined,
+        target_id: typeof raw.target_id === 'string' ? raw.target_id : undefined,
+        state: typeof raw.state === 'string' ? raw.state : undefined,
+        event_type: typeof raw.event_type === 'string' ? raw.event_type : undefined,
+        revenue: typeof raw.revenue === 'number' ? raw.revenue : undefined,
+        payout: typeof raw.payout === 'number' ? raw.payout : undefined,
+        is_duplicate: typeof raw.is_duplicate === 'boolean' ? raw.is_duplicate : undefined,
+        received_at_unix_ms:
+          typeof raw.received_at_unix_ms === 'number' ? raw.received_at_unix_ms : Date.now(),
+        occurred_at_unix_ms:
+          typeof raw.occurred_at_unix_ms === 'number' ? raw.occurred_at_unix_ms : undefined,
+      };
+      const parsed = pingEventPayloadSchema.safeParse(normalized);
       if (parsed.success) {
         envelope = { type: 'ping_received', payload: parsed.data, emitted_at: emittedAt };
       }

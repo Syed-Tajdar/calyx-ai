@@ -16,6 +16,7 @@ type Config struct {
 	CredentialEncryptionKey string
 	ANIEncryptionKey       []byte
 	SyncInterval           time.Duration
+	DedupTTL               time.Duration
 	MockMode               bool
 }
 
@@ -49,6 +50,14 @@ func Load() (Config, error) {
 	if v := os.Getenv("MOCK_MODE"); v == "false" || v == "0" {
 		mockMode = false
 	}
+	dedupHours := 168
+	if v := os.Getenv("DEDUP_TTL_HOURS"); v != "" {
+		parsed, parseErr := strconv.Atoi(v)
+		if parseErr != nil {
+			return Config{}, fmt.Errorf("DEDUP_TTL_HOURS: %w", parseErr)
+		}
+		dedupHours = parsed
+	}
 	return Config{
 		Port:                    port,
 		DatabaseURL:             databaseURL,
@@ -58,6 +67,7 @@ func Load() (Config, error) {
 		CredentialEncryptionKey: credKey,
 		ANIEncryptionKey:        aniKey,
 		SyncInterval:            time.Duration(intervalSec) * time.Second,
+		DedupTTL:                time.Duration(dedupHours) * time.Hour,
 		MockMode:                mockMode,
 	}, nil
 }

@@ -26,6 +26,8 @@ export interface PingRecord {
   payout: number;
   is_duplicate: number;
   received_at: string;
+  /** Source call time when known; otherwise equals received_at. Prefer for display/filters. */
+  occurred_at?: string;
 }
 
 export interface PingListResponse {
@@ -68,6 +70,7 @@ export interface MetricsResult {
   cpa: number;
   rpc: number;
   roi: number;
+  duplicate_rate: number;
 }
 
 export interface PnLResult {
@@ -108,6 +111,7 @@ export interface IntegrationRecord {
   created_at: string;
   supports_api_sync: boolean;
   supports_webhook: boolean;
+  initial_lookback_days: number | null;
 }
 
 export interface ApiSyncCredentialField {
@@ -457,14 +461,30 @@ export async function syncIntegration(
   });
 }
 
+export async function backfillIntegration(
+  token: string,
+  id: string,
+): Promise<{ status: string }> {
+  return fetchWithAuth<{ status: string }>(token, `/integrations/${id}/backfill`, {
+    method: 'POST',
+  });
+}
+
 export async function updateIntegrationSyncMode(
   token: string,
   id: string,
   syncMode: 'mock' | 'real',
+  initialLookbackDays?: number,
 ): Promise<IntegrationRecord> {
+  const body: { sync_mode: 'mock' | 'real'; initial_lookback_days?: number } = {
+    sync_mode: syncMode,
+  };
+  if (initialLookbackDays !== undefined) {
+    body.initial_lookback_days = initialLookbackDays;
+  }
   return fetchWithAuth<IntegrationRecord>(token, `/integrations/${id}/sync-mode`, {
     method: 'PATCH',
-    body: JSON.stringify({ sync_mode: syncMode }),
+    body: JSON.stringify(body),
   });
 }
 

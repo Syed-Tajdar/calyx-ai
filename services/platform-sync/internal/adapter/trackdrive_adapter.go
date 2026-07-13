@@ -34,7 +34,7 @@ func (a *TrackDriveAdapter) TestAuth(ctx context.Context, creds map[string]strin
 	return err
 }
 
-func (a *TrackDriveAdapter) FetchPage(ctx context.Context, creds map[string]string, cursor string, lastSyncAt string) (PageResult, error) {
+func (a *TrackDriveAdapter) FetchPage(ctx context.Context, creds map[string]string, cursor string, lastSyncAt string, _ int) (PageResult, error) {
 	cs := trackdriveCursor{Cursor: "-1"}
 	if cursor != "" {
 		_ = DecodeCursor(cursor, &cs)

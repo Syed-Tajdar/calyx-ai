@@ -38,9 +38,11 @@ func NormalizeRingba(
 		TargetID:       payload.TargetID,
 		State:          usstate.NormalizeState(payload.State),
 		EventType:      payload.EventType,
-		Revenue:        payload.Revenue,
-		Payout:         payload.Payout,
-		IsDuplicate:    payload.IsDuplicate,
-		ReceivedAt:     receivedAt,
+		Revenue:           payload.Revenue,
+		Payout:            payload.Payout,
+		IsDuplicate:       false, // Redis dedup owns this; set in webhook handler
+		PlatformDuplicate: payload.IsDuplicate,
+		ReceivedAt:        receivedAt,
+
 	}, nil
 }

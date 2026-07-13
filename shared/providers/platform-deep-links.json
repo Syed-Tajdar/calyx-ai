@@ -1,0 +1,11 @@
+{
+  "version": "1",
+  "description": "Per-platform call deep-link URL patterns. Placeholder {id} is replaced with the platform call identifier (Retreaver: UUID = Calyx external_call_id). Override via NEXT_PUBLIC_*_CALL_URL_PATTERN env vars on the web app.",
+  "patterns": {
+    "retreaver": {
+      "call_url_pattern": "https://retreaver.com/calls/{id}",
+      "id_field": "external_call_id",
+      "notes": "Case A confirmed: Call Log list shows truncated UUID; detail/URL use full UUID = Calyx external_call_id. Search must accept exact + prefix. Deep link https://retreaver.com/calls/{id}."
+    }
+  }
+}

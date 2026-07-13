@@ -1,11 +1,12 @@
 import type { PingRecord } from '@/lib/api';
+import { pingEventAt } from '@/lib/ping-event-time';
 
 export interface PingTimelinePoint {
   date: string;
   count: number;
 }
 
-/** Bucket pings by day and fill every day in the window (zeros included). */
+/** Bucket distinct calls by day (dedupe platform+external_call_id) and fill the window. */
 export function buildFilledPingTimeline(
   pings: PingRecord[],
   days: number,
@@ -25,8 +26,19 @@ export function buildFilledPingTimeline(
     buckets.set(key, 0);
   }
 
+  // Latest row per (platform, external_call_id) — matches analytics distinct-call counts.
+  const latestByCall = new Map<string, PingRecord>();
   for (const ping of pings) {
-    const key = ping.received_at.slice(0, 10);
+    if (!ping.external_call_id) continue;
+    const id = `${ping.platform}|${ping.external_call_id}`;
+    const prev = latestByCall.get(id);
+    if (!prev || pingEventAt(ping) >= pingEventAt(prev)) {
+      latestByCall.set(id, ping);
+    }
+  }
+
+  for (const ping of Array.from(latestByCall.values())) {
+    const key = pingEventAt(ping).slice(0, 10);
     if (buckets.has(key)) {
       buckets.set(key, (buckets.get(key) ?? 0) + 1);
     }

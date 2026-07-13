@@ -1,0 +1,76 @@
+// source: real-account (scrubbed)
+// doc: https://retreaver.docs.apiary.io/#reference/calls
+// Captured shape: V2 nested list item {"call":{...}}. ANI/revenue ids scrubbed.
+{
+  "valid_call": {
+    "call": {
+      "uuid": "75f1e19d-aaaa-bbbb-cccc-ddddeeeeffff",
+      "caller": "+15550001111",
+      "caller_state": "NC",
+      "revenue": 46.5,
+      "payout": 46.5,
+      "system_campaign_id": 9872,
+      "afid": "aff-scrubbed",
+      "system_target_id": 27449,
+      "status": "finished",
+      "created_at": "2026-07-09T19:38:21.244Z"
+    }
+  },
+  "missing_id_call": {
+    "call": {
+      "uuid": "",
+      "call_uuid": "",
+      "id": "",
+      "caller_state": "TX",
+      "revenue": null,
+      "created_at": "2026-07-09T12:00:00Z"
+    }
+  },
+  "state_texas": {
+    "call": {
+      "uuid": "state-texas-0001",
+      "caller_state": "Texas",
+      "created_at": "2026-07-09T12:00:00Z"
+    }
+  },
+  "state_lower_tx": {
+    "call": {
+      "uuid": "state-tx-0002",
+      "caller_state": "tx",
+      "created_at": "2026-07-09T12:00:00Z"
+    }
+  },
+  "state_unknown": {
+    "call": {
+      "uuid": "state-unknown-0003",
+      "caller_state": "Narnia",
+      "created_at": "2026-07-09T12:00:00Z"
+    }
+  },
+  "revenue_null": {
+    "call": {
+      "uuid": "rev-null-0004",
+      "caller_state": "CA",
+      "revenue": null,
+      "payout": null,
+      "created_at": "2026-07-09T12:00:00Z"
+    }
+  },
+  "revenue_number": {
+    "call": {
+      "uuid": "rev-num-0005",
+      "caller_state": "CA",
+      "revenue": 12.5,
+      "payout": 10.0,
+      "created_at": "2026-07-09T12:00:00Z"
+    }
+  },
+  "extra_fields": {
+    "call": {
+      "uuid": "extra-0006",
+      "caller_state": "FL",
+      "totally_unknown_field": {"nested": true},
+      "created_at": "2026-07-09T12:00:00Z"
+    }
+  }
+}
