@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { CoverageMapDynamic } from '@/components/coverage/CoverageMapDynamic';
+import type { CountryFilter } from '@/components/coverage/CoverageMap';
 import { StateDetailPanel } from '@/components/coverage/StateDetailPanel';
 import { StateHeatmapChart } from '@/components/coverage/StateHeatmapChart';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
@@ -12,15 +13,19 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/button';
 import { ApiError, fetchCoverageHeatmap, HeatmapStateRow } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { countryForRegion } from '@/lib/na-regions';
 
 export default function CoveragePage(): JSX.Element {
   const router = useRouter();
   const [rows, setRows] = useState<HeatmapStateRow[]>([]);
   const [totalPings, setTotalPings] = useState(0);
+  const [usRegions, setUsRegions] = useState(0);
+  const [caRegions, setCaRegions] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectionCleared, setSelectionCleared] = useState(false);
+  const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
 
   useEffect(() => {
     const token = getToken();
@@ -30,6 +35,8 @@ export default function CoveragePage(): JSX.Element {
       .then((res) => {
         setRows(res.data);
         setTotalPings(res.total_pings);
+        setUsRegions(res.us_regions ?? 0);
+        setCaRegions(res.ca_regions ?? 0);
       })
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -41,18 +48,28 @@ export default function CoveragePage(): JSX.Element {
       .finally(() => setLoading(false));
   }, [router]);
 
+  const visibleRows = useMemo(() => {
+    if (countryFilter === 'all') return rows;
+    return rows.filter((r) => (r.country || countryForRegion(r.state)) === countryFilter);
+  }, [rows, countryFilter]);
+
+  const visibleTotal = useMemo(
+    () => visibleRows.reduce((sum, r) => sum + r.ping_count, 0),
+    [visibleRows],
+  );
+
   const sortedRows = useMemo(
-    () => [...rows].sort((a, b) => b.ping_count - a.ping_count),
-    [rows],
+    () => [...visibleRows].sort((a, b) => b.ping_count - a.ping_count),
+    [visibleRows],
   );
 
   const selectedRow = useMemo(() => {
     if (selectionCleared && !selectedState) return null;
     if (selectedState) {
-      return rows.find((r) => r.state.trim().toUpperCase() === selectedState) ?? null;
+      return visibleRows.find((r) => r.state.trim().toUpperCase() === selectedState) ?? null;
     }
     return sortedRows[0] ?? null;
-  }, [rows, selectedState, selectionCleared, sortedRows]);
+  }, [visibleRows, selectedState, selectionCleared, sortedRows]);
 
   const mapSelectedCode = useMemo(() => {
     if (selectedState) return selectedState;
@@ -76,11 +93,19 @@ export default function CoveragePage(): JSX.Element {
     setSelectionCleared(false);
   };
 
+  const handleCountryFilter = (filter: CountryFilter): void => {
+    setCountryFilter(filter);
+    setSelectedState(null);
+    setSelectionCleared(true);
+  };
+
+  const regionCount = usRegions + caRegions;
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Coverage Intelligence"
-        description="Geographic ping demand heatmap by US state."
+        description="Geographic ping demand heatmap — United States and Canada."
         action={
           <Button variant="outline" size="sm" asChild className="gap-2">
             <Link href="/reports">
@@ -96,12 +121,25 @@ export default function CoveragePage(): JSX.Element {
 
       {!loading && !error && (
         <>
-          <p className="text-sm text-calyx-muted">
-            {totalPings.toLocaleString()} pings across {rows.length} states
-          </p>
+          <div className="space-y-0.5">
+            <p className="text-sm text-calyx-muted">
+              {totalPings.toLocaleString()} pings across {regionCount} regions · US + Canada
+            </p>
+            <p className="text-xs text-calyx-dim">
+              {usRegions} US · {caRegions} CA
+              {countryFilter !== 'all' && (
+                <span>
+                  {' '}
+                  · filter showing {visibleTotal.toLocaleString()} pings / {visibleRows.length}{' '}
+                  regions
+                </span>
+              )}
+            </p>
+          </div>
           {rows.length === 0 ? (
             <div className="calyx-card p-8 text-center text-sm text-calyx-muted">
-              No geographic data yet. Connect platforms and send pings with state codes.
+              No geographic data yet. Connect platforms and send pings with US or Canadian region
+              codes.
             </div>
           ) : (
             <>
@@ -111,15 +149,17 @@ export default function CoveragePage(): JSX.Element {
                   selectedState={mapSelectedCode}
                   onSelectState={handleSelectState}
                   totalPings={totalPings}
+                  countryFilter={countryFilter}
+                  onCountryFilterChange={handleCountryFilter}
                 />
                 <StateDetailPanel
                   selected={selectedRow}
                   rank={selectedRank}
-                  totalPings={totalPings}
+                  totalPings={visibleTotal}
                   onClear={handleClearSelection}
                 />
               </div>
-              <StateHeatmapChart data={rows} />
+              <StateHeatmapChart data={visibleRows} />
             </>
           )}
         </>

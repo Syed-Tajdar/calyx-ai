@@ -63,6 +63,7 @@ function wsPingToRecord(payload: Record<string, unknown>): PingRecord | null {
 }
 
 function pingMatchesFilters(row: PingRecord, filters: PingFetchFilters): boolean {
+  if (!filters.show_demo && row.external_call_id.startsWith('apisync-')) return false;
   if (filters.platform && row.platform !== filters.platform) return false;
   if (filters.from) {
     if (new Date(pingEventAt(row)).getTime() < new Date(filters.from).getTime()) return false;
@@ -140,10 +141,9 @@ export function useHybridPingFeed({
 
   const displayTotal = useMemo(() => {
     if (poll.loading) return 0;
-    const liveFloor =
-      offset === 0 && connected && mergedPings.length > 0 ? mergedPings.length : 0;
-    return Math.max(poll.total, liveFloor);
-  }, [poll.loading, poll.total, offset, connected, mergedPings.length]);
+    // Headline = distinct calls (Coverage / dashboard aligned).
+    return poll.distinctTotal;
+  }, [poll.loading, poll.distinctTotal]);
 
   return {
     pings: mergedPings,

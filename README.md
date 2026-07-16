@@ -2,7 +2,7 @@
 
 Pay-per-call analytics and intelligence platform.
 
-> **Presentation build:** `MOCK_MODE=true` (intelligence) · `MOCK_EMITTER_ENABLED=false` (Kafka → `/live`) · **Retreaver CERTIFIED** (D9 YES · D8b PASS) · **clean slate for new Retreaver account** · API sync Test/Live · Teal Glass UI · Docs in [`docs/`](docs/README.md)
+> **Presentation build:** `MOCK_MODE=true` (intelligence) · `MOCK_EMITTER_ENABLED=false` (Kafka → `/live`) · **Retreaver CERTIFIED** · **Coverage = US + Canada** · Ping Feed headline = **distinct calls** · API sync Test/Live · Teal Glass UI · Docs in [`docs/`](docs/README.md)
 
 See [`docs/design-system-v2.md`](docs/design-system-v2.md) for UI/UX specification.  
 UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.md)  
@@ -14,32 +14,43 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 ---
 
-## System verification (last run: 2026-07-13)
+## System verification (last run: 2026-07-14)
 
 | Layer | Result |
 |-------|--------|
-| Docker containers | App + infra up (`api` / `platform-sync` / `web` rebuilt for Phase 1.6 + final cert) |
+| Docker containers | App + infra up (`api` / `platform-sync` / `web` rebuilt for North America Coverage) |
 | Service health (`/healthz` + `/readyz`) | **PASS** (ports 8080–8088, API :3000, Web :3001) |
 | API presentation checks | **20/20** (`verify-presentation.ps1`) |
 | **API sync (platform-sync)** | **PASS** (`verify-api-sync.ps1`) |
 | **Phase 0 ingestion slice** | **PASS** (`verify-ingestion-slice.ps1`) |
 | Pipeline smoke (multi-platform E2E) | **PASS (4/4)** (`smoke-test-all-platforms.ps1`) |
 | WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — seeds Kafka webhooks when mock WS emitter is off) |
+| **Coverage UI (US + Canada)** | **PASS** (`check-coverage-north-america.mjs` — screenshot [`docs/mockups/coverage-north-america.png`](docs/mockups/coverage-north-america.png)) |
 | **Retreaver FINAL cert** | **YES** — D9 0→nonzero live + D8b two-way/prefix/deep-link ([`docs/retreaver-final-certification-report.md`](docs/retreaver-final-certification-report.md)) |
 | **Platform certification** | Retreaver **CERTIFIED**; Ringba next ([`docs/platform-certification.md`](docs/platform-certification.md)) |
 | **Retreaver account reset** | **DONE** — CH/Redis wipe + old `api_sync` removed; new account = Settings UI ([`docs/retreaver-account-reset-report.md`](docs/retreaver-account-reset-report.md)) |
 
-**Deploy note (2026-07-13):** Rebuild after certification / Phase 1.6 / account reset:
+**Deploy note (2026-07-14):** Rebuild after North America Coverage / Feed header:
 
 ```powershell
 cd deploy
 docker compose build api platform-sync web
 docker compose up -d --force-recreate api platform-sync web
-# Confirm: :3000/healthz, :8088/healthz, :3001 → 200
-# Browser: Ctrl+Shift+R on http://localhost:3001
+# Confirm: :3000/healthz, :8088/healthz, :3001 → 200/307
+# Browser: Ctrl+Shift+R on http://localhost:3001/coverage and /pings
+node ../scripts/check-coverage-north-america.mjs
 ```
 
-Compose defaults: API `MOCK_EMITTER_ENABLED=false` (real Kafka → Socket.IO `/live`); intelligence `MOCK_MODE=true`. Postgres migration `000023_initial_lookback_days`. ClickHouse init includes `000008`/`000009`.
+Compose defaults: API `MOCK_EMITTER_ENABLED=false` (real Kafka → Socket.IO `/live`); intelligence `MOCK_MODE=true`. Postgres migration `000023_initial_lookback_days`. ClickHouse init includes `000008`/`000009`. Web ships `public/geo/us-states-10m.json` + `canada-provinces.geojson`.
+
+**Recent (2026-07-14) — Coverage = US + Canada + Feed distinct-calls header:**
+
+- **Decision:** keep US + Canada (all four platforms support Canada — BC/ON/etc. are real calls, not junk).
+- **NormalizeState:** shared US+CA allowlist (US states+DC+territories + Canadian provinces); unknown → `''`. `CA` = **California**; Canada is province codes only. Helpers: `CountryFor` / `web/src/lib/na-regions.ts`.
+- **Coverage UI:** North America map (US topojson + Canada geojson), one shared graded-teal scale, `geoAlbers` NA projection, All·US·Canada filter, country in tooltip/detail, header **`N pings across M regions · US + Canada`** + `52 US · 4 CA` split (no “56 states”).
+- **Ping Feed:** headline badge = `distinct_total` (`uniqExact(external_call_id)`); table still lists raw rows + DUP. `GET /pings` returns both `total` (raw, pagination) and `distinct_total`.
+- Reports: [`docs/north-america-coverage-report.md`](docs/north-america-coverage-report.md), [`docs/coverage-north-america-ui-report.md`](docs/coverage-north-america-ui-report.md), [`docs/feed-coverage-count-report.md`](docs/feed-coverage-count-report.md).
+- Follow-ups (not blockers): drop `aniHash` from call-detail URL; default-hide `apisync-%` demo rows ([`docs/url-privacy-and-data-check-report.md`](docs/url-privacy-and-data-check-report.md)).
 
 **Recent (2026-07-13) — Retreaver clean account reset (new login):**
 
@@ -316,7 +327,7 @@ WebSocket /live → Kafka live consumer (default); mock WS emitter off via `MOCK
 | `/ask` | Natural language analytics chat |
 | `/compliance` | TCPA risk scores, violations table, exposure |
 | `/attribution` | Conversion events and platform status |
-| `/coverage` | **Coverage Intelligence** — interactive US map (graded teal heatmap), state detail panel, demand bar chart; data from `GET /coverage/heatmap` (all states, not capped at 10) |
+| `/coverage` | **Coverage Intelligence** — North America map (US + Canada), graded teal heatmap, region detail panel, Top-15 chart, All·US·Canada filter; `GET /coverage/heatmap` |
 | `/reports` | Financial analytics (CPA, RPC, ROI, P&L, **duplicate rate**); **FilterBar** period filter |
 | `/settings` | Integrations (webhook vs API key, Test/Live, **Syncing last N days**, Sync / **Backfill**), alerts, provider bindings |
 
@@ -486,6 +497,7 @@ make test
 | `smoke-test-all-platforms.ps1` / `make smoke-test-all` | E2E smoke for all four webhook platforms |
 | `ws-smoke-test.mjs` | WebSocket `/live` ≥3 events (seeds signed webhooks when API mock emitter is off) |
 | `check-dashboard-browser.mjs` | Playwright smoke: login → dashboard, sidebar, **metric accent bars / delta chips**, charts (**10 checks** + screenshot to `docs/mockups/`) |
+| `check-coverage-north-america.mjs` | Playwright: login → `/coverage`, US+Canada header, map paths, CA≠California collision, screenshot |
 | `check-coverage-map.mjs` | Playwright smoke: login → `/coverage`, map paths, pulse border, API state count |
 | `check-coverage-localhost.mjs` | Localhost coverage map: SVG paths, state labels, API heatmap states |
 | `demo-seed` | 25 pings for demo-ready dashboard |

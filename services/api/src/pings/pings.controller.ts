@@ -12,6 +12,10 @@ const listQuerySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   search: z.string().optional(),
+  show_demo: z
+    .union([z.literal('true'), z.literal('1'), z.literal('false'), z.literal('0')])
+    .optional()
+    .transform((v) => v === 'true' || v === '1'),
 });
 
 @Controller('pings')
@@ -30,6 +34,7 @@ export class PingsController {
       from: parsed.from,
       to: parsed.to,
       search: parsed.search,
+      show_demo: parsed.show_demo,
     });
   }
 
@@ -47,6 +52,7 @@ export class PingsController {
       from: parsed.from,
       to: parsed.to,
       search: parsed.search,
+      show_demo: parsed.show_demo,
     });
     res.send(csv);
   }

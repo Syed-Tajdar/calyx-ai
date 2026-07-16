@@ -73,7 +73,11 @@ Verified against official docs as of 2026-07. Used to implement `services/platfo
 
 **Response:** `callLog.data[]` — each call has `columns`, `events`, `tags` arrays.
 
-**Field extraction:** tag/column lookup by name (caller state, revenue, inboundCallId, campaign/publisher/target ids).
+**Field extraction:** tag/column lookup by name (caller state, revenue, inboundCallId, campaign/publisher/target ids). **`occurred_at` ← `callDt`** (Phase 2.A/B).
+
+**Cursor:** overlap window (`last_sync_at − 2h`) + content-hash (Phase 2.0); no last-mod filter (A3=NO).
+
+**A1 / detail-by-id:** Call Logs detail with `InboundCallIds` (and annotate/get-call by `inboundCallId`).
 
 ---
 

@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 )
@@ -73,10 +74,17 @@ func (r *Registry) FetchAllPages(
 	}
 	final := PageResult{}
 	cur := syncCursor
+	pagesFetched := 0
+	var firstWindowCursor string
 	for page := 0; page < maxPagesPerSync; page++ {
 		res, err := ad.FetchPage(ctx, creds, cur, lastSyncAt, lookbackDays)
 		if err != nil {
 			return PageResult{}, err
+		}
+		pagesFetched++
+		if page == 0 {
+			// Replay page 1 of this window after a deep walk (content-hash suppresses unchanged).
+			firstWindowCursor = forceFirstPageCursor(platform, cur, res.NextCursor)
 		}
 		final.Calls = append(final.Calls, res.Calls...)
 		final.NextCursor = res.NextCursor
@@ -86,5 +94,90 @@ func (r *Registry) FetchAllPages(
 		}
 		cur = res.NextCursor
 	}
+	if pagesFetched > 1 && firstWindowCursor != "" {
+		refresh, err := ad.FetchPage(ctx, creds, firstWindowCursor, lastSyncAt, lookbackDays)
+		if err != nil {
+			return PageResult{}, err
+		}
+		final.Calls = append(final.Calls, refresh.Calls...)
+		final.Page1Refresh = true
+		// Keep NextCursor from the deep walk, not the refresh.
+	}
 	return final, nil
+}
+
+// forceFirstPageCursor resets pagination to the first page of the same time window.
+func forceFirstPageCursor(platform, startCursor, afterFirstNext string) string {
+	switch platform {
+	case "retreaver":
+		var cs retreaverCursor
+		src := afterFirstNext
+		if startCursor != "" {
+			src = startCursor
+		}
+		if src == "" {
+			return ""
+		}
+		if err := DecodeCursor(src, &cs); err != nil {
+			return ""
+		}
+		cs.normalize()
+		cs.Page = 1
+		enc, err := EncodeCursor(cs)
+		if err != nil {
+			return ""
+		}
+		return enc
+	case "ringba":
+		var cs ringbaCursor
+		src := afterFirstNext
+		if startCursor != "" {
+			src = startCursor
+		}
+		if src == "" {
+			return ""
+		}
+		if err := DecodeCursor(src, &cs); err != nil {
+			return ""
+		}
+		cs.Offset = 0
+		if cs.Size == 0 {
+			cs.Size = 50
+		}
+		enc, err := EncodeCursor(cs)
+		if err != nil {
+			return ""
+		}
+		return enc
+	case "trackdrive", "callgrid":
+		// Opaque cursors: decode JSON and zero page/offset-like fields when present.
+		src := afterFirstNext
+		if startCursor != "" {
+			src = startCursor
+		}
+		if src == "" {
+			return ""
+		}
+		raw := []byte(src)
+		var m map[string]any
+		if err := json.Unmarshal(raw, &m); err != nil {
+			return ""
+		}
+		if _, ok := m["page"]; ok {
+			m["page"] = float64(1)
+		}
+		if _, ok := m["offset"]; ok {
+			m["offset"] = float64(0)
+		}
+		if _, ok := m["cursor"]; ok {
+			m["cursor"] = ""
+		}
+		enc, err := EncodeCursor(m)
+		if err != nil {
+			return ""
+		}
+		return enc
+	default:
+		return ""
+	}
 }

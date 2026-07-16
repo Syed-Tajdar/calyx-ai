@@ -6,6 +6,11 @@
       "call_url_pattern": "https://retreaver.com/calls/{id}",
       "id_field": "external_call_id",
       "notes": "Case A confirmed: Call Log list shows truncated UUID; detail/URL use full UUID = Calyx external_call_id. Search must accept exact + prefix. Deep link https://retreaver.com/calls/{id}."
+    },
+    "ringba": {
+      "call_url_pattern": "https://app.ringba.com/#/call/{id}",
+      "id_field": "external_call_id",
+      "notes": "Case A: inboundCallId = Calyx external_call_id. Official shareable call URL not published in KB — pattern is best-effort; override with NEXT_PUBLIC_RINGBA_CALL_URL_PATTERN after account-specific confirmation."
     }
   }
 }

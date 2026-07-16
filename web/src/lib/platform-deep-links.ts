@@ -10,6 +10,8 @@
 const DEFAULT_PATTERNS: Record<string, string> = {
   // Official support example: https://retreaver.com/calls/{uuid}
   retreaver: 'https://retreaver.com/calls/{id}',
+  // Best-effort (Phase 2.A A4); override via NEXT_PUBLIC_RINGBA_CALL_URL_PATTERN
+  ringba: 'https://app.ringba.com/#/call/{id}',
 };
 
 /** Env var name for a platform call URL pattern override. */

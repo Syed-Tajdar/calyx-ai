@@ -29,7 +29,7 @@ Record / confirm in `docs/apisync-platform-research.md`:
 | Platform | Detail-by-id endpoint |
 |----------|----------------------|
 | Retreaver | `GET /api/v2/calls/{uuid}.json` |
-| Ringba | (confirm in Phase 2 research) |
+| Ringba | Confirm via Call Logs detail-by-ids / get call: body `InboundCallIds: [...]` (support + Plura actions); primary id `inboundCallId` |
 | TrackDrive | (confirm in Phase 3 research) |
 | CallGrid | (confirm in Phase 4 research) |
 

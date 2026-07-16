@@ -44,3 +44,29 @@ func TestHTTPClientDoRedactsTransportErrorURL(t *testing.T) {
 		t.Fatalf("secret leaked in classified error: %s", classified)
 	}
 }
+
+// Header-auth tokens never appear in Go transport errors (URL only). REDACTED=0 on
+// that path is expected — do not inject Authorization into errors to force a marker.
+func TestHTTPClientDoTransportErrorOmitsAuthorizationHeader(t *testing.T) {
+	client := NewHTTPClient()
+	client.client = &http.Client{Timeout: 5 * time.Second}
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
+		"https://this-host-does-not-exist-xyz.invalid/999999/CallLogs/Date", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "BOGUS_RINGBA_TOKEN_XYZ")
+
+	_, _, err = client.Do(req)
+	if err == nil {
+		t.Fatal("expected DNS/transport error")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "BOGUS_RINGBA_TOKEN_XYZ") {
+		t.Fatalf("Authorization token leaked: %s", msg)
+	}
+	if strings.Contains(strings.ToLower(msg), "authorization:") {
+		t.Fatalf("must not inject Authorization into transport errors: %s", msg)
+	}
+}

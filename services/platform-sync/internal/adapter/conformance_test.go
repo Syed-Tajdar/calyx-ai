@@ -16,10 +16,10 @@ import (
 // Each phase moves exactly one adapter from pending → certified.
 var certifiedAdapters = []string{
 	"retreaver",
+	"ringba",
 }
 
 var pendingAdapters = []string{
-	"ringba",     // TODO Phase 2: map occurred_at + certify (occurred_at NOT mapped yet)
 	"trackdrive", // TODO Phase 3: map occurred_at + certify (occurred_at NOT mapped yet)
 	"callgrid",   // TODO Phase 4: map occurred_at + certify (occurred_at NOT mapped yet)
 }
@@ -27,6 +27,7 @@ var pendingAdapters = []string{
 // occurredAtRequired: certified adapters that must populate OccurredAt from platform timestamp.
 var occurredAtRequired = map[string]bool{
 	"retreaver": true,
+	"ringba":    true,
 }
 
 func TestRegistryMembershipComplete(t *testing.T) {
@@ -150,6 +151,7 @@ func runAdapterConformance(t *testing.T, platform string) {
 		fmt.Sprintf(`Get "https://api.example.com/v1?api_key=%s&company_id=1": dial tcp: lookup`, secret),
 		fmt.Sprintf(`Authorization: Bearer %s dial tcp timeout`, secret),
 		fmt.Sprintf(`Authorization: Basic %s failed`, secret),
+		fmt.Sprintf(`Authorization: %s dial tcp timeout`, secret),
 	} {
 		out := redact.SanitizeErr(fmt.Errorf("%s", msg))
 		if strings.Contains(out, secret) {

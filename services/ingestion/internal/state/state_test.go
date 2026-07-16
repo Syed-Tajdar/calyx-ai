@@ -22,6 +22,13 @@ func TestNormalizeState(t *testing.T) {
 		{"District of Columbia", "DC"},
 		{"Narnia", ""},
 		{"  tx  ", "TX"},
+		{"ON", "ON"},
+		{"Ontario", "ON"},
+		{"ontario", "ON"},
+		{"British Columbia", "BC"},
+		{"BC", "BC"},
+		{"XX", ""},
+		{"UK", ""},
 	}
 
 	for _, tt := range tests {

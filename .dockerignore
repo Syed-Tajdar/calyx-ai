@@ -1,0 +1,11 @@
+*
+!services/
+!services/**
+!packages/
+!packages/**
+!shared/
+!shared/**
+**/node_modules
+**/dist
+**/.next
+.git

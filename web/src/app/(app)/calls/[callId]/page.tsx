@@ -33,7 +33,6 @@ function CallDetailContent(): JSX.Element {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callId = decodeURIComponent(params.callId as string);
-  const aniHash = searchParams.get('aniHash') ?? '';
   const platformParam = searchParams.get('platform') ?? '';
 
   const [score, setScore] = useState<ScoreRecord | null>(null);
@@ -101,17 +100,22 @@ function CallDetailContent(): JSX.Element {
     };
   }, [score, deepView]);
 
+  const aniHash = deepView?.ping?.ani_hash ?? '';
+  const hasEnrichment =
+    Boolean(aniHash) ||
+    (deepView?.enrichment != null && deepView.enrichment.attribute_count > 0);
+
   const journeySteps = useMemo(
     () =>
       buildJourneySteps({
         hasPing: deepView?.ping != null,
-        hasEnrichment: Boolean(aniHash),
+        hasEnrichment,
         hasScore: deepView?.scoring != null || score != null,
         hasCompliance: deepView?.compliance != null,
         complianceRisk: deepView?.compliance?.risk_score,
         hasAttribution: deepView?.attribution != null,
       }),
-    [deepView, score, aniHash],
+    [deepView, score, hasEnrichment],
   );
 
   const platform =
@@ -196,7 +200,7 @@ function CallDetailContent(): JSX.Element {
                 <EnrichmentPanel aniHash={aniHash} />
               ) : (
                 <div className="calyx-card p-4 text-sm text-calyx-muted">
-                  No ANI hash provided. Open this call from the pings table to view enrichment.
+                  No enrichment available for this call yet.
                 </div>
               )}
             </div>

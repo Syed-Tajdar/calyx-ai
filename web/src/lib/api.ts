@@ -32,7 +32,10 @@ export interface PingRecord {
 
 export interface PingListResponse {
   data: PingRecord[];
+  /** Raw event rows (pagination). */
   total: number;
+  /** Distinct calls in the filter window — Ping Feed headline. */
+  distinct_total: number;
   limit: number;
   offset: number;
 }
@@ -146,6 +149,7 @@ export interface CreateIntegrationInput {
 
 export interface HeatmapStateRow {
   state: string;
+  country: 'US' | 'CA' | '';
   ping_count: number;
   revenue: number;
 }
@@ -153,6 +157,8 @@ export interface HeatmapStateRow {
 export interface HeatmapResult {
   data: HeatmapStateRow[];
   total_pings: number;
+  us_regions: number;
+  ca_regions: number;
 }
 
 async function fetchWithAuth<T>(token: string, path: string, init?: RequestInit): Promise<T> {
@@ -284,6 +290,8 @@ export interface PingFetchFilters {
   from?: string;
   to?: string;
   search?: string;
+  /** Include mock `apisync-%` rows. Default false (API hides them). */
+  show_demo?: boolean;
 }
 
 export async function fetchPings(
@@ -300,6 +308,7 @@ export async function fetchPings(
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.search) params.set('search', filters.search);
+  if (filters.show_demo) params.set('show_demo', 'true');
   return fetchWithAuth<PingListResponse>(token, `/pings?${params.toString()}`);
 }
 
@@ -312,6 +321,7 @@ export async function downloadPingsExport(
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.search) params.set('search', filters.search);
+  if (filters.show_demo) params.set('show_demo', 'true');
   const qs = params.toString();
   const res = await fetch(`${API_URL}/pings/export${qs ? `?${qs}` : ''}`, {
     headers: { Authorization: `Bearer ${token}` },

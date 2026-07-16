@@ -20,8 +20,8 @@ type pingPublisher interface {
 	Publish(ctx context.Context, tenantID, platform string, call models.RemoteCall, isDuplicate bool, receivedAt int64) error
 }
 
-type duplicateChecker interface {
-	IsDuplicate(ctx context.Context, tenantID, platform, externalCallID string) (bool, error)
+type contentDeduper interface {
+	Evaluate(ctx context.Context, tenantID, platform string, content dedup.Content) (dedup.Decision, error)
 }
 
 type Service struct {
@@ -107,7 +107,7 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration) erro
 	}
 
 	now := time.Now().UTC()
-	skippedEmptyID, publishErr := publishSyncCalls(ctx, item.TenantID, item.Platform, result.Calls, s.dedup, s.producer, now.UnixMilli())
+	skippedEmptyID, published, unchanged, publishErr := publishSyncCalls(ctx, item.TenantID, item.Platform, result.Calls, s.dedup, s.producer, now.UnixMilli())
 	if publishErr != nil {
 		s.markError(ctx, item.ID, item.SyncCursor, redact.SanitizeErr(publishErr))
 		return publishErr
@@ -128,32 +128,54 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration) erro
 	}
 	s.logger.Info("api sync completed",
 		"integration_id", item.ID, "platform", item.Platform,
-		"calls", len(result.Calls))
+		"calls", len(result.Calls),
+		"published", published,
+		"unchanged", unchanged,
+		"page1_refresh", result.Page1Refresh)
 	return nil
+}
+
+func remoteCallContent(call models.RemoteCall) dedup.Content {
+	return dedup.Content{
+		ExternalCallID: call.ExternalCallID,
+		Revenue:        call.Revenue,
+		Payout:         call.Payout,
+		State:          call.State,
+		EventType:      call.EventType,
+		OccurredAt:     call.OccurredAt,
+		CampaignID:     call.CampaignID,
+		PublisherID:    call.PublisherID,
+		TargetID:       call.TargetID,
+	}
 }
 
 func publishSyncCalls(
 	ctx context.Context,
 	tenantID, platform string,
 	calls []models.RemoteCall,
-	dedupChecker duplicateChecker,
+	dedupChecker contentDeduper,
 	pub pingPublisher,
 	receivedAt int64,
-) (skippedEmptyID int, err error) {
+) (skippedEmptyID, published, unchanged int, err error) {
 	for _, call := range calls {
 		if strings.TrimSpace(call.ExternalCallID) == "" {
 			skippedEmptyID++
 			continue
 		}
-		isDup, err := dedupChecker.IsDuplicate(ctx, tenantID, platform, call.ExternalCallID)
+		decision, err := dedupChecker.Evaluate(ctx, tenantID, platform, remoteCallContent(call))
 		if err != nil {
-			return skippedEmptyID, err
+			return skippedEmptyID, published, unchanged, err
 		}
-		if err := pub.Publish(ctx, tenantID, platform, call, isDup, receivedAt); err != nil {
-			return skippedEmptyID, err
+		if decision == dedup.Unchanged {
+			unchanged++
+			continue
 		}
+		if err := pub.Publish(ctx, tenantID, platform, call, false, receivedAt); err != nil {
+			return skippedEmptyID, published, unchanged, err
+		}
+		published++
 	}
-	return skippedEmptyID, nil
+	return skippedEmptyID, published, unchanged, nil
 }
 
 func (s *Service) markError(ctx context.Context, id, cursor, msg string) {

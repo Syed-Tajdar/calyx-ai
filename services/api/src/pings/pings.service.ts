@@ -27,7 +27,10 @@ export interface PingRecord {
 
 export interface PingListResult {
   data: PingRecord[];
+  /** Raw row count (for pagination through the event stream). */
   total: number;
+  /** Distinct calls (`uniqExact(external_call_id)`) — headline / Coverage-aligned. */
+  distinct_total: number;
   limit: number;
   offset: number;
 }
@@ -83,7 +86,9 @@ export class PingsService {
 
     const countResult = await this.clickhouse.getClient().query({
       query: `
-        SELECT count() AS total
+        SELECT
+          count() AS total,
+          uniqExactIf(external_call_id, external_call_id != '') AS distinct_total
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
         ${clause}
@@ -91,8 +96,9 @@ export class PingsService {
       query_params: params,
       format: 'JSONEachRow',
     });
-    const countRows = await countResult.json<{ total: string }>();
+    const countRows = await countResult.json<{ total: string; distinct_total: string }>();
     const total = Number(countRows[0]?.total ?? 0);
+    const distinctTotal = Number(countRows[0]?.distinct_total ?? 0);
 
     const dataResult = await this.clickhouse.getClient().query({
       query: `
@@ -113,6 +119,7 @@ export class PingsService {
     return {
       data: raw.map(mapPingRow),
       total,
+      distinct_total: distinctTotal,
       limit: safeLimit,
       offset: safeOffset,
     };

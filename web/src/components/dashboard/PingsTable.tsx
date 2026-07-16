@@ -53,7 +53,7 @@ export function PingsTable({
               callId={p.external_call_id}
               href={
                 linkable
-                  ? `/calls/${encodeURIComponent(p.external_call_id)}?aniHash=${encodeURIComponent(p.ani_hash)}&platform=${encodeURIComponent(p.platform)}`
+                  ? `/calls/${encodeURIComponent(p.external_call_id)}?platform=${encodeURIComponent(p.platform)}`
                   : undefined
               }
             />

@@ -10,33 +10,37 @@ import {
   YAxis,
 } from 'recharts';
 import type { HeatmapStateRow } from '@/lib/api';
+import { countryForRegion } from '@/lib/na-regions';
 
 interface StateHeatmapChartProps {
   data: HeatmapStateRow[];
 }
 
 export function StateHeatmapChart({ data }: StateHeatmapChartProps): JSX.Element {
-  const chartData = data.slice(0, 15).map((row) => ({
-    state: row.state,
-    pings: row.ping_count,
-    revenue: row.revenue,
-  }));
+  const chartData = data.slice(0, 15).map((row) => {
+    const country = row.country || countryForRegion(row.state) || '';
+    return {
+      state: country ? `${row.state} · ${country}` : row.state,
+      pings: row.ping_count,
+      revenue: row.revenue,
+    };
+  });
 
   const showTop15Label = data.length > 15;
 
   return (
     <div className="calyx-card p-4">
       <p className="text-[10px] font-bold uppercase tracking-wider text-calyx-accent">
-        {showTop15Label ? 'Demand by State — Top 15' : 'Demand by State'}
+        {showTop15Label ? 'Demand by Region — Top 15' : 'Demand by Region'}
       </p>
       <p className="mt-1 text-[11px] text-calyx-muted">
         {showTop15Label
-          ? 'Top 15 by volume · see map for all states'
-          : 'By ping volume · see map for all states'}
+          ? 'Top 15 by volume · US + Canada · see map for all regions'
+          : 'By ping volume · US + Canada · see map for all regions'}
       </p>
       {chartData.length === 0 ? (
         <p className="py-8 text-center text-sm text-calyx-muted">
-          No state data yet. Pings with a state field will appear here.
+          No region data yet. Pings with a US or Canadian region code will appear here.
         </p>
       ) : (
         <div className="mt-4">
@@ -47,7 +51,7 @@ export function StateHeatmapChart({ data }: StateHeatmapChartProps): JSX.Element
               <YAxis
                 type="category"
                 dataKey="state"
-                width={36}
+                width={72}
                 tick={{ fill: 'var(--calyx-chart-tick)', fontSize: 10 }}
               />
               <Tooltip

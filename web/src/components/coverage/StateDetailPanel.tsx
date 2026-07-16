@@ -2,6 +2,7 @@
 
 import { MetricCardFrame } from '@/components/dashboard/MetricCard';
 import type { HeatmapStateRow } from '@/lib/api';
+import { countryForRegion, countryLabel, regionDisplayName } from '@/lib/na-regions';
 import { stateNameFromCode } from '@/lib/us-states';
 import { useCountUp, usePrefersReducedMotion } from '@/lib/use-count-up';
 import { cn } from '@/lib/utils';
@@ -42,15 +43,16 @@ export function StateDetailPanel({
   if (!selected) {
     return (
       <MetricCardFrame className={cn(PANEL_SHELL, 'py-6', className)}>
-        <p className="text-sm font-medium text-calyx-muted">Select a state</p>
+        <p className="text-sm font-medium text-calyx-muted">Select a region</p>
         <p className="mt-1 text-xs text-calyx-dim">
-          Click a state on the map to view demand details.
+          Click a US state or Canadian province on the map to view demand details.
         </p>
       </MetricCardFrame>
     );
   }
 
-  const name = stateNameFromCode(selected.state);
+  const name = regionDisplayName(selected.state, stateNameFromCode);
+  const country = (selected.country || countryForRegion(selected.state)) as 'US' | 'CA' | null;
 
   return (
     <MetricCardFrame
@@ -63,9 +65,13 @@ export function StateDetailPanel({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-calyx-muted">
-            State detail
+            Region detail
           </p>
           <h3 className="mt-0.5 truncate text-sm font-bold text-calyx-text">{name}</h3>
+          <p className="mt-0.5 text-[11px] text-calyx-dim">
+            {selected.state.trim().toUpperCase()}
+            {country ? ` · ${countryLabel(country)}` : ''}
+          </p>
         </div>
         {rank !== null && (
           <span className="shrink-0 rounded-full bg-calyx-teal/10 px-2 py-0.5 text-[10px] font-semibold text-calyx-teal">

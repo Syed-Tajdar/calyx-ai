@@ -68,6 +68,7 @@ export interface DateFilterQuery {
   to?: string;
   platform?: string;
   search?: string;
+  show_demo?: boolean;
 }
 
 export function dateFilterToQuery(

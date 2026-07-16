@@ -123,16 +123,29 @@ func (h *RingbaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	isDup, err := h.dedup.IsDuplicate(ctx, ping.TenantID, ping.Platform, ping.ExternalCallID)
+	decision, err := h.dedup.Evaluate(ctx, ping.TenantID, ping.Platform, dedup.Content{
+		ExternalCallID:    ping.ExternalCallID,
+		Revenue:           ping.Revenue,
+		Payout:            ping.Payout,
+		State:             ping.State,
+		EventType:         ping.EventType,
+		CampaignID:        ping.CampaignID,
+		PublisherID:       ping.PublisherID,
+		TargetID:          ping.TargetID,
+		PlatformDuplicate: ping.PlatformDuplicate,
+	})
 	if err != nil {
 		h.logger.Error("dedup check failed",
 			"service", "ingestion", "tenant_id", ping.TenantID, "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	if isDup {
-		ping.IsDuplicate = true
+	if decision == dedup.Unchanged {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok","dedup":"unchanged"}`))
+		return
 	}
+	ping.IsDuplicate = false
 
 	if err := h.producer.Publish(ctx, ping); err != nil {
 		h.logger.Error("kafka publish failed",
@@ -149,6 +162,7 @@ func (h *RingbaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"event_type", ping.EventType,
 		"is_duplicate", ping.IsDuplicate,
 		"platform_duplicate", ping.PlatformDuplicate,
+		"dedup_decision", decision.String(),
 	)
 
 	w.WriteHeader(http.StatusOK)

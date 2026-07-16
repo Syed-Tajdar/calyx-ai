@@ -29,8 +29,16 @@ services:
 
   redis:
     image: redis:7-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -131,7 +139,8 @@ services:
 
   ingestion:
     build:
-      context: ../services/ingestion
+      context: ..
+      dockerfile: services/ingestion/Dockerfile
     ports:
       - "8080:8080"
     environment:
@@ -359,7 +368,8 @@ services:
 
   platform-sync:
     build:
-      context: ../services/platform-sync
+      context: ..
+      dockerfile: services/platform-sync/Dockerfile
     ports:
       - "8088:8088"
     dns:
@@ -374,6 +384,9 @@ services:
       CREDENTIAL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       ANI_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       MOCK_MODE: "true"
+      MOCK_DEDUP_PROOF: "0"
+      # Temporary for scripts/prove-ringba-bogus-redaction.ps1 — leave empty/unset for prod pulls
+      # RINGBA_BASE_URL: https://this-host-does-not-exist-xyz.invalid
       SYNC_INTERVAL_SEC: "120"
       DEDUP_TTL_HOURS: "168"
     depends_on:
@@ -472,3 +485,4 @@ services:
 volumes:
   postgres_data:
   clickhouse_data:
+  redis_data:

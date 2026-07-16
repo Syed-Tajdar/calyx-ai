@@ -1,16 +1,30 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { CoverageMap } from '@/components/coverage/CoverageMap';
+import type { HeatmapStateRow } from '@/lib/api';
+import type { CountryFilter } from '@/components/coverage/CoverageMap';
 
-export const CoverageMapDynamic = dynamic(
-  () => Promise.resolve({ default: CoverageMap }),
+interface CoverageMapDynamicProps {
+  data: HeatmapStateRow[];
+  selectedState: string | null;
+  onSelectState: (code: string | null) => void;
+  totalPings: number;
+  countryFilter?: CountryFilter;
+  onCountryFilterChange?: (filter: CountryFilter) => void;
+}
+
+const CoverageMap = dynamic(
+  () => import('@/components/coverage/CoverageMap').then((m) => m.CoverageMap),
   {
     ssr: false,
     loading: () => (
-      <div className="flex min-h-[400px] w-full items-center justify-center py-8">
-        <p className="text-sm text-calyx-muted">Loading map…</p>
+      <div className="flex min-h-[420px] items-center justify-center text-sm text-calyx-muted">
+        Loading map…
       </div>
     ),
   },
 );
+
+export function CoverageMapDynamic(props: CoverageMapDynamicProps): JSX.Element {
+  return <CoverageMap {...props} />;
+}

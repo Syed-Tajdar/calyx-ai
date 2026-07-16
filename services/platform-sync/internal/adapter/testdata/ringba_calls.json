@@ -1,0 +1,83 @@
+// source: docs (CallLogs/Date callLog.data[] columns/tags shape)
+// doc: https://github.com/diablomedia/ringba-php-sdk/blob/master/docs/Api/CallLogApi.md
+// Phase 2.A: occurred_at from callDt; id = inboundCallId.
+{
+  "valid_call": {
+    "columns": [
+      {"name": "inboundCallId", "value": "813a08d2-7676-11e9-b73c-aaaaaaaaaaaa"},
+      {"name": "caller", "value": "+15550001111"},
+      {"name": "state", "value": "NC"},
+      {"name": "revenue", "value": "46.50"},
+      {"name": "payout", "value": "40.00"},
+      {"name": "campaignId", "value": "camp-100"},
+      {"name": "publisherId", "value": "pub-200"},
+      {"name": "targetId", "value": "tgt-300"},
+      {"name": "callDt", "value": "2026-07-09T19:38:21Z"}
+    ],
+    "tags": [],
+    "events": []
+  },
+  "missing_id_call": {
+    "columns": [
+      {"name": "inboundCallId", "value": ""},
+      {"name": "callId", "value": ""},
+      {"name": "state", "value": "TX"},
+      {"name": "revenue", "value": "12"},
+      {"name": "callDt", "value": "2026-07-09T12:00:00Z"}
+    ],
+    "tags": []
+  },
+  "state_texas": {
+    "columns": [
+      {"name": "inboundCallId", "value": "state-texas-0001"},
+      {"name": "state", "value": "Texas"},
+      {"name": "callDt", "value": "2026-07-09T12:00:00Z"}
+    ],
+    "tags": []
+  },
+  "state_lower_tx": {
+    "columns": [
+      {"name": "inboundCallId", "value": "state-tx-0002"},
+      {"name": "geo:state", "value": "tx"},
+      {"name": "callDt", "value": "2026-07-09T12:00:00Z"}
+    ],
+    "tags": []
+  },
+  "state_unknown": {
+    "columns": [
+      {"name": "inboundCallId", "value": "state-unknown-0003"},
+      {"name": "state", "value": "Narnia"},
+      {"name": "callDt", "value": "2026-07-09T12:00:00Z"}
+    ],
+    "tags": []
+  },
+  "revenue_null": {
+    "columns": [
+      {"name": "inboundCallId", "value": "rev-null-0004"},
+      {"name": "state", "value": "CA"},
+      {"name": "callDt", "value": "2026-07-09T12:00:00Z"}
+    ],
+    "tags": []
+  },
+  "revenue_number": {
+    "columns": [
+      {"name": "inboundCallId", "value": "rev-num-0005"},
+      {"name": "state", "value": "CA"},
+      {"name": "revenue", "value": "12.5"},
+      {"name": "payout", "value": "10.0"},
+      {"name": "callDt", "value": "2026-07-09T12:00:00Z"}
+    ],
+    "tags": []
+  },
+  "extra_fields": {
+    "columns": [
+      {"name": "inboundCallId", "value": "extra-0006"},
+      {"name": "state", "value": "FL"},
+      {"name": "totallyUnknown", "value": "x"},
+      {"name": "callDt", "value": "2026-07-09T12:00:00Z"}
+    ],
+    "tags": [
+      {"name": "customTag", "value": "y"}
+    ]
+  }
+}

@@ -1,9 +1,15 @@
+# Build from repo root: context `..`, dockerfile `services/platform-sync/Dockerfile`
 FROM golang:1.22-alpine AS builder
-WORKDIR /app
-COPY go.mod go.sum* ./
+
+WORKDIR /src
+
+COPY packages/pingdedup ./packages/pingdedup
+COPY services/platform-sync/go.mod services/platform-sync/go.sum* ./services/platform-sync/
+WORKDIR /src/services/platform-sync
 RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /platform-sync ./cmd/server
+
+COPY services/platform-sync/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X main.dedupMode=content_hash" -o /platform-sync ./cmd/server
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates

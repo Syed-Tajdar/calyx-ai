@@ -50,6 +50,11 @@ func main() {
 	dedupChecker := dedup.NewChecker(redisClient, cfg.DedupTTL)
 	pingProducer := producer.NewProducer(kafkaClient, cfg.KafkaTopic, cfg.EncryptionKey)
 
+	logger.Info("ingestion server init",
+		"service", "ingestion",
+		"dedup_mode", "content_hash",
+	)
+
 	health := handlers.NewHealthHandler(dedupChecker, pingProducer, integrationStore)
 	webhook := handlers.NewWebhookHandler(cfg, integrationStore, dedupChecker, pingProducer, logger)
 	callloomNative := handlers.NewCallLoomNativeHandler()

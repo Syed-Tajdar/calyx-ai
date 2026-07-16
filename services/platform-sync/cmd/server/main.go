@@ -132,6 +132,8 @@ func main() {
 
 	svc := syncer.NewService(st, ad, prod, dedupChecker, decryptor, logger)
 
+	logger.Info("platform-sync init", "dedup_mode", "content_hash", "mock_mode", cfg.MockMode)
+
 
 
 	mux := http.NewServeMux()

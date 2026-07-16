@@ -8,11 +8,10 @@ import (
 )
 
 var (
-	urlInErrorRE = regexp.MustCompile(`https?://[^\s"']+`)
-	paramRE      = regexp.MustCompile(`(?i)(api_key|company_id|token|secret|password|access_key)=([^&\s"']+)`)
-	bearerRE     = regexp.MustCompile(`(?i)(Authorization:\s*Bearer\s+)\S+`)
-	basicRE      = regexp.MustCompile(`(?i)(Authorization:\s*Basic\s+)\S+`)
-	bearerTokRE  = regexp.MustCompile(`(?i)(Bearer\s+)[A-Za-z0-9\-._~+/]+=*`)
+	urlInErrorRE   = regexp.MustCompile(`https?://[^\s"']+`)
+	paramRE        = regexp.MustCompile(`(?i)(api_key|company_id|token|secret|password|access_key)=([^&\s"']+)`)
+	authHeaderRE   = regexp.MustCompile(`(?i)Authorization:\s*(?:Bearer\s+\S+|Basic\s+\S+|\S+)`)
+	bearerTokRE    = regexp.MustCompile(`(?i)(Bearer\s+)[A-Za-z0-9\-._~+/]+=*`)
 )
 
 var sensitiveQueryKeys = map[string]struct{}{
@@ -31,10 +30,22 @@ func RedactMessage(msg string) string {
 	}
 	out := urlInErrorRE.ReplaceAllStringFunc(msg, redactURLString)
 	out = paramRE.ReplaceAllString(out, `${1}=[REDACTED]`)
-	out = bearerRE.ReplaceAllString(out, `${1}[REDACTED]`)
-	out = basicRE.ReplaceAllString(out, `${1}[REDACTED]`)
+	out = authHeaderRE.ReplaceAllStringFunc(out, redactAuthHeader)
 	out = bearerTokRE.ReplaceAllString(out, `${1}[REDACTED]`)
 	return out
+}
+
+func redactAuthHeader(m string) string {
+	lower := strings.ToLower(m)
+	switch {
+	case strings.HasPrefix(lower, "authorization: bearer"):
+		return "Authorization: Bearer [REDACTED]"
+	case strings.HasPrefix(lower, "authorization: basic"):
+		return "Authorization: Basic [REDACTED]"
+	default:
+		// Ringba API access token (post–Bearer deprecation) and other bare schemes.
+		return "Authorization: [REDACTED]"
+	}
 }
 
 // SanitizeErr returns a redacted error string safe for logs and DB persistence.

@@ -118,7 +118,7 @@ export class DeepQueryService {
           toString(p.revenue) AS ping_revenue,
           toString(p.payout) AS ping_payout,
           p.ani_hash,
-          formatDateTime(p.received_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS ping_received_at,
+          p.ping_received_at,
           toString(cs.overall_score) AS overall_score,
           cs.sentiment,
           toString(cs.rules_passed) AS rules_passed,
@@ -138,12 +138,23 @@ export class DeepQueryService {
           toString(af.http_status) AS http_status,
           formatDateTime(af.fired_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS attribution_fired_at
         FROM (
-          SELECT *
+          SELECT
+            any(platform) AS platform,
+            external_call_id,
+            argMax(publisher_id, received_at) AS publisher_id,
+            argMax(campaign_id, received_at) AS campaign_id,
+            argMax(target_id, received_at) AS target_id,
+            argMax(state, received_at) AS state,
+            argMax(event_type, received_at) AS event_type,
+            argMax(revenue, received_at) AS revenue,
+            argMax(payout, received_at) AS payout,
+            argMaxIf(ani_hash, received_at, ani_hash != '') AS ani_hash,
+            formatDateTime(max(received_at), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS ping_received_at,
+            argMaxIf(call_key, received_at, call_key != '') AS call_key
           FROM pings
           WHERE tenant_id = {tenant_id:UUID}
             AND external_call_id = {call_id:String}
-          ORDER BY received_at DESC
-          LIMIT 1
+          GROUP BY external_call_id
         ) AS p
         LEFT JOIN (
           SELECT *

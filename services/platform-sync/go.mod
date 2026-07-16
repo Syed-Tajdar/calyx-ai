@@ -3,11 +3,14 @@ module github.com/Syed-Tajdar/calyx-ai/services/platform-sync
 go 1.22
 
 require (
+	github.com/Syed-Tajdar/calyx-ai/packages/pingdedup v0.0.0
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/sony/gobreaker v0.5.0
 )
+
+replace github.com/Syed-Tajdar/calyx-ai/packages/pingdedup => ../../packages/pingdedup
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

@@ -33,12 +33,14 @@ function PingsPageContent(): JSX.Element {
   const { startDate, platform } = useDateFilter();
   const [offset, setOffset] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
 
   const filters = useMemo(() => {
     const base = dateFilterToQuery(startDate, platform);
     if (searchQuery) base.search = searchQuery;
+    if (showDemo) base.show_demo = true;
     return base;
-  }, [startDate, platform, searchQuery]);
+  }, [startDate, platform, searchQuery, showDemo]);
 
   const { pings, total, displayTotal, loaded, loading, error, newRowKeys, isLive, isPollingFallback } =
     useHybridPingFeed({
@@ -87,7 +89,7 @@ function PingsPageContent(): JSX.Element {
               <Badge variant="secondary">Polling</Badge>
             ) : null}
             <Badge variant="teal" className="text-sm">
-              {loaded ? `${displayTotal.toLocaleString()} total` : '…'}
+              {loaded ? `${displayTotal.toLocaleString()} calls` : '…'}
             </Badge>
           </div>
         }
@@ -95,19 +97,33 @@ function PingsPageContent(): JSX.Element {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <FilterBar showPlatform platforms={platforms} />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={exporting}
-          onClick={() => {
-            void handleExport();
-          }}
-          className="gap-2"
-        >
-          <Download className="h-4 w-4" />
-          {exporting ? 'Exporting…' : 'Export CSV'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-calyx-muted">
+            <input
+              type="checkbox"
+              checked={showDemo}
+              onChange={(e) => {
+                setShowDemo(e.target.checked);
+                setOffset(0);
+              }}
+              className="h-4 w-4 rounded border-calyx-border accent-calyx-accent"
+            />
+            Show demo
+          </label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={exporting}
+            onClick={() => {
+              void handleExport();
+            }}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </Button>
+        </div>
       </div>
 
       {searchQuery && (

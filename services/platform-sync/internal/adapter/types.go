@@ -16,7 +16,8 @@ type PlatformAdapter interface {
 
 // PageResult is one page of remote calls plus an opaque cursor for the next page.
 type PageResult struct {
-	Calls      []models.RemoteCall
-	NextCursor string
-	HasMore    bool
+	Calls        []models.RemoteCall
+	NextCursor   string
+	HasMore      bool
+	Page1Refresh bool // true when a deep-walk page=1 refresh pass was appended
 }

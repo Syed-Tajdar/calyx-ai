@@ -14,6 +14,12 @@ declare module 'react-simple-maps' {
 
   export interface ComposableMapProps {
     projection?: string;
+    projectionConfig?: {
+      center?: [number, number];
+      rotate?: [number, number] | [number, number, number];
+      parallels?: [number, number];
+      scale?: number;
+    };
     className?: string;
     style?: CSSProperties;
     children?: ReactNode;

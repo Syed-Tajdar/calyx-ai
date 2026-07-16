@@ -5,6 +5,8 @@ export interface PingListFilters {
   from?: string;
   to?: string;
   search?: string;
+  /** When true, include mock `apisync-%` external_call_id rows. Default: hide. */
+  show_demo?: boolean;
 }
 
 export function buildPingWhereClause(filters: PingListFilters): {
@@ -14,6 +16,9 @@ export function buildPingWhereClause(filters: PingListFilters): {
   const parts: string[] = [];
   const params: Record<string, string | number> = {};
 
+  if (!filters.show_demo) {
+    parts.push(`AND external_call_id NOT LIKE 'apisync-%'`);
+  }
   if (filters.platform) {
     parts.push('AND platform = {platform:String}');
     params.platform = filters.platform;

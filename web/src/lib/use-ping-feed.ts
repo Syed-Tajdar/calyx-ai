@@ -20,6 +20,7 @@ interface UsePingFeedOptions {
 interface UsePingFeedResult {
   pings: PingRecord[];
   total: number;
+  distinctTotal: number;
   loading: boolean;
   error: string;
   newRowKeys: Set<string>;
@@ -37,6 +38,7 @@ export function usePingFeed({
   const router = useRouter();
   const [pings, setPings] = useState<PingRecord[]>([]);
   const [total, setTotal] = useState(0);
+  const [distinctTotal, setDistinctTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [newRowKeys, setNewRowKeys] = useState<Set<string>>(new Set());
@@ -69,6 +71,7 @@ export function usePingFeed({
         knownKeysRef.current = new Set(res.data.map(pingRowKey));
         setPings(res.data);
         setTotal(res.total);
+        setDistinctTotal(res.distinct_total ?? res.total);
       } catch (err: unknown) {
         if (err instanceof ApiError && err.status === 401) {
           router.replace('/login');
@@ -102,6 +105,7 @@ export function usePingFeed({
   return {
     pings,
     total,
+    distinctTotal,
     loading,
     error,
     newRowKeys,
