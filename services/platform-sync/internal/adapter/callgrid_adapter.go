@@ -92,7 +92,7 @@ func (a *CallGridAdapter) fetch(ctx context.Context, creds map[string]string, cs
 	if err != nil {
 		return nil, nil, false, err
 	}
-	if err := checkHTTPStatus(resp.StatusCode, body, "callgrid"); err != nil {
+	if err := checkHTTPStatus(resp.StatusCode, body, resp.Header, "callgrid"); err != nil {
 		return nil, nil, false, err
 	}
 	var payload struct {

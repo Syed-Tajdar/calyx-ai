@@ -35,6 +35,13 @@ services:
       - "yes"
       - --appendfsync
       - everysec
+      - --maxmemory
+      - 1gb
+      # Evict only keys with TTL (dedup hashes), nearest-expiry first.
+      # Do NOT use allkeys-lru (could drop live dedup → needless republish)
+      # or noeviction (writes fail at ceiling → duplicate balloon).
+      - --maxmemory-policy
+      - volatile-ttl
     ports:
       - "6379:6379"
     volumes:

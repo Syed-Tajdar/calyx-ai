@@ -151,6 +151,7 @@ func runAdapterConformance(t *testing.T, platform string) {
 		fmt.Sprintf(`Get "https://api.example.com/v1?api_key=%s&company_id=1": dial tcp: lookup`, secret),
 		fmt.Sprintf(`Authorization: Bearer %s dial tcp timeout`, secret),
 		fmt.Sprintf(`Authorization: Basic %s failed`, secret),
+		fmt.Sprintf(`Authorization: Token %s dial tcp timeout`, secret),
 		fmt.Sprintf(`Authorization: %s dial tcp timeout`, secret),
 	} {
 		out := redact.SanitizeErr(fmt.Errorf("%s", msg))

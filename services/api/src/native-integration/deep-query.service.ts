@@ -113,7 +113,7 @@ export class DeepQueryService {
           p.publisher_id AS ping_publisher_id,
           p.campaign_id,
           p.target_id,
-          p.state,
+          p.state AS state,
           p.event_type,
           toString(p.revenue) AS ping_revenue,
           toString(p.payout) AS ping_payout,
@@ -162,28 +162,28 @@ export class DeepQueryService {
           WHERE tenant_id = {tenant_id:UUID} AND call_id = {call_id:String}
           ORDER BY created_at DESC
           LIMIT 1
-        ) AS cs ON 1 = 1
+        ) AS cs ON cs.call_id = p.external_call_id
         LEFT JOIN (
           SELECT *
           FROM transcripts
           WHERE tenant_id = {tenant_id:UUID} AND call_id = {call_id:String}
           ORDER BY created_at DESC
           LIMIT 1
-        ) AS t ON 1 = 1
+        ) AS t ON t.call_id = p.external_call_id
         LEFT JOIN (
           SELECT *
           FROM compliance_risk_scores
           WHERE tenant_id = {tenant_id:UUID} AND call_id = {call_id:String}
           ORDER BY created_at DESC
           LIMIT 1
-        ) AS cr ON 1 = 1
+        ) AS cr ON cr.call_id = p.external_call_id
         LEFT JOIN (
           SELECT *
           FROM attribution_fired_events
           WHERE tenant_id = {tenant_id:UUID} AND call_id = {call_id:String}
           ORDER BY fired_at DESC
           LIMIT 1
-        ) AS af ON 1 = 1
+        ) AS af ON af.call_id = p.external_call_id
       `,
       query_params: { tenant_id: tenantId, call_id: trimmedCallId },
       format: 'JSONEachRow',

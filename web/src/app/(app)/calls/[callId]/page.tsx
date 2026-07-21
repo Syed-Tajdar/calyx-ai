@@ -25,8 +25,9 @@ import {
   TranscriptRecord,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
-import { buildPlatformCallUrl } from '@/lib/platform-deep-links';
+import { buildPlatformCallUrl, platformDeepLinkCopiesCallId } from '@/lib/platform-deep-links';
 import { formatPlatformLabel } from '@/lib/platform-options';
+import { toast } from 'sonner';
 
 function CallDetailContent(): JSX.Element {
   const params = useParams();
@@ -132,6 +133,26 @@ function CallDetailContent(): JSX.Element {
     }
   }
 
+  async function handleOpenInPlatform(): Promise<void> {
+    if (!platformCallUrl) return;
+    const copiesId = platformDeepLinkCopiesCallId(platform);
+    if (copiesId) {
+      try {
+        await navigator.clipboard.writeText(callId);
+      } catch {
+        toast.error('Could not copy Call ID — copy it manually from the header');
+        return;
+      }
+    }
+    // Open after clipboard write so the id is ready the moment the tab appears.
+    window.open(platformCallUrl, '_blank', 'noopener,noreferrer');
+    if (copiesId) {
+      toast.message(
+        'Call ID copied — paste into the Inbound Call ID filter in Ringba.',
+      );
+    }
+  }
+
   return (
     <>
       <nav className="mb-4 flex items-center gap-1 text-sm text-calyx-muted">
@@ -173,11 +194,17 @@ function CallDetailContent(): JSX.Element {
         }
         action={
           platformCallUrl ? (
-            <Button type="button" variant="outline" size="sm" asChild>
-              <a href={platformCallUrl} target="_blank" rel="noopener noreferrer" className="gap-2">
-                <ExternalLink className="h-4 w-4" />
-                Open in {formatPlatformLabel(platform)}
-              </a>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => {
+                void handleOpenInPlatform();
+              }}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open in {formatPlatformLabel(platform)}
             </Button>
           ) : undefined
         }

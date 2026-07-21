@@ -45,6 +45,37 @@ func TestHTTPClientDoRedactsTransportErrorURL(t *testing.T) {
 	}
 }
 
+func TestFormatHTTPStatusErrorIncludesFullBodyAndLocation(t *testing.T) {
+	body := strings.Repeat("x", 250) + " END"
+	hdr := http.Header{}
+	hdr.Set("Location", "https://developers.ringba.com/docs/new-calllogs-endpoint")
+	hdr.Set("Content-Type", "application/json")
+	out := formatHTTPStatusError(301, []byte(body), hdr, "ringba")
+	if !strings.Contains(out, "ringba HTTP 301") {
+		t.Fatalf("missing status: %s", out)
+	}
+	if !strings.Contains(out, "Location=") {
+		t.Fatalf("expected Location header: %s", out)
+	}
+	if !strings.Contains(out, "developers.ringba.com") {
+		t.Fatalf("expected Location URL: %s", out)
+	}
+	if !strings.Contains(out, " END") || !strings.Contains(out, strings.Repeat("x", 250)) {
+		t.Fatalf("body truncated: len=%d out_len=%d", len(body), len(out))
+	}
+}
+
+func TestHTTPClientDoesNotFollowRedirects(t *testing.T) {
+	client := NewHTTPClient()
+	if client.client.CheckRedirect == nil {
+		t.Fatal("expected CheckRedirect to disable auto-follow")
+	}
+	err := client.client.CheckRedirect(nil, nil)
+	if err != http.ErrUseLastResponse {
+		t.Fatalf("want ErrUseLastResponse, got %v", err)
+	}
+}
+
 // Header-auth tokens never appear in Go transport errors (URL only). REDACTED=0 on
 // that path is expected — do not inject Authorization into errors to force a marker.
 func TestHTTPClientDoTransportErrorOmitsAuthorizationHeader(t *testing.T) {
@@ -52,7 +83,7 @@ func TestHTTPClientDoTransportErrorOmitsAuthorizationHeader(t *testing.T) {
 	client.client = &http.Client{Timeout: 5 * time.Second}
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
-		"https://this-host-does-not-exist-xyz.invalid/999999/CallLogs/Date", nil)
+		"https://this-host-does-not-exist-xyz.invalid/999999/calllogs", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

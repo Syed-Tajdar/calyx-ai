@@ -82,3 +82,14 @@ func TestSanitizeErrRedactsBareAuthorizationToken(t *testing.T) {
 	}
 }
 
+func TestSanitizeErrRedactsTokenAuthorizationHeader(t *testing.T) {
+	err := fmt.Errorf(`ringba request failed: Authorization: Token ringba-access-token-SECRET dial tcp timeout`)
+	out := SanitizeErr(err)
+	if strings.Contains(out, "ringba-access-token-SECRET") {
+		t.Fatalf("Token scheme api access token leaked: %s", out)
+	}
+	if !strings.Contains(out, "Authorization: Token [REDACTED]") {
+		t.Fatalf("expected Authorization: Token [REDACTED], got: %s", out)
+	}
+}
+

@@ -3,15 +3,15 @@
  * Catalog: shared/providers/platform-deep-links.json
  * Env overrides (NEXT_PUBLIC_*) win over defaults — never hardcode only in table UI.
  *
- * Phase 1.6 D8b Case A: Retreaver Call Logs shows UUID (= our external_call_id).
- * Pending Syed screenshot confirmation.
+ * Retreaver: per-call URL with {id}.
+ * Ringba: report-level only (no per-call URL; platform limitation).
  */
 
 const DEFAULT_PATTERNS: Record<string, string> = {
   // Official support example: https://retreaver.com/calls/{uuid}
   retreaver: 'https://retreaver.com/calls/{id}',
-  // Best-effort (Phase 2.A A4); override via NEXT_PUBLIC_RINGBA_CALL_URL_PATTERN
-  ringba: 'https://app.ringba.com/#/call/{id}',
+  // Report-level — Ringba has no standalone call URL (operator-confirmed 2026-07-20).
+  ringba: 'https://app.ringba.com/#/dashboard/call-logs/report/new',
 };
 
 /** Env var name for a platform call URL pattern override. */
@@ -27,8 +27,19 @@ function patternFor(platform: string): string | undefined {
 }
 
 /**
+ * True when the vendor has no per-call URL — we open a report/list page and should
+ * copy the call id to the clipboard so the operator can filter.
+ */
+export function platformDeepLinkCopiesCallId(platform: string): boolean {
+  const pattern = patternFor(platform);
+  return Boolean(pattern && !pattern.includes('{id}'));
+}
+
+/**
  * Build an external platform call URL, or null if no pattern / empty id.
- * Pattern must include `{id}` (replaced with encodeURIComponent(callId)).
+ * If the pattern includes `{id}`, it is replaced with encodeURIComponent(callId).
+ * Patterns without `{id}` are report-level entry points (still require a non-empty callId
+ * so the UI only shows the link in a call context).
  */
 export function buildPlatformCallUrl(
   platform: string,
@@ -37,8 +48,11 @@ export function buildPlatformCallUrl(
   const id = callId.trim();
   if (!id || !platform) return null;
   const pattern = patternFor(platform);
-  if (!pattern || !pattern.includes('{id}')) return null;
-  return pattern.replaceAll('{id}', encodeURIComponent(id));
+  if (!pattern) return null;
+  if (pattern.includes('{id}')) {
+    return pattern.replaceAll('{id}', encodeURIComponent(id));
+  }
+  return pattern;
 }
 
 /** True when we can deep-link this platform+id into the vendor UI. */

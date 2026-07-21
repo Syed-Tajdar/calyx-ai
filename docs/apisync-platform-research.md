@@ -58,12 +58,13 @@ Verified against official docs as of 2026-07. Used to implement `services/platfo
 
 | Item | Detail |
 |------|--------|
-| Endpoint | `POST https://api.ringba.com/{accountId}/CallLogs/Date` |
-| Auth | Header `Authorization: {API_ACCESS_TOKEN}` (Bearer deprecated Jun 2025) |
-| Body | `reportStart`, `reportEnd` (ISO), `size`, `offset` |
+| Endpoint | `POST https://api.ringba.com/v2/{accountId}/calllogs` (official Get Call Log; legacy `…/CallLogs/Date` → HTTP 301 docs redirect) |
+| Auth | Header `Authorization: Token {apiToken}` — [API Access Tokens](https://support.ringba.com/hc/en-us/articles/31661837696023-API-Access-Tokens). Bearer was deprecated Jun 2025 and replaced by the **`Token` prefix**, not a bare token. |
+| Body | `reportStart`, `reportEnd` (ISO UTC), `filters` (array), `size` (max **1000**), `offset`; optional `valueColumns` for money/geo tags |
+| Response | `report.records[]` flat objects (`inboundCallId`, `callDt` epoch ms, `tag:InboundNumber:State`, `conversionAmount`, …); wrapper also has `isSuccessful`, `transactionId`, `report.partialResult` |
 | Incremental | Sliding window from `sync_cursor` / `last_sync_at` |
-| Pagination | `offset` += `size` until `callLog.data` empty |
-| Rate limits | 5/sec, 80/min |
+| Pagination | `offset` += `size` until page shorter than `size` |
+| Rate limits | Get Logs: **5/sec or 80/min account-wide**; Export CSV: **5/min, 20/hr, 200/day per user** (export path not implemented until support Q3 answered) |
 
 **Does the API support fetching by last-modified?** **NO** (documented surface is call-time date range)
 

@@ -94,7 +94,7 @@ func (a *TrackDriveAdapter) fetch(ctx context.Context, creds map[string]string, 
 	if err != nil {
 		return nil, "", false, err
 	}
-	if err := checkHTTPStatus(resp.StatusCode, body, "trackdrive"); err != nil {
+	if err := checkHTTPStatus(resp.StatusCode, body, resp.Header, "trackdrive"); err != nil {
 		return nil, "", false, err
 	}
 	var payload struct {

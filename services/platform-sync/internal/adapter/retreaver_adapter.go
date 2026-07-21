@@ -156,7 +156,7 @@ func (a *RetreaverAdapter) fetchCallsWithPerPage(ctx context.Context, creds map[
 	if err != nil {
 		return nil, false, err
 	}
-	if err := checkHTTPStatus(resp.StatusCode, body, "retreaver"); err != nil {
+	if err := checkHTTPStatus(resp.StatusCode, body, resp.Header, "retreaver"); err != nil {
 		return nil, false, err
 	}
 	var payload struct {
@@ -283,13 +283,10 @@ func unwrapRetreaverCallPayload(raw json.RawMessage) json.RawMessage {
 	return raw
 }
 
-func checkHTTPStatus(status int, body []byte, platform string) error {
+func checkHTTPStatus(status int, body []byte, hdr http.Header, platform string) error {
 	if status >= 200 && status < 300 {
 		return nil
 	}
-	snippet := string(body)
-	if len(snippet) > 200 {
-		snippet = snippet[:200]
-	}
-	return fmt.Errorf("%s HTTP %d: %s", platform, status, snippet)
+	// Full body + safe headers (Location, etc.) — never truncate; credentials redacted via SanitizeErr on persist.
+	return fmt.Errorf("%s", formatHTTPStatusError(status, body, hdr, platform))
 }

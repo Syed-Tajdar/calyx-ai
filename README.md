@@ -2,7 +2,7 @@
 
 Pay-per-call analytics and intelligence platform.
 
-> **Presentation build:** `MOCK_MODE=true` (intelligence) · `MOCK_EMITTER_ENABLED=false` (Kafka → `/live`) · **Retreaver CERTIFIED** · **Coverage = US + Canada** · Ping Feed headline = **distinct calls** · API sync Test/Live · Teal Glass UI · Docs in [`docs/`](docs/README.md)
+> **Presentation build:** `MOCK_MODE=true` (intelligence) · `MOCK_EMITTER_ENABLED=false` (Kafka → `/live`) · **Retreaver + Ringba CERTIFIED** · **Coverage = US + Canada** · Ping Feed headline = **distinct calls** · API sync Test/Live · Redis `maxmemory 1gb` + `volatile-ttl` · Teal Glass UI · Docs in [`docs/`](docs/README.md)
 
 See [`docs/design-system-v2.md`](docs/design-system-v2.md) for UI/UX specification.  
 UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.md)  
@@ -14,34 +14,37 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 ---
 
-## System verification (last run: 2026-07-14)
+## System verification (last run: 2026-07-21)
 
 | Layer | Result |
 |-------|--------|
-| Docker containers | App + infra up (`api` / `platform-sync` / `web` rebuilt for North America Coverage) |
-| Service health (`/healthz` + `/readyz`) | **PASS** (ports 8080–8088, API :3000, Web :3001) |
-| API presentation checks | **20/20** (`verify-presentation.ps1`) |
-| **API sync (platform-sync)** | **PASS** (`verify-api-sync.ps1`) |
-| **Phase 0 ingestion slice** | **PASS** (`verify-ingestion-slice.ps1`) |
-| Pipeline smoke (multi-platform E2E) | **PASS (4/4)** (`smoke-test-all-platforms.ps1`) |
-| WebSocket live feed | **PASS** (`ws-smoke-test.mjs` — seeds Kafka webhooks when mock WS emitter is off) |
-| **Coverage UI (US + Canada)** | **PASS** (`check-coverage-north-america.mjs` — screenshot [`docs/mockups/coverage-north-america.png`](docs/mockups/coverage-north-america.png)) |
-| **Retreaver FINAL cert** | **YES** — D9 0→nonzero live + D8b two-way/prefix/deep-link ([`docs/retreaver-final-certification-report.md`](docs/retreaver-final-certification-report.md)) |
-| **Platform certification** | Retreaver **CERTIFIED**; Ringba next ([`docs/platform-certification.md`](docs/platform-certification.md)) |
-| **Retreaver account reset** | **DONE** — CH/Redis wipe + old `api_sync` removed; new account = Settings UI ([`docs/retreaver-account-reset-report.md`](docs/retreaver-account-reset-report.md)) |
+| Docker containers | App + infra up (`api` / `platform-sync` / `web` rebuilt for Ringba live + COPY+OPEN) |
+| Service health | **PASS** (API :3000, Web :3001, platform-sync :8088) |
+| **Ringba LIVE cert** | **YES** — D8/D9/D10/D5/D8b ([`docs/phase2-ringba-live-certified.md`](docs/phase2-ringba-live-certified.md)) |
+| **Retreaver FINAL cert** | **YES** ([`docs/retreaver-final-certification-report.md`](docs/retreaver-final-certification-report.md)) |
+| **Platform certification** | Retreaver **YES** · Ringba **YES** · TrackDrive next ([`docs/platform-certification.md`](docs/platform-certification.md)) |
+| Redis bound memory | **PASS** — `maxmemory=1gb`, `volatile-ttl`, AOF; dedup flat on re-sync ([`docs/redis-maxmemory-report.md`](docs/redis-maxmemory-report.md)) |
+| Deep-view (shared query) | **PASS** — 4/4 attributed / unattributed / transcript / Retreaver |
+| Open in Ringba | **COPY+OPEN** — clipboard + report page + toast (rebuild `web` required) |
 
-**Deploy note (2026-07-14):** Rebuild after North America Coverage / Feed header:
+**Deploy note (2026-07-21):** After Ringba deep-link / Redis changes:
 
 ```powershell
 cd deploy
 docker compose build api platform-sync web
-docker compose up -d --force-recreate api platform-sync web
-# Confirm: :3000/healthz, :8088/healthz, :3001 → 200/307
-# Browser: Ctrl+Shift+R on http://localhost:3001/coverage and /pings
-node ../scripts/check-coverage-north-america.mjs
+docker compose up -d --force-recreate api platform-sync web redis
+# Hard-refresh http://localhost:3001 — Open in Ringba must open call-logs report + copy id
 ```
 
-Compose defaults: API `MOCK_EMITTER_ENABLED=false` (real Kafka → Socket.IO `/live`); intelligence `MOCK_MODE=true`. Postgres migration `000023_initial_lookback_days`. ClickHouse init includes `000008`/`000009`. Web ships `public/geo/us-states-10m.json` + `canada-provinces.geojson`.
+**Recent (2026-07-20 → 21) — Ringba LIVE certification + ops hardening:**
+
+- **Official Get Call Log:** `POST https://api.ringba.com/v2/{accountId}/calllogs`, `Authorization: Token {apiToken}`, body `reportStart`/`reportEnd`/`filters`/`size`≤1000, response `report.records[]`. Legacy `CallLogs/Date` and `calllogs/details` → 301/404 on current host.
+- **D9 YES:** live conversion **0 → 34.75**; `argMax` + distinct once. **D10** API 298 vs CH 262 (gap explained). **D5** WA/TX/LA 2-letter on coverage heatmap.
+- **D8b:** two-way ID **operator-confirmed**; Ringba has **no per-call URL** — `Open in Ringba` copies `inboundCallId`, opens `#/dashboard/call-logs/report/new`, toasts paste-into-filter instructions ([`shared/providers/platform-deep-links.json`](shared/providers/platform-deep-links.json)).
+- **Deep-view fixes:** JOIN on `call_id` (not `ON 1=1`); `p.state AS state` (avoid `transcripts.state` collision).
+- **Redis:** `--maxmemory 1gb --maxmemory-policy volatile-ttl` (keep AOF); not `allkeys-lru` / `noeviction`.
+- **Docs:** cert [`docs/phase2-ringba-live-certified.md`](docs/phase2-ringba-live-certified.md), parity audit [`docs/call-detail-parity-ringba-audit.md`](docs/call-detail-parity-ringba-audit.md), deferred gaps [`docs/enterprise-roadmap.md`](docs/enterprise-roadmap.md), quota research [`docs/ringba-quota-architecture-research.md`](docs/ringba-quota-architecture-research.md).
+- Flipped Ringba back to **Test** after cert. **TrackDrive Phase 3** unblocked.
 
 **Recent (2026-07-14) — Coverage = US + Canada + Feed distinct-calls header:**
 
@@ -322,7 +325,7 @@ WebSocket /live → Kafka live consumer (default); mock WS emitter off via `MOCK
 | `/pings` | Ping feed — platform filter, **exact-then-prefix** call-ID search, Call ID copy, **FilterBar**, hybrid Kafka WS + poll, CSV export |
 | `/scoring` | Call quality scores |
 | `/scoring/scorecards` | Scorecard CRUD (rules editor) |
-| `/calls/[callId]` | Native deep view; **Open in Retreaver** deep link when platform=retreaver; demo: `/calls/demo-call-1` |
+| `/calls/[callId]` | Native deep view; **Open in Retreaver** (per-call URL); **Open in Ringba** (COPY+OPEN → call-logs report); demo: `/calls/demo-call-1` |
 | `/intelligence` | Intelligence hub (Ask AI, compliance, attribution) |
 | `/ask` | Natural language analytics chat |
 | `/compliance` | TCPA risk scores, violations table, exposure |

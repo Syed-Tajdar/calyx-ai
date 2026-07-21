@@ -21,8 +21,17 @@ type HTTPClient struct {
 }
 
 func NewHTTPClient() *HTTPClient {
+	// Do NOT auto-follow redirects. Go's default Client follows 301/302 (up to 10)
+	// and may change POST→GET; cross-host redirects also drop Authorization.
+	// For API adapters we must surface status + Location ourselves (Ringba 301 names
+	// the new reporting endpoint in Location and/or the response body).
 	return &HTTPClient{
-		client:   &http.Client{Timeout: 25 * time.Second},
+		client: &http.Client{
+			Timeout: 25 * time.Second,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 		breakers: map[string]*gobreaker.CircuitBreaker{},
 	}
 }
@@ -95,7 +104,7 @@ func (c *HTTPClient) Do(req *http.Request) (*http.Response, []byte, error) {
 			if resp.StatusCode >= 500 {
 				return nil, fmt.Errorf("upstream %d", resp.StatusCode)
 			}
-			return &httpResult{status: resp.StatusCode, body: body}, nil
+			return &httpResult{status: resp.StatusCode, header: resp.Header.Clone(), body: body}, nil
 		})
 		if err != nil {
 			lastErr = err
@@ -105,7 +114,7 @@ func (c *HTTPClient) Do(req *http.Request) (*http.Response, []byte, error) {
 			return nil, nil, sanitizeHTTPError(err)
 		}
 		hr := result.(*httpResult)
-		return &http.Response{StatusCode: hr.status}, hr.body, nil
+		return &http.Response{StatusCode: hr.status, Header: hr.header}, hr.body, nil
 	}
 	if lastErr != nil {
 		return nil, nil, sanitizeHTTPError(lastErr)
@@ -122,26 +131,67 @@ func sanitizeHTTPError(err error) error {
 
 type httpResult struct {
 	status int
+	header http.Header
 	body   []byte
 }
 
-// StatusError indicates a non-2xx response.
+// StatusError indicates a non-2xx response (full body; no 200-char truncation).
 type StatusError struct {
 	Status int
 	Body   string
+	Header http.Header
 }
 
 func (e *StatusError) Error() string {
-	snippet := e.Body
-	if len(snippet) > 200 {
-		snippet = snippet[:200]
-	}
-	return fmt.Sprintf("HTTP %d: %s", e.Status, snippet)
+	return formatHTTPStatusError(e.Status, []byte(e.Body), e.Header, "")
 }
 
-func checkStatus(status int, body []byte) error {
+func checkStatus(status int, body []byte, hdr http.Header) error {
 	if status >= 200 && status < 300 {
 		return nil
 	}
-	return &StatusError{Status: status, Body: string(body)}
+	return &StatusError{Status: status, Body: string(body), Header: hdr}
+}
+
+// safeHeaderKeys are response headers safe to log (values still URL-redacted).
+var safeHeaderKeys = []string{
+	"Location",
+	"Content-Type",
+	"Retry-After",
+	"WWW-Authenticate",
+}
+
+func formatSafeResponseHeaders(hdr http.Header) string {
+	if hdr == nil {
+		return ""
+	}
+	parts := make([]string, 0, len(safeHeaderKeys))
+	for _, key := range safeHeaderKeys {
+		vals := hdr.Values(key)
+		if len(vals) == 0 {
+			continue
+		}
+		joined := strings.Join(vals, ", ")
+		if strings.EqualFold(key, "Location") {
+			joined = redact.RedactURL(joined)
+		}
+		if strings.EqualFold(key, "WWW-Authenticate") {
+			joined = redact.RedactMessage(joined)
+		}
+		parts = append(parts, fmt.Sprintf("%s=%q", key, joined))
+	}
+	return strings.Join(parts, " ")
+}
+
+func formatHTTPStatusError(status int, body []byte, hdr http.Header, platform string) string {
+	prefix := "HTTP"
+	if platform != "" {
+		prefix = platform + " HTTP"
+	}
+	headers := formatSafeResponseHeaders(hdr)
+	bodyStr := string(body)
+	if headers != "" {
+		return fmt.Sprintf("%s %d: headers={%s} body=%s", prefix, status, headers, bodyStr)
+	}
+	return fmt.Sprintf("%s %d: %s", prefix, status, bodyStr)
 }
