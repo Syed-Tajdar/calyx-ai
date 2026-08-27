@@ -11,22 +11,33 @@ import (
 
 // PingRow is a single row for the pings table.
 type PingRow struct {
-	TenantID       string
-	Platform       string
-	ExternalCallID string
-	ANIHash        string
-	CampaignID     string
-	PublisherID    string
-	TargetID       string
-	State          string
-	EventType      string
-	Revenue        float64
-	Payout         float64
+	TenantID          string
+	Platform          string
+	ExternalCallID    string
+	ANIHash           string
+	CampaignID        string
+	PublisherID       string
+	TargetID          string
+	State             string
+	EventType         string
+	Revenue           float64
+	Payout            float64
 	IsDuplicate       uint8
 	PlatformDuplicate uint8
 	ReceivedAt        time.Time
 	OccurredAt        time.Time
 	CallKey           string
+	CampaignName      string
+	PublisherName     string
+	TargetName        string
+	BuyerID           string
+	BuyerName         string
+	DurationSeconds   uint32
+	CallLengthSeconds uint32
+	HasRecording      uint8
+	RecordingKnown    uint8
+	ProfitGross       float64
+	SyncPath          string
 }
 
 // Client wraps the ClickHouse native connection.
@@ -64,7 +75,10 @@ func (c *Client) InsertPings(ctx context.Context, rows []PingRow) error {
 			tenant_id, platform, external_call_id, ani_hash,
 			campaign_id, publisher_id, target_id, state,
 			event_type, revenue, payout, is_duplicate, platform_duplicate,
-			received_at, call_key, occurred_at
+			received_at, call_key, occurred_at,
+			campaign_name, publisher_name, target_name, buyer_id, buyer_name,
+			duration_seconds, call_length_seconds, has_recording, recording_known,
+			profit_gross, sync_path
 		)
 	`)
 	if err != nil {
@@ -89,6 +103,17 @@ func (c *Client) InsertPings(ctx context.Context, rows []PingRow) error {
 			row.ReceivedAt,
 			row.CallKey,
 			row.OccurredAt,
+			row.CampaignName,
+			row.PublisherName,
+			row.TargetName,
+			row.BuyerID,
+			row.BuyerName,
+			row.DurationSeconds,
+			row.CallLengthSeconds,
+			row.HasRecording,
+			row.RecordingKnown,
+			decimal.NewFromFloat(row.ProfitGross),
+			row.SyncPath,
 		); err != nil {
 			return fmt.Errorf("clickhouse.InsertPings: append: %w", err)
 		}

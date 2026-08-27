@@ -2,7 +2,7 @@
 
 Pay-per-call analytics and intelligence platform.
 
-> **Presentation build:** `MOCK_MODE=true` (intelligence) · `MOCK_EMITTER_ENABLED=false` (Kafka → `/live`) · **Retreaver + Ringba CERTIFIED** · **Coverage = US + Canada** · Ping Feed headline = **distinct calls** · API sync Test/Live · Redis `maxmemory 1gb` + `volatile-ttl` · Teal Glass UI · Docs in [`docs/`](docs/README.md)
+> **Presentation build:** `MOCK_MODE=true` (intelligence) · `MOCK_EMITTER_ENABLED=false` (Kafka → `/live`) · **Retreaver + Ringba CERTIFIED** · **Ringba call-detail parity A+B1 + Delta PASS** · **Write-back research (probe + sandbox) — no product ship yet** · **Coverage = US + Canada** · Ping Feed headline = **distinct calls** · API sync Test/Live · Redis `maxmemory 1gb` + `volatile-ttl` · Teal Glass UI · Docs in [`docs/`](docs/README.md)
 
 See [`docs/design-system-v2.md`](docs/design-system-v2.md) for UI/UX specification.  
 UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.md)  
@@ -14,18 +14,59 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 ---
 
-## System verification (last run: 2026-07-21)
+## System verification (last run: 2026-07-27)
 
 | Layer | Result |
 |-------|--------|
-| Docker containers | App + infra up (`api` / `platform-sync` / `web` rebuilt for Ringba live + COPY+OPEN) |
+| Docker containers | App + infra up (`api` / `platform-sync` / `web` / `consumer` / `enrichment`) |
 | Service health | **PASS** (API :3000, Web :3001, platform-sync :8088) |
 | **Ringba LIVE cert** | **YES** — D8/D9/D10/D5/D8b ([`docs/phase2-ringba-live-certified.md`](docs/phase2-ringba-live-certified.md)) |
+| **Ringba parity A+B1** | **PASS** — P-A, P-B1.1–B1.5 ([`docs/ringba-parity-a-b1-report.md`](docs/ringba-parity-a-b1-report.md)) |
+| **Ringba parity Delta** | **PASS** — P2D1–P2D5 republish + cohort proof ([`docs/ringba-parity-delta-report.md`](docs/ringba-parity-delta-report.md)) |
+| **Ringba write-back (research)** | **Probe + sandbox done** — read paths + payments/void/annotate/webhook CRUD live-proven; **convert loop still open** ([reports below](#ringba-write-back--research-only-not-shipped)) |
 | **Retreaver FINAL cert** | **YES** ([`docs/retreaver-final-certification-report.md`](docs/retreaver-final-certification-report.md)) |
 | **Platform certification** | Retreaver **YES** · Ringba **YES** · TrackDrive next ([`docs/platform-certification.md`](docs/platform-certification.md)) |
 | Redis bound memory | **PASS** — `maxmemory=1gb`, `volatile-ttl`, AOF; dedup flat on re-sync ([`docs/redis-maxmemory-report.md`](docs/redis-maxmemory-report.md)) |
 | Deep-view (shared query) | **PASS** — 4/4 attributed / unattributed / transcript / Retreaver |
 | Open in Ringba | **COPY+OPEN** — clipboard + report page + toast (rebuild `web` required) |
+
+**Recent (2026-07-23 → 27) — UI credibility + Ringba parity + write-back research:**
+
+- **UI credibility (C1–C3):** enrichment count unified (520 everywhere); duplicate Call Quality card removed; shared `demo-rows` predicate + `show_demo` toggle across analytics/coverage/pings/scoring/compliance — no more dashboard vs coverage drift from hidden mock rows. Report: [`docs/ui-credibility-fixes-report.md`](docs/ui-credibility-fixes-report.md).
+- **Ringba call-detail parity (A + B1):** duration = connected talk time; payout/profit/campaign/publisher/target/buyer/geo/recording flags mapped from live `POST …/calllogs`; `hasConverted` accepted but silent-omit noted. Report: [`docs/ringba-parity-a-b1-report.md`](docs/ringba-parity-a-b1-report.md).
+- **Ringba parity Delta (P2D1–P2D5):** explained ~538 “missing B1” (mock rows + first-page Redis gap); forced lookback + targeted Redis delete → **RGB gap 0**; cohort `uniqExact` stable; real webhook deep-view proof. Report: [`docs/ringba-parity-delta-report.md`](docs/ringba-parity-delta-report.md).
+- **Ringba write-back probe (read-only + fake-ID writes):** official Postman collection obtained; `GET …/calllogs/columns` (109 cols); `hasConverted` omission rule proven; annotate 500 on fake ID. Report: [`docs/ringba-writeback-probe-report.md`](docs/ringba-writeback-probe-report.md).
+- **Ringba write-back sandbox (disposable call only):** **`payments` = relative**, **`payments/override` = absolute** (live: $10 → +$5 → $15); void reversible; annotate + webhook create/getUrl/delete proven; **webhook fire → convert not closed** (HTTP 200, no state change). Report: [`docs/ringba-writeback-sandbox-report.md`](docs/ringba-writeback-sandbox-report.md). **Phase G** (clean call + convert loop + read-back semantics) **pending** — needs new sandbox call ID from operator.
+- **Roadmap:** deferred gaps + write-back gates in [`docs/enterprise-roadmap.md`](docs/enterprise-roadmap.md) (§G recording, §J converted read-back — partially addressed by research, convert loop still open).
+- **Research harness only (not product):** `services/platform-sync/cmd/probe-ringba-*` — live probes; never prints tokens/ANI.
+
+**Recent (2026-07-21) — Ringba LIVE certification + ops hardening:**
+
+- **Official Get Call Log:** `POST https://api.ringba.com/v2/{accountId}/calllogs`, `Authorization: Token {apiToken}`, body `reportStart`/`reportEnd`/`filters`/`size`≤1000, response `report.records[]`. Legacy `CallLogs/Date` and `calllogs/details` → 301/404 on current host.
+- **D9 YES:** live conversion **0 → 34.75**; `argMax` + distinct once. **D10** API 298 vs CH 262 (gap explained). **D5** WA/TX/LA 2-letter on coverage heatmap.
+- **D8b:** two-way ID **operator-confirmed**; Ringba has **no per-call URL** — `Open in Ringba` copies `inboundCallId`, opens `#/dashboard/call-logs/report/new`, toasts paste-into-filter instructions ([`shared/providers/platform-deep-links.json`](shared/providers/platform-deep-links.json)).
+- **Deep-view fixes:** JOIN on `call_id` (not `ON 1=1`); `p.state AS state` (avoid `transcripts.state` collision).
+- **Redis:** `--maxmemory 1gb --maxmemory-policy volatile-ttl` (keep AOF); not `allkeys-lru` / `noeviction`.
+- **Docs:** cert [`docs/phase2-ringba-live-certified.md`](docs/phase2-ringba-live-certified.md), parity audit [`docs/call-detail-parity-ringba-audit.md`](docs/call-detail-parity-ringba-audit.md), deferred gaps [`docs/enterprise-roadmap.md`](docs/enterprise-roadmap.md), quota research [`docs/ringba-quota-architecture-research.md`](docs/ringba-quota-architecture-research.md).
+- Flipped Ringba back to **Test** after cert. **TrackDrive Phase 3** unblocked.
+
+---
+
+## Ringba write-back — research only (NOT shipped)
+
+Live API research on the **production Ringba account** using a disposable sandbox campaign (`CALYX-SANDBOX-DO-NOT-USE`). **No adapter, UI, migrations, or product endpoints** — evidence only.
+
+| Slice | Status | Key finding |
+|-------|--------|-------------|
+| **Write-back probe** | **Done** | Official spec via Postman JSON; `hasConverted` present=true / absent=false; column ids for adjustments; fake-ID annotate ambiguous (500) |
+| **Sandbox verify** | **Done** | `payments` **relative**; `payments/override` **absolute**; `void` live + reversible; annotate + webhook CRUD + `getUrl` live |
+| **Convert loop** | **OPEN** | Webhook fire returns 200 but call did not show converted at $1 — likely needs target Postback/Webhook + clean call |
+| **Phase G** | **Pending** | Clean new sandbox call + close convert loop + pin `hasConverted` semantics — [`docs/ringba-writeback-phase-g-report.md`](docs/ringba-writeback-phase-g-report.md) (not started; gated on operator call ID) |
+
+Reports: [`ringba-writeback-probe-report.md`](docs/ringba-writeback-probe-report.md) · [`ringba-writeback-sandbox-report.md`](docs/ringba-writeback-sandbox-report.md)  
+Evidence: `docs/evidence/ringba-writeback-probe/` · `docs/evidence/ringba-writeback-sandbox/`
+
+**Do not implement write-back in product until:** convert loop closed on a clean call + reliable read-back signal documented (Phase G).
 
 **Deploy note (2026-07-21):** After Ringba deep-link / Redis changes:
 
@@ -35,16 +76,6 @@ docker compose build api platform-sync web
 docker compose up -d --force-recreate api platform-sync web redis
 # Hard-refresh http://localhost:3001 — Open in Ringba must open call-logs report + copy id
 ```
-
-**Recent (2026-07-20 → 21) — Ringba LIVE certification + ops hardening:**
-
-- **Official Get Call Log:** `POST https://api.ringba.com/v2/{accountId}/calllogs`, `Authorization: Token {apiToken}`, body `reportStart`/`reportEnd`/`filters`/`size`≤1000, response `report.records[]`. Legacy `CallLogs/Date` and `calllogs/details` → 301/404 on current host.
-- **D9 YES:** live conversion **0 → 34.75**; `argMax` + distinct once. **D10** API 298 vs CH 262 (gap explained). **D5** WA/TX/LA 2-letter on coverage heatmap.
-- **D8b:** two-way ID **operator-confirmed**; Ringba has **no per-call URL** — `Open in Ringba` copies `inboundCallId`, opens `#/dashboard/call-logs/report/new`, toasts paste-into-filter instructions ([`shared/providers/platform-deep-links.json`](shared/providers/platform-deep-links.json)).
-- **Deep-view fixes:** JOIN on `call_id` (not `ON 1=1`); `p.state AS state` (avoid `transcripts.state` collision).
-- **Redis:** `--maxmemory 1gb --maxmemory-policy volatile-ttl` (keep AOF); not `allkeys-lru` / `noeviction`.
-- **Docs:** cert [`docs/phase2-ringba-live-certified.md`](docs/phase2-ringba-live-certified.md), parity audit [`docs/call-detail-parity-ringba-audit.md`](docs/call-detail-parity-ringba-audit.md), deferred gaps [`docs/enterprise-roadmap.md`](docs/enterprise-roadmap.md), quota research [`docs/ringba-quota-architecture-research.md`](docs/ringba-quota-architecture-research.md).
-- Flipped Ringba back to **Test** after cert. **TrackDrive Phase 3** unblocked.
 
 **Recent (2026-07-14) — Coverage = US + Canada + Feed distinct-calls header:**
 
@@ -234,7 +265,7 @@ Per-platform API sync credentials (Settings form fields):
 | Platform | Fields |
 |----------|--------|
 | Retreaver | API key + company ID | Incremental: `updated_at_start` + 15m safety delta; lookback `initial_lookback_days` (default 30); `occurred_at` ← `created_at` |
-| Ringba | API access token + account ID | Date-range `CallLogs/Date` (`occurred_at` mapping pending Phase 2) |
+| Ringba | API access token + account ID | `POST …/calllogs` (Get Call Log); B1 parity fields; write-back research complete — **no write path in product yet** |
 | TrackDrive | Subdomain + public key + private key | `created_at_from` cursor (`occurred_at` mapping pending Phase 3) |
 | CallGrid | API key | `startDate`/`endDate` + cursor (`occurred_at` mapping pending Phase 4) |
 

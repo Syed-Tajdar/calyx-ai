@@ -1,0 +1,82 @@
+{
+    "call_id":  "a46b67b8-d494-47d9-8ded-2b605624c553",
+    "tenant_id":  "11111111-1111-1111-1111-111111111111",
+    "ping":  {
+                 "platform":  "ringba",
+                 "publisher_id":  "",
+                 "publisher_name":  "",
+                 "campaign_id":  "",
+                 "campaign_name":  "",
+                 "target_id":  "",
+                 "target_name":  "",
+                 "buyer_id":  "",
+                 "buyer_name":  "",
+                 "state":  "TX",
+                 "event_type":  "incoming",
+                 "revenue":  12.5,
+                 "payout":  0,
+                 "profit_gross":  0,
+                 "duration_seconds":  0,
+                 "call_length_seconds":  0,
+                 "has_recording":  false,
+                 "recording_known":  false,
+                 "ani_hash":  "d6736136ea896c1bfdc553e0e86e702c70d060d805696ca3e4e9e0961353860a",
+                 "received_at":  "2026-07-24T10:51:53.000000Z",
+                 "occurred_at":  "",
+                 "sync_path":  "webhook"
+             },
+    "scoring":  {
+                    "overall_score":  91.5,
+                    "sentiment":  "positive",
+                    "rules_passed":  8,
+                    "rules_failed":  2,
+                    "duration_seconds":  120,
+                    "word_count":  15,
+                    "scored_at":  "2026-07-24T10:51:54.000000Z"
+                },
+    "compliance":  {
+                       "risk_score":  15,
+                       "attestation_level":  "A",
+                       "exposure_usd":  0,
+                       "dnc_match":  0,
+                       "scored_at":  "2026-07-24T10:51:53.000000Z"
+                   },
+    "attribution":  {
+                        "platform":  "mock",
+                        "status":  "fired",
+                        "click_id":  "fbclid-mock-a46b67b8",
+                        "revenue":  12.5,
+                        "http_status":  200,
+                        "fired_at":  "2026-07-24T10:51:54.000000Z"
+                    },
+    "enrichment":  {
+                       "attribute_count":  520,
+                       "sample_attributes":  [
+                                                 {
+                                                     "attribute_key":  "attr_000",
+                                                     "attribute_value":  "d6736136_val_0",
+                                                     "provider":  "mock"
+                                                 },
+                                                 {
+                                                     "attribute_key":  "attr_001",
+                                                     "attribute_value":  "d6736136_val_1",
+                                                     "provider":  "mock"
+                                                 },
+                                                 {
+                                                     "attribute_key":  "attr_002",
+                                                     "attribute_value":  "d6736136_val_2",
+                                                     "provider":  "mock"
+                                                 },
+                                                 {
+                                                     "attribute_key":  "attr_003",
+                                                     "attribute_value":  "d6736136_val_3",
+                                                     "provider":  "mock"
+                                                 },
+                                                 {
+                                                     "attribute_key":  "attr_004",
+                                                     "attribute_value":  "d6736136_val_4",
+                                                     "provider":  "mock"
+                                                 }
+                                             ]
+                   }
+}

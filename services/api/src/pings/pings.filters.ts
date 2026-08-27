@@ -1,4 +1,5 @@
 import { EVENT_AT_EXPR } from '../common/ping-event-time';
+import { apiSyncExclusionSql } from '../common/demo-rows';
 
 export interface PingListFilters {
   platform?: string;
@@ -16,9 +17,9 @@ export function buildPingWhereClause(filters: PingListFilters): {
   const parts: string[] = [];
   const params: Record<string, string | number> = {};
 
-  if (!filters.show_demo) {
-    parts.push(`AND external_call_id NOT LIKE 'apisync-%'`);
-  }
+  const demoClause = apiSyncExclusionSql('external_call_id', filters.show_demo);
+  if (demoClause) parts.push(demoClause);
+
   if (filters.platform) {
     parts.push('AND platform = {platform:String}');
     params.platform = filters.platform;

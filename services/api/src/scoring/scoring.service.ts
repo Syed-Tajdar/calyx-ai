@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
+import { apiSyncExclusionSql } from '../common/demo-rows';
 
 export interface ScoreRecord {
   tenant_id: string;
@@ -60,8 +61,14 @@ export class ScoringService {
     return rows[0] ?? null;
   }
 
-  async listScores(tenantId: string, limit = 50, offset = 0): Promise<ScoreRecord[]> {
+  async listScores(
+    tenantId: string,
+    limit = 50,
+    offset = 0,
+    showDemo?: boolean,
+  ): Promise<ScoreRecord[]> {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
+    const demo = apiSyncExclusionSql('call_id', showDemo);
     const result = await this.clickhouse.getClient().query({
       query: `
         SELECT tenant_id, call_id, platform, overall_score, sentiment,
@@ -69,6 +76,7 @@ export class ScoringService {
                formatDateTime(created_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS created_at
         FROM call_scores
         WHERE tenant_id = {tenant_id:UUID}
+          ${demo}
         ORDER BY created_at DESC
         LIMIT {limit:UInt32} OFFSET {offset:UInt32}
       `,

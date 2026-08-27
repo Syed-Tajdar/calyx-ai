@@ -20,6 +20,17 @@ type PingMessage struct {
 	ReceivedAt        int64   `json:"received_at_unix_ms"`
 	OccurredAt        int64   `json:"occurred_at_unix_ms,omitempty"`
 	CallKey           string  `json:"call_key,omitempty"`
+	CampaignName      string  `json:"campaign_name,omitempty"`
+	PublisherName     string  `json:"publisher_name,omitempty"`
+	TargetName        string  `json:"target_name,omitempty"`
+	BuyerID           string  `json:"buyer_id,omitempty"`
+	BuyerName         string  `json:"buyer_name,omitempty"`
+	DurationSeconds   uint32  `json:"duration_seconds,omitempty"`
+	CallLengthSeconds uint32  `json:"call_length_seconds,omitempty"`
+	HasRecording      bool    `json:"has_recording,omitempty"`
+	RecordingKnown    bool    `json:"recording_known,omitempty"`
+	ProfitGross       float64 `json:"profit_gross,omitempty"`
+	SyncPath          string  `json:"sync_path,omitempty"`
 }
 
 // ReceivedTime converts the unix millis field to UTC time.

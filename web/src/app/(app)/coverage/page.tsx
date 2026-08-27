@@ -14,9 +14,12 @@ import { Button } from '@/components/ui/button';
 import { ApiError, fetchCoverageHeatmap, HeatmapStateRow } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { countryForRegion } from '@/lib/na-regions';
+import { useDateFilter } from '@/lib/date-filter';
+import { FilterBar } from '@/components/ui/FilterBar';
 
 export default function CoveragePage(): JSX.Element {
   const router = useRouter();
+  const { showDemo } = useDateFilter();
   const [rows, setRows] = useState<HeatmapStateRow[]>([]);
   const [totalPings, setTotalPings] = useState(0);
   const [usRegions, setUsRegions] = useState(0);
@@ -31,7 +34,8 @@ export default function CoveragePage(): JSX.Element {
     const token = getToken();
     if (!token) return;
 
-    fetchCoverageHeatmap(token)
+    setLoading(true);
+    fetchCoverageHeatmap(token, { show_demo: showDemo || undefined })
       .then((res) => {
         setRows(res.data);
         setTotalPings(res.total_pings);
@@ -46,7 +50,7 @@ export default function CoveragePage(): JSX.Element {
         setError('Failed to load coverage heatmap');
       })
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, showDemo]);
 
   const visibleRows = useMemo(() => {
     if (countryFilter === 'all') return rows;
@@ -115,6 +119,8 @@ export default function CoveragePage(): JSX.Element {
           </Button>
         }
       />
+
+      <FilterBar showDemoToggle />
 
       {loading && <PageLoader />}
       {error && <ErrorBanner message={error} />}

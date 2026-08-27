@@ -31,6 +31,7 @@ func NewClient(addr, database, username, password string) (*Client, error) {
 }
 
 // InsertAttributes batch-inserts enrichment attributes.
+// enrichment_attrs is ReplacingMergeTree(created_at): re-inserts are updates, not unbounded dups.
 func (c *Client) InsertAttributes(ctx context.Context, tenantID, aniHash, provider string, attrs []models.Attribute) error {
 	batch, err := c.conn.PrepareBatch(ctx, `
 		INSERT INTO enrichment_attrs (tenant_id, ani_hash, attribute_key, attribute_value, provider, created_at)

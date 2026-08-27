@@ -4,6 +4,7 @@ import { PostgresService } from '../database/postgres.service';
 import { loadEnv } from '../config/env';
 import { AdSpendRow, createAdSpendSource } from './adspend.source';
 import { EVENT_AT_EXPR } from '../common/ping-event-time';
+import { apiSyncExclusionSql } from '../common/demo-rows';
 
 export interface MetricsResult {
   total_pings: number;
@@ -32,17 +33,6 @@ export interface PlatformMixRow {
 @Injectable()
 export class AnalyticsService {
   private readonly adSpendSource;
-  /** Distinct calls; revenue/payout kept for conditional sum (exclude platform_duplicate). */
-  private readonly dedupedCallsSubquery = `
-        SELECT
-          platform,
-          external_call_id,
-          argMax(revenue, received_at) AS revenue,
-          argMax(payout, received_at) AS payout,
-          argMax(platform_duplicate, received_at) AS platform_duplicate
-        FROM pings
-        WHERE tenant_id = {tenant_id:UUID}
-          AND external_call_id != ''`;
 
   constructor(
     private readonly clickhouse: ClickhouseService,
@@ -54,7 +44,28 @@ export class AnalyticsService {
     );
   }
 
-  async getMetrics(tenantId: string, from?: string, to?: string): Promise<MetricsResult> {
+  /** Distinct calls; revenue/payout kept for conditional sum (exclude platform_duplicate). */
+  private dedupedCallsSubquery(showDemo?: boolean): string {
+    const demo = apiSyncExclusionSql('external_call_id', showDemo);
+    return `
+        SELECT
+          platform,
+          external_call_id,
+          argMax(revenue, received_at) AS revenue,
+          argMax(payout, received_at) AS payout,
+          argMax(platform_duplicate, received_at) AS platform_duplicate
+        FROM pings
+        WHERE tenant_id = {tenant_id:UUID}
+          AND external_call_id != ''
+          ${demo}`;
+  }
+
+  async getMetrics(
+    tenantId: string,
+    from?: string,
+    to?: string,
+    showDemo?: boolean,
+  ): Promise<MetricsResult> {
     const dateClause = this.buildDateClause(from, to);
     const params: Record<string, string> = { tenant_id: tenantId };
     if (from) params.from = from;
@@ -68,7 +79,7 @@ export class AnalyticsService {
           sumIf(payout, platform_duplicate = 0) AS total_payout,
           countIf(platform_duplicate = 1) AS duplicate_pings
         FROM (
-          ${this.dedupedCallsSubquery}
+          ${this.dedupedCallsSubquery(showDemo)}
           ${dateClause}
           GROUP BY platform, external_call_id
         )
@@ -108,8 +119,13 @@ export class AnalyticsService {
     };
   }
 
-  async getPnL(tenantId: string, from?: string, to?: string): Promise<PnLResult> {
-    const metrics = await this.getMetrics(tenantId, from, to);
+  async getPnL(
+    tenantId: string,
+    from?: string,
+    to?: string,
+    showDemo?: boolean,
+  ): Promise<PnLResult> {
+    const metrics = await this.getMetrics(tenantId, from, to, showDemo);
     const spendRows = await this.adSpendSource.getSpend(tenantId);
     const adSpend = spendRows.reduce((sum: number, r: AdSpendRow) => sum + r.amount, 0);
     const profit = metrics.total_revenue - metrics.total_payout - adSpend;
@@ -126,6 +142,7 @@ export class AnalyticsService {
     from?: string,
     to?: string,
     platform?: string,
+    showDemo?: boolean,
   ): Promise<PlatformMixRow[]> {
     const dateClause = this.buildDateClause(from, to);
     const platformClause = platform ? 'AND platform = {platform:String}' : '';
@@ -138,7 +155,7 @@ export class AnalyticsService {
       query: `
         SELECT platform, count() AS count
         FROM (
-          ${this.dedupedCallsSubquery}
+          ${this.dedupedCallsSubquery(showDemo)}
           ${dateClause}
           ${platformClause}
           GROUP BY platform, external_call_id

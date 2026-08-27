@@ -80,3 +80,160 @@ Implement export-as-primary (or a hybrid) **before**:
 | A Quota / export-as-primary | Stay on paginated Get Logs + 80/min | High-volume customer or GA **and** support Q3 answered |
 | B Credential key rotation | Single key remains | Enterprise security review or key exposure |
 | details 404 / Redis→CH fallback | Tracked only | As product/ops demand |
+| C Dashboard vs Coverage totals | Document period mismatch; no code | Before any customer-facing demo |
+| D Anti-drift behavioural assertion | Enumeration-based test remains | Next new analytics endpoint |
+| E Top Scores label vs ordering | Confirm semantics | Before customer-facing demo |
+| F AVG CALL SCORE sample disclosure | Disclose N or suppress thin trend | Before customer-facing demo |
+| G Recording playback (Ringba B2) | `hasRecording` yes; `recordingUrl` obtainable — **PII/policy** is the blocker | Customer requirement OR GA — whichever first |
+| J Ringba converted-state unmapped | Identifier unproven; silent-omit on `hasConverted` | **Before any write-back implementation (blocking)** |
+| H `verify-api-sync.ps1` post-C3 | Script asserts metrics growth from `apisync-%` | Before next pre-push relying on that script |
+| I WS live smoke 0-events | **Fixed (Delta 2)** | KafkaJS lacked Snappy; D1 rpk produce crashed live consumer — see `part1-delta2-report.md` |
+
+---
+
+## C — Dashboard vs Coverage totals
+
+### State today
+
+- Dashboard Total Pings uses `/analytics/metrics` with the global date filter (often **30d**).
+- Coverage uses `/coverage/heatmap` with **no period filter** (all-time distinct calls with `state != ''`).
+- Part 1 also measured an **11-row** gap on the same all-time window (`state != ''` filter only).
+- The originally observed ~756 gap mixed a 30-day dashboard with all-time Coverage — **not yet explained as a single bug**.
+
+### Fix shape
+
+- Add a period filter to Coverage **or** state the period explicitly in the Coverage header (e.g. “All time”).
+- Optionally align Coverage with metrics’ distinct-call definition (include empty-state calls or disclose exclusion).
+
+### Build trigger
+
+**Before any customer-facing demo.**
+
+---
+
+## D — Anti-drift coverage is enumeration-based
+
+### State today
+
+- `demo-rows.spec.ts` / `apiSyncExclusionSql` anti-drift asserts a fixed list of five service files call the helper.
+- Drift that created C3 happened because a path was **not on the list**. A sixth read path would still pass silently.
+
+### Fix shape
+
+- Behavioural assertion: insert (or fixture) an `apisync-%` row, hit every aggregate endpoint, assert exclusion.
+- Optionally scan `services/api/src/**/*.service.ts` for `FROM pings` / `call_scores` without the helper.
+
+### Build trigger
+
+**Next new analytics / scoring / coverage / compliance read endpoint.**
+
+---
+
+## E — Top Scores label vs ordering
+
+### State today
+
+- UI label: **TOP SCORES**.
+- `GET /scoring/scores` orders by `created_at DESC` (recency), not `overall_score DESC`.
+- Dashboard AVG CALL SCORE averages those N rows — so a “top scores” sample can under/overstate quality.
+
+### Fix shape
+
+- Confirm intended semantics (recent vs highest).
+- If highest: `ORDER BY overall_score DESC`.
+- Consider a tenant-wide `avg(overall_score)` endpoint for the KPI.
+
+### Build trigger
+
+**Before any customer-facing demo.**
+
+---
+
+## F — AVG CALL SCORE sample disclosure
+
+### State today
+
+- KPI can show e.g. 81.5 from **5** scored rows out of thousands, with a sparkline on those 5 points.
+
+### Fix shape
+
+- Show sample coverage inline (`5 of N scored`), or suppress the trend when N is below a threshold.
+
+### Build trigger
+
+**Before any customer-facing demo.**
+
+---
+
+## G — Recording playback (Ringba parity Bucket B2)
+
+### State today
+
+- Calyx captures **`hasRecording`** (boolean via API `hasRecording`).
+- The live Get Call Log API **accepts a `recordingUrl` value column** — the URL is obtainable and is **not** the blocker. (Earlier deferral text wrongly reasoned from the report Column Dictionary UI play-control into “no URL column”; P-B1.1 live evidence corrected that.)
+- **Blocker:** recordings contain **PII**. Retention policy, access control, encryption at rest, presigned-URL TTL, and player UX must be decided before implementation.
+
+### Fix shape
+
+- Map `recordingUrl` from Get Call Log.
+- Decide link-out vs store; if store: S3 SSE-KMS + short-lived **presigned** access with TTL.
+- Retention aligned to compliance policy; wire player only after access-control policy is approved.
+
+### Build trigger
+
+**Customer requirement OR GA — whichever comes first.**
+
+---
+
+## J — Ringba converted-state is unmapped (write-back gate)
+
+### State today
+
+- Identifier for Ringba **Converted** is unproven on Get Call Log: `converted` / `isConverted` / `Converted` return HTTP 422; `hasConverted` is accepted but **silently omitted** from records.
+- Correctly **not** synthesised from `conversionAmount` (Part 2).
+
+### Why this blocks write-back
+
+After Calyx posts a conversion to Ringba, reconciliation requires reading back whether Ringba actually recorded it. Writing without a reliable read-back produces the worst class of silent gap — converted in Calyx, not converted in Ringba, with nothing surfacing the divergence.
+
+### Fix shape
+
+- Obtain the official API identifier (or alternate endpoint) for per-call converted state from Ringba docs / support / Export JSON Settings.
+- Map into Calyx; use as reconciliation baseline for convert / cancel / annotate.
+
+### Build trigger
+
+**Before any conversion write-back implementation begins. Blocking, not advisory.**
+
+---
+
+## H — `verify-api-sync.ps1` asserts metrics inflation from mock sync
+
+### State today
+
+- Script creates a mock `api_sync` integration, triggers sync, asserts `/analytics/metrics` `total_pings` increases.
+- After C3, `apisync-%` rows are **excluded** from metrics by default — assertion fails even when sync works.
+- Script does **not** soft-delete the integration it creates (leftover `api-sync-verify-*` rows).
+
+### Fix shape
+
+- Assert growth with `?show_demo=true` **or** assert `apisync-%` distinct count via `/pings?show_demo=true`.
+- Soft-delete (or deactivate) the created integration in teardown.
+
+### Build trigger
+
+**Before next pre-push / CI gate that requires `verify-api-sync.ps1`.**
+
+---
+
+## I — WebSocket live smoke receives 0 events
+
+### State today
+
+- **Fixed in Part 1 Delta 2** (`docs/part1-delta2-report.md`).
+- Root cause: KafkaJS core has no Snappy codec; a Snappy-compressed message on `callloom.pings.v1` (from `rpk topic produce` default during D1 evidence) crashed consumer group `calyx-api-live-feed` (`MEMBERS=0`).
+- Fix: register `kafkajs-snappy` via `createKafkaClient()` for all API Kafka clients.
+
+### Build trigger
+
+N/A — closed.

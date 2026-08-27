@@ -1,0 +1,13 @@
+﻿PHASE=F5 BASE=https://api.ringba.com/v2/{accountId} TOKEN=REDACTED SANDBOX=RGBC281C0CEFCB973E29DDA985A8F7C5EE522897406V3GHG01 FAKE=RGB0000000000000000000000000000000000SANDBOXFAKE01
+
+=== PHASE F5 ΓÇö cleanup ===
+ZERO status=200 body={"transactionId":"TR7c0d16e3-de1a-45d7-bc1a-9388fedc40c4","result":{"payoutAmount":0.0,"conversionAmount":0.0}}
+FIND page=0 records=1000 offset=0
+FIND page=1 records=1000 offset=1000
+FIND page=2 records=1000 offset=2000
+FIND page=3 records=858 offset=3000
+FIND_RESULT callID_suffix=6V3GHG01 matched=1
+ZERO_READBACK conv=0.00 pay=0.00 hasConverted=true/true
+WEBHOOKS_BEFORE_DELETE status=200 ids=[WHf49f4ba001d346d994a6eea6379c6ccb WH748080906786471ba75e9f20bf3f3c81]
+DELETE status=200 location="" body={"transactionId":"TR725130a3-5c63-49cf-8c31-b587f2715509","isSuccessful":true}
+WEBHOOKS_AFTER_DELETE status=200 ids=[WH748080906786471ba75e9f20bf3f3c81] body={"transactionId":"TR0c3eec89-27c8-4640-be25-c7a727aeadbe","webHooks":[{"generation":1,"id":"WH748080906786471ba75e9f20bf3f3c81","webHookType":"conversion","qPathMaps":[{"incomingQueryStringName":"call_id","mapToTagType":"Conversion","mapToTagName":"callUUID"},{"incomingQueryStringName":"call_revenue","mapToTagType":"Conversion","mapToTagName":"conversionAmount"}],"defaultValues":[],"parameterTest":"converted=yes","endPointUrl":"https://webhook.ringba.com/hook/WH748080906786471ba75e9f20bf3f3c81?call_id=[callUUID]&call_revenue=[conversionAmount]&converted=yes","name":"My Webhook","accountId":"RAa7e916b80535402fbfb71f816dc6f85f","enabled":true,"version":1}]}

@@ -1,0 +1,10 @@
+﻿PHASE=F4 BASE=https://api.ringba.com/v2/{accountId} TOKEN=REDACTED SANDBOX=RGBC281C0CEFCB973E29DDA985A8F7C5EE522897406V3GHG01 FAKE=RGB0000000000000000000000000000000000SANDBOXFAKE01
+
+=== PHASE F4 ΓÇö read back conversion ===
+FIND page=0 records=1000 offset=0
+FIND page=1 records=1000 offset=1000
+FIND page=2 records=1000 offset=2000
+FIND page=3 records=858 offset=3000
+FIND_RESULT callID_suffix=6V3GHG01 matched=1
+status=200 n=1 body_snip_if_fail={"isSuccessful":true,"transactionId":"TR7dd5c3a7-7de5-4bd9-bda8-a2eb42871e6d","report":{"partialResult":false,"records":[{"inboundCallId":"RGBC2055047B6403FEFE5A43EDBBB687C0235BBB908V3Q_F01","campaignΓÇª
+hasConverted_present=true val=false conversionAmount= payoutAmount=

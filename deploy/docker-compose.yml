@@ -110,6 +110,8 @@ services:
       - ../db/clickhouse/migrations/000007_pings_call_key.up.sql:/init-phase7.sql:ro
       - ../db/clickhouse/migrations/000008_pings_occurred_at.up.sql:/init-phase8.sql:ro
       - ../db/clickhouse/migrations/000009_pings_platform_duplicate.up.sql:/init-phase9.sql:ro
+      - ../db/clickhouse/migrations/000010_enrichment_attrs_replacing.up.sql:/init-phase10.sql:ro
+      - ../db/clickhouse/migrations/000011_pings_ringba_parity_b1.up.sql:/init-phase11.sql:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -122,6 +124,8 @@ services:
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase7.sql || true
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase8.sql || true
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase9.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase10.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase11.sql || true
     depends_on:
       clickhouse:
         condition: service_healthy

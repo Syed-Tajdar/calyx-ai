@@ -4,9 +4,15 @@ import { z } from 'zod';
 import { CurrentTenant } from '../common/tenant.decorator';
 import { AnalyticsService, MetricsResult, PnLResult, PlatformMixRow } from './analytics.service';
 
+const showDemoField = z
+  .union([z.literal('true'), z.literal('1'), z.literal('false'), z.literal('0')])
+  .optional()
+  .transform((v) => v === 'true' || v === '1');
+
 const dateQuerySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
+  show_demo: showDemoField,
 });
 
 const platformMixQuerySchema = dateQuerySchema.extend({
@@ -24,7 +30,12 @@ export class AnalyticsController {
     @Query() query: Record<string, string>,
   ): Promise<MetricsResult> {
     const parsed = dateQuerySchema.parse(query);
-    return this.analyticsService.getMetrics(tenantId, parsed.from, parsed.to);
+    return this.analyticsService.getMetrics(
+      tenantId,
+      parsed.from,
+      parsed.to,
+      parsed.show_demo,
+    );
   }
 
   @Get('pnl')
@@ -33,7 +44,12 @@ export class AnalyticsController {
     @Query() query: Record<string, string>,
   ): Promise<PnLResult> {
     const parsed = dateQuerySchema.parse(query);
-    return this.analyticsService.getPnL(tenantId, parsed.from, parsed.to);
+    return this.analyticsService.getPnL(
+      tenantId,
+      parsed.from,
+      parsed.to,
+      parsed.show_demo,
+    );
   }
 
   @Get('platform-mix')
@@ -47,6 +63,7 @@ export class AnalyticsController {
       parsed.from,
       parsed.to,
       parsed.platform,
+      parsed.show_demo,
     );
   }
 }

@@ -44,6 +44,19 @@ func TestHashStableAndNormalized(t *testing.T) {
 	}
 }
 
+func TestHashParityB1FieldsChangeHash(t *testing.T) {
+	base := Content{ExternalCallID: "x", CampaignName: "A"}
+	changed := Content{ExternalCallID: "x", CampaignName: "B"}
+	if Hash(base) == Hash(changed) {
+		t.Fatal("campaign_name must be part of hash")
+	}
+	d1 := Content{ExternalCallID: "x", DurationSeconds: 10}
+	d2 := Content{ExternalCallID: "x", DurationSeconds: 20}
+	if Hash(d1) == Hash(d2) {
+		t.Fatal("duration_seconds must be part of hash")
+	}
+}
+
 func TestHashPlatformDuplicate(t *testing.T) {
 	a := Content{ExternalCallID: "x", PlatformDuplicate: false}
 	b := Content{ExternalCallID: "x", PlatformDuplicate: true}

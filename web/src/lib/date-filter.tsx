@@ -7,8 +7,11 @@ export type DateRangePreset = '7d' | '30d' | 'all';
 interface DateFilterState {
   preset: DateRangePreset;
   platform: string;
+  /** Include `apisync-%` demo rows. Default false. */
+  showDemo: boolean;
   setPreset: (preset: DateRangePreset) => void;
   setPlatform: (platform: string) => void;
+  setShowDemo: (show: boolean) => void;
   startDate: Date | null;
 }
 
@@ -26,16 +29,19 @@ function presetToStart(preset: DateRangePreset): Date | null {
 export function DateFilterProvider({ children }: { children: ReactNode }): JSX.Element {
   const [preset, setPreset] = useState<DateRangePreset>('30d');
   const [platform, setPlatform] = useState('');
+  const [showDemo, setShowDemo] = useState(false);
 
   const value = useMemo(
     () => ({
       preset,
       platform,
+      showDemo,
       setPreset,
       setPlatform,
+      setShowDemo,
       startDate: presetToStart(preset),
     }),
-    [preset, platform],
+    [preset, platform, showDemo],
   );
 
   return <DateFilterContext.Provider value={value}>{children}</DateFilterContext.Provider>;
@@ -74,6 +80,7 @@ export interface DateFilterQuery {
 export function dateFilterToQuery(
   startDate: Date | null,
   platform: string,
+  showDemo = false,
 ): DateFilterQuery {
   const query: DateFilterQuery = {};
   if (startDate) {
@@ -81,6 +88,9 @@ export function dateFilterToQuery(
   }
   if (platform) {
     query.platform = platform;
+  }
+  if (showDemo) {
+    query.show_demo = true;
   }
   return query;
 }

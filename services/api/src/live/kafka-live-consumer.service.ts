@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Consumer, Kafka, EachMessagePayload } from 'kafkajs';
+import { Consumer, EachMessagePayload } from 'kafkajs';
 import { loadEnv } from '../config/env';
+import { createKafkaClient } from '../kafka/kafka-client';
 import { LiveGateway } from './live.gateway';
 import {
   callScoredPayloadSchema,
@@ -27,7 +28,7 @@ export class KafkaLiveConsumerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const kafka = new Kafka({ brokers: [env.KAFKA_BROKER] });
+    const kafka = createKafkaClient([env.KAFKA_BROKER]);
     this.consumer = kafka.consumer({ groupId: 'calyx-api-live-feed' });
 
     const topics = [

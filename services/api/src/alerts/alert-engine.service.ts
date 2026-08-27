@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Kafka, Consumer } from 'kafkajs';
+import { Consumer } from 'kafkajs';
 import { loadEnv } from '../config/env';
+import { createKafkaClient } from '../kafka/kafka-client';
 import { MockNotificationChannel } from './channels/mock.channel';
 import { AlertsService } from './alerts.service';
 
@@ -21,7 +22,7 @@ export class AlertEngineService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     const env = loadEnv();
-    const kafka = new Kafka({ brokers: [env.KAFKA_BROKER] });
+    const kafka = createKafkaClient([env.KAFKA_BROKER]);
     this.consumer = kafka.consumer({ groupId: 'callloom-alert-engine' });
 
     await this.consumer.connect();

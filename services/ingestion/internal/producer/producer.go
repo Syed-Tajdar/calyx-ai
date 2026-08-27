@@ -28,7 +28,8 @@ type PingMessage struct {
 	PlatformDuplicate bool  `json:"platform_duplicate"`
 	ReceivedAt        int64 `json:"received_at_unix_ms"`
 	// CallKey: Retreaver-only; omitempty. Hex-encoded AES-256-GCM ciphertext — never plaintext.
-	CallKey string `json:"call_key,omitempty"`
+	CallKey  string `json:"call_key,omitempty"`
+	SyncPath string `json:"sync_path,omitempty"`
 }
 
 
@@ -72,7 +73,7 @@ func (p *Producer) Publish(ctx context.Context, ping models.Ping) error {
 		PlatformDuplicate: ping.PlatformDuplicate,
 		ReceivedAt:        ping.ReceivedAt.UTC().UnixMilli(),
 		CallKey:           callKeyStored,
-
+		SyncPath:          "webhook",
 	}
 	body, err := json.Marshal(msg)
 	if err != nil {

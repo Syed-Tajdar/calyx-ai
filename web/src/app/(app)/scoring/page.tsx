@@ -6,14 +6,17 @@ import { useRouter } from 'next/navigation';
 import { ScoresTable } from '@/components/scoring/ScoresTable';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { Button } from '@/components/ui/button';
 import { ApiError, fetchScores, ScoreRecord } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { useDateFilter } from '@/lib/date-filter';
 
 const PAGE_SIZE = 25;
 
 export default function ScoringPage(): JSX.Element {
   const router = useRouter();
+  const { showDemo } = useDateFilter();
   const [scores, setScores] = useState<ScoreRecord[]>([]);
   const [offset, setOffset] = useState(0);
   const [error, setError] = useState('');
@@ -21,11 +24,19 @@ export default function ScoringPage(): JSX.Element {
   const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
+    setOffset(0);
+  }, [showDemo]);
+
+  useEffect(() => {
     const token = getToken();
     if (!token) return;
 
     setLoading(true);
-    fetchScores(token, { limit: PAGE_SIZE, offset })
+    fetchScores(token, {
+      limit: PAGE_SIZE,
+      offset,
+      show_demo: showDemo || undefined,
+    })
       .then((res) => {
         if (res && 'data' in res) {
           setScores(res.data);
@@ -40,7 +51,7 @@ export default function ScoringPage(): JSX.Element {
         setError('Failed to load scores');
       })
       .finally(() => setLoading(false));
-  }, [router, offset]);
+  }, [router, offset, showDemo]);
 
   return (
     <div className="space-y-8">
@@ -53,6 +64,8 @@ export default function ScoringPage(): JSX.Element {
           </Button>
         }
       />
+
+      <FilterBar showDemoToggle />
 
       {loading && <PageLoader />}
       {error && <ErrorBanner message={error} />}

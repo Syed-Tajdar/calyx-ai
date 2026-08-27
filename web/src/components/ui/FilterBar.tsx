@@ -12,10 +12,16 @@ const PRESETS: { value: DateRangePreset; label: string }[] = [
 interface FilterBarProps {
   showPlatform?: boolean;
   platforms?: string[];
+  /** Show the demo-rows toggle (default true). */
+  showDemoToggle?: boolean;
 }
 
-export function FilterBar({ showPlatform = false, platforms = [] }: FilterBarProps): JSX.Element {
-  const { preset, platform, setPreset, setPlatform } = useDateFilter();
+export function FilterBar({
+  showPlatform = false,
+  platforms = [],
+  showDemoToggle = true,
+}: FilterBarProps): JSX.Element {
+  const { preset, platform, showDemo, setPreset, setPlatform, setShowDemo } = useDateFilter();
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -52,6 +58,22 @@ export function FilterBar({ showPlatform = false, platforms = [] }: FilterBarPro
             ))}
           </select>
         </div>
+      )}
+      {showDemoToggle && (
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-calyx-muted">
+          <input
+            type="checkbox"
+            checked={showDemo}
+            onChange={(e) => setShowDemo(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-calyx-border accent-calyx-accent"
+          />
+          Show demo
+          {showDemo && (
+            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400">
+              Demo included
+            </span>
+          )}
+        </label>
       )}
     </div>
   );

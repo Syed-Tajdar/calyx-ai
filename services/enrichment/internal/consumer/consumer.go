@@ -79,6 +79,10 @@ func (s *Service) handleMessage(ctx context.Context, msg kafkago.Message) error 
 		return nil
 	}
 
+	// Intentionally no HasAttributes skip: enrichment_attrs is ReplacingMergeTree(created_at).
+	// Re-enrichment must be allowed so real providers (Chapter 2) can update values.
+	// Duplicates collapse on merge; reads use GROUP BY + argMax(created_at).
+
 	attrs, err := s.provider.Enrich(ping.ANIHash)
 	if err != nil {
 		_ = s.ch.InsertDLQ(ctx, ping.TenantID, ping.ANIHash, "ping", err.Error(), payloadHash(msg.Value))

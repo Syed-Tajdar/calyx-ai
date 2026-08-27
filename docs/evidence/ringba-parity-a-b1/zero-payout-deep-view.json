@@ -1,0 +1,75 @@
+{
+    "call_id":  "RGBFAB9877E57F912DA08B3141398824926B664BAFCV3JZQ01",
+    "tenant_id":  "11111111-1111-1111-1111-111111111111",
+    "ping":  {
+                 "platform":  "ringba",
+                 "publisher_id":  "AF2cb9f36941f94367b9a6bdc85eec4801",
+                 "publisher_name":  "Buyerlink Caijus",
+                 "campaign_id":  "CAe3db1b493bb743ceb1f62912fa56f78d",
+                 "campaign_name":  "Roofing IB ",
+                 "target_id":  "PIb723a0ad80894b35a38ee476eba0690e",
+                 "target_name":  "RingbaX Roofing inbounds social-facebook RTT",
+                 "buyer_id":  "BU6e1a02f70d274ca2beb06cf2d2b61978",
+                 "buyer_name":  "RingbaX",
+                 "state":  "MO",
+                 "event_type":  "incoming",
+                 "revenue":  0,
+                 "payout":  0,
+                 "profit_gross":  0,
+                 "duration_seconds":  65,
+                 "call_length_seconds":  65,
+                 "has_recording":  false,
+                 "recording_known":  false,
+                 "ani_hash":  "df4ea188f951d01b39872877b9df4913f7364472232d521cbd5ae26fc929993a",
+                 "received_at":  "2026-07-23T18:21:45.000000Z",
+                 "occurred_at":  "2026-07-16T17:23:40.000000Z",
+                 "sync_path":  "api_sync"
+             },
+    "scoring":  {
+                    "overall_score":  0,
+                    "sentiment":  "",
+                    "rules_passed":  0,
+                    "rules_failed":  0,
+                    "duration_seconds":  0,
+                    "word_count":  0,
+                    "scored_at":  "1970-01-01T00:00:00.000000Z"
+                },
+    "compliance":  {
+                       "risk_score":  0,
+                       "attestation_level":  "",
+                       "exposure_usd":  0,
+                       "dnc_match":  0,
+                       "scored_at":  "1970-01-01T00:00:00.000000Z"
+                   },
+    "attribution":  null,
+    "enrichment":  {
+                       "attribute_count":  520,
+                       "sample_attributes":  [
+                                                 {
+                                                     "attribute_key":  "attr_000",
+                                                     "attribute_value":  "df4ea188_val_0",
+                                                     "provider":  "mock"
+                                                 },
+                                                 {
+                                                     "attribute_key":  "attr_001",
+                                                     "attribute_value":  "df4ea188_val_1",
+                                                     "provider":  "mock"
+                                                 },
+                                                 {
+                                                     "attribute_key":  "attr_002",
+                                                     "attribute_value":  "df4ea188_val_2",
+                                                     "provider":  "mock"
+                                                 },
+                                                 {
+                                                     "attribute_key":  "attr_003",
+                                                     "attribute_value":  "df4ea188_val_3",
+                                                     "provider":  "mock"
+                                                 },
+                                                 {
+                                                     "attribute_key":  "attr_004",
+                                                     "attribute_value":  "df4ea188_val_4",
+                                                     "provider":  "mock"
+                                                 }
+                                             ]
+                   }
+}

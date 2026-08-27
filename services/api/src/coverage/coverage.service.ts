@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
 import { countryForRegion, RegionCountry } from '../common/na-regions';
+import { apiSyncExclusionSql } from '../common/demo-rows';
 
 export interface HeatmapStateRow {
   state: string;
@@ -20,7 +21,8 @@ export interface HeatmapResult {
 export class CoverageService {
   constructor(private readonly clickhouse: ClickhouseService) {}
 
-  async getHeatmap(tenantId: string): Promise<HeatmapResult> {
+  async getHeatmap(tenantId: string, showDemo?: boolean): Promise<HeatmapResult> {
+    const demo = apiSyncExclusionSql('external_call_id', showDemo);
     const result = await this.clickhouse.getClient().query({
       query: `
         SELECT
@@ -37,6 +39,7 @@ export class CoverageService {
           FROM pings
           WHERE tenant_id = {tenant_id:UUID}
             AND external_call_id != ''
+            ${demo}
           GROUP BY platform, external_call_id
         )
         WHERE state != ''

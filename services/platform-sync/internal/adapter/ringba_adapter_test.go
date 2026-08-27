@@ -92,6 +92,48 @@ func TestParseRingbaCallLogResponseEmptyRecords(t *testing.T) {
 	}
 }
 
+func TestMapRingbaParityB1Fields(t *testing.T) {
+	raw := []byte(`{
+		"inboundCallId": "parity-1",
+		"callDt": 1612219718965,
+		"conversionAmount": 30.6,
+		"payoutAmount": 24.48,
+		"campaignId": "camp-1",
+		"campaignName": "Final Expense",
+		"publisherId": "pub-1",
+		"publisherName": "Optimize To Convert",
+		"targetId": "tgt-1",
+		"targetName": "RingbaX Target",
+		"buyer": "RingbaX",
+		"buyerId": "buy-1",
+		"connectedCallLengthInSeconds": 244,
+		"callLengthInSeconds": 247,
+		"hasRecording": true,
+		"isDuplicate": false,
+		"profitGross": 6.12,
+		"tag:InboundNumber:State": "CA"
+	}`)
+	got := mapRingbaCallLogEntry(raw)
+	if got.CampaignName != "Final Expense" || got.PublisherName != "Optimize To Convert" {
+		t.Fatalf("names campaign=%q publisher=%q", got.CampaignName, got.PublisherName)
+	}
+	if got.BuyerName != "RingbaX" || got.BuyerID != "buy-1" {
+		t.Fatalf("buyer name=%q id=%q", got.BuyerName, got.BuyerID)
+	}
+	if got.DurationSeconds != 244 || got.CallLengthSeconds != 247 {
+		t.Fatalf("duration connected=%d total=%d", got.DurationSeconds, got.CallLengthSeconds)
+	}
+	if !got.HasRecording || !got.RecordingKnown {
+		t.Fatalf("recording has=%v known=%v", got.HasRecording, got.RecordingKnown)
+	}
+	if got.ProfitGross != 6.12 {
+		t.Fatalf("profit=%v", got.ProfitGross)
+	}
+	if got.PlatformDuplicate {
+		t.Fatal("isDuplicate false must map PlatformDuplicate=false")
+	}
+}
+
 func TestMapRingbaTagInboundNumberState(t *testing.T) {
 	raw := []byte(`{
 		"inboundCallId": "tag-id-1",

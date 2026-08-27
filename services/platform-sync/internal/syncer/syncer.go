@@ -137,15 +137,25 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration) erro
 
 func remoteCallContent(call models.RemoteCall) dedup.Content {
 	return dedup.Content{
-		ExternalCallID: call.ExternalCallID,
-		Revenue:        call.Revenue,
-		Payout:         call.Payout,
-		State:          call.State,
-		EventType:      call.EventType,
-		OccurredAt:     call.OccurredAt,
-		CampaignID:     call.CampaignID,
-		PublisherID:    call.PublisherID,
-		TargetID:       call.TargetID,
+		ExternalCallID:     call.ExternalCallID,
+		Revenue:            call.Revenue,
+		Payout:             call.Payout,
+		State:              call.State,
+		EventType:          call.EventType,
+		OccurredAt:         call.OccurredAt,
+		CampaignID:         call.CampaignID,
+		PublisherID:        call.PublisherID,
+		TargetID:           call.TargetID,
+		PlatformDuplicate:  call.PlatformDuplicate,
+		CampaignName:       call.CampaignName,
+		PublisherName:      call.PublisherName,
+		TargetName:         call.TargetName,
+		BuyerID:            call.BuyerID,
+		BuyerName:          call.BuyerName,
+		DurationSeconds:    call.DurationSeconds,
+		CallLengthSeconds:  call.CallLengthSeconds,
+		HasRecording:       call.HasRecording,
+		ProfitGross:        call.ProfitGross,
 	}
 }
 

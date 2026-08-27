@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Download } from 'lucide-react';
 import { PingsTable } from '@/components/dashboard/PingsTable';
@@ -30,17 +30,20 @@ function PingsPageContent(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('search') ?? '';
-  const { startDate, platform } = useDateFilter();
+  const { startDate, platform, showDemo } = useDateFilter();
   const [offset, setOffset] = useState(0);
   const [exporting, setExporting] = useState(false);
-  const [showDemo, setShowDemo] = useState(false);
 
   const filters = useMemo(() => {
-    const base = dateFilterToQuery(startDate, platform);
+    const base = dateFilterToQuery(startDate, platform, showDemo);
     if (searchQuery) base.search = searchQuery;
-    if (showDemo) base.show_demo = true;
     return base;
   }, [startDate, platform, searchQuery, showDemo]);
+
+  // Reset pagination when demo toggle changes
+  useEffect(() => {
+    setOffset(0);
+  }, [showDemo]);
 
   const { pings, total, displayTotal, loaded, loading, error, newRowKeys, isLive, isPollingFallback } =
     useHybridPingFeed({
@@ -97,33 +100,19 @@ function PingsPageContent(): JSX.Element {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <FilterBar showPlatform platforms={platforms} />
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-calyx-muted">
-            <input
-              type="checkbox"
-              checked={showDemo}
-              onChange={(e) => {
-                setShowDemo(e.target.checked);
-                setOffset(0);
-              }}
-              className="h-4 w-4 rounded border-calyx-border accent-calyx-accent"
-            />
-            Show demo
-          </label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={exporting}
-            onClick={() => {
-              void handleExport();
-            }}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            {exporting ? 'Exporting…' : 'Export CSV'}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={exporting}
+          onClick={() => {
+            void handleExport();
+          }}
+          className="gap-2"
+        >
+          <Download className="h-4 w-4" />
+          {exporting ? 'Exporting…' : 'Export CSV'}
+        </Button>
       </div>
 
       {searchQuery && (

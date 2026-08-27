@@ -1,0 +1,51 @@
+{
+    "call_id":  "webhook-parity-b14-demo",
+    "tenant_id":  "11111111-1111-1111-1111-111111111111",
+    "ping":  {
+                 "platform":  "ringba",
+                 "publisher_id":  "",
+                 "publisher_name":  "",
+                 "campaign_id":  "",
+                 "campaign_name":  "",
+                 "target_id":  "",
+                 "target_name":  "",
+                 "buyer_id":  "",
+                 "buyer_name":  "",
+                 "state":  "CA",
+                 "event_type":  "incoming",
+                 "revenue":  0,
+                 "payout":  0,
+                 "profit_gross":  0,
+                 "duration_seconds":  0,
+                 "call_length_seconds":  0,
+                 "has_recording":  false,
+                 "recording_known":  false,
+                 "ani_hash":  "0000000000000000000000000000000000000000000000000000000000000000",
+                 "received_at":  "2026-07-23T18:24:16.000000Z",
+                 "occurred_at":  "2026-07-23T18:24:16.000000Z",
+                 "sync_path":  "webhook"
+             },
+    "scoring":  {
+                    "overall_score":  0,
+                    "sentiment":  "",
+                    "rules_passed":  0,
+                    "rules_failed":  0,
+                    "duration_seconds":  0,
+                    "word_count":  0,
+                    "scored_at":  "1970-01-01T00:00:00.000000Z"
+                },
+    "compliance":  {
+                       "risk_score":  0,
+                       "attestation_level":  "",
+                       "exposure_usd":  0,
+                       "dnc_match":  0,
+                       "scored_at":  "1970-01-01T00:00:00.000000Z"
+                   },
+    "attribution":  null,
+    "enrichment":  {
+                       "attribute_count":  0,
+                       "sample_attributes":  [
+
+                                             ]
+                   }
+}

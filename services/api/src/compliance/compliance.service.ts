@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
+import { apiSyncExclusionSql } from '../common/demo-rows';
 
 export interface RiskScoreRecord {
   tenant_id: string;
@@ -33,8 +34,13 @@ export interface ExposureSummary {
 export class ComplianceService {
   constructor(private readonly clickhouse: ClickhouseService) {}
 
-  async listRiskScores(tenantId: string, limit = 50): Promise<{ data: RiskScoreRecord[] }> {
+  async listRiskScores(
+    tenantId: string,
+    limit = 50,
+    showDemo?: boolean,
+  ): Promise<{ data: RiskScoreRecord[] }> {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
+    const demo = apiSyncExclusionSql('call_id', showDemo);
     const result = await this.clickhouse.getClient().query({
       query: `
         SELECT tenant_id, call_id, publisher_id, state, risk_score, dnc_match,
@@ -42,6 +48,7 @@ export class ComplianceService {
                formatDateTime(created_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS created_at
         FROM compliance_risk_scores
         WHERE tenant_id = {tenant_id:UUID}
+          ${demo}
         ORDER BY created_at DESC
         LIMIT {limit:UInt32}
       `,
@@ -52,14 +59,20 @@ export class ComplianceService {
     return { data };
   }
 
-  async listViolations(tenantId: string, limit = 50): Promise<{ data: ViolationRecord[] }> {
+  async listViolations(
+    tenantId: string,
+    limit = 50,
+    showDemo?: boolean,
+  ): Promise<{ data: ViolationRecord[] }> {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
+    const demo = apiSyncExclusionSql('call_id', showDemo);
     const result = await this.clickhouse.getClient().query({
       query: `
         SELECT tenant_id, call_id, violation_type, risk_score, exposure_usd,
                formatDateTime(created_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS created_at
         FROM compliance_violations
         WHERE tenant_id = {tenant_id:UUID}
+          ${demo}
         ORDER BY created_at DESC
         LIMIT {limit:UInt32}
       `,
@@ -70,7 +83,8 @@ export class ComplianceService {
     return { data };
   }
 
-  async getExposure(tenantId: string): Promise<ExposureSummary> {
+  async getExposure(tenantId: string, showDemo?: boolean): Promise<ExposureSummary> {
+    const demo = apiSyncExclusionSql('call_id', showDemo);
     const result = await this.clickhouse.getClient().query({
       query: `
         SELECT
@@ -80,6 +94,7 @@ export class ComplianceService {
           countIf(dnc_match = 1) AS dnc_match_count
         FROM compliance_risk_scores
         WHERE tenant_id = {tenant_id:UUID}
+          ${demo}
       `,
       query_params: { tenant_id: tenantId },
       format: 'JSONEachRow',

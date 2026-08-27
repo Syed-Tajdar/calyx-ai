@@ -35,6 +35,14 @@ func (w *BatchWriter) InsertBatch(ctx context.Context, pings []models.PingMessag
 		if p.PlatformDuplicate {
 			platDup = 1
 		}
+		hasRec := uint8(0)
+		if p.HasRecording {
+			hasRec = 1
+		}
+		recKnown := uint8(0)
+		if p.RecordingKnown {
+			recKnown = 1
+		}
 		occurred := p.OccurredTime()
 		if occurred.IsZero() {
 			occurred = time.Unix(0, 0).UTC()
@@ -56,6 +64,17 @@ func (w *BatchWriter) InsertBatch(ctx context.Context, pings []models.PingMessag
 			ReceivedAt:        p.ReceivedTime(),
 			OccurredAt:        occurred,
 			CallKey:           p.CallKey,
+			CampaignName:      p.CampaignName,
+			PublisherName:     p.PublisherName,
+			TargetName:        p.TargetName,
+			BuyerID:           p.BuyerID,
+			BuyerName:         p.BuyerName,
+			DurationSeconds:   p.DurationSeconds,
+			CallLengthSeconds: p.CallLengthSeconds,
+			HasRecording:      hasRec,
+			RecordingKnown:    recKnown,
+			ProfitGross:       p.ProfitGross,
+			SyncPath:          p.SyncPath,
 		})
 	}
 

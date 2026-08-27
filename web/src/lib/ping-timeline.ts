@@ -50,12 +50,14 @@ export function buildFilledPingTimeline(
 export function chartFiltersForLastDays(
   days: number,
   platform?: string,
-): { from: string; platform?: string } {
+  showDemo = false,
+): { from: string; platform?: string; show_demo?: boolean } {
   const from = new Date();
   from.setHours(0, 0, 0, 0);
   from.setDate(from.getDate() - (days - 1));
   return {
     from: from.toISOString(),
     ...(platform ? { platform } : {}),
+    ...(showDemo ? { show_demo: true } : {}),
   };
 }

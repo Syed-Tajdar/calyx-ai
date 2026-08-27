@@ -1,5 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { z } from 'zod';
 import { CurrentTenant } from '../common/tenant.decorator';
 import {
   ComplianceService,
@@ -7,6 +8,20 @@ import {
   RiskScoreRecord,
   ViolationRecord,
 } from './compliance.service';
+
+const showDemoField = z
+  .union([z.literal('true'), z.literal('1'), z.literal('false'), z.literal('0')])
+  .optional()
+  .transform((v) => v === 'true' || v === '1');
+
+const listQuerySchema = z.object({
+  limit: z.string().optional(),
+  show_demo: showDemoField,
+});
+
+const exposureQuerySchema = z.object({
+  show_demo: showDemoField,
+});
 
 @Controller('compliance')
 @UseGuards(AuthGuard('jwt'))
@@ -16,27 +31,35 @@ export class ComplianceController {
   @Get('risk-scores')
   async riskScores(
     @CurrentTenant() tenantId: string,
-    @Query('limit') limit?: string,
+    @Query() query: Record<string, string>,
   ): Promise<{ data: RiskScoreRecord[] }> {
+    const parsed = listQuerySchema.parse(query);
     return this.complianceService.listRiskScores(
       tenantId,
-      limit ? Number(limit) : 50,
+      parsed.limit ? Number(parsed.limit) : 50,
+      parsed.show_demo,
     );
   }
 
   @Get('violations')
   async violations(
     @CurrentTenant() tenantId: string,
-    @Query('limit') limit?: string,
+    @Query() query: Record<string, string>,
   ): Promise<{ data: ViolationRecord[] }> {
+    const parsed = listQuerySchema.parse(query);
     return this.complianceService.listViolations(
       tenantId,
-      limit ? Number(limit) : 50,
+      parsed.limit ? Number(parsed.limit) : 50,
+      parsed.show_demo,
     );
   }
 
   @Get('exposure')
-  async exposure(@CurrentTenant() tenantId: string): Promise<ExposureSummary> {
-    return this.complianceService.getExposure(tenantId);
+  async exposure(
+    @CurrentTenant() tenantId: string,
+    @Query() query: Record<string, string>,
+  ): Promise<ExposureSummary> {
+    const parsed = exposureQuerySchema.parse(query);
+    return this.complianceService.getExposure(tenantId, parsed.show_demo);
   }
 }

@@ -1,0 +1,10 @@
+{
+    "enrichment_api":  {
+                           "total":  520,
+                           "limit":  500,
+                           "data_len":  500
+                       },
+    "scores_default_demo_count":  0,
+    "browser_found":  true,
+    "enrichment_ui_label":  "520 attributes (showing 500 of 520)"
+}

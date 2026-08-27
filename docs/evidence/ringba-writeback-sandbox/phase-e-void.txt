@@ -1,0 +1,25 @@
+﻿PHASE=E_VOID BASE=https://api.ringba.com/v2/{accountId} TOKEN=REDACTED SANDBOX=RGBC281C0CEFCB973E29DDA985A8F7C5EE522897406V3GHG01 FAKE=RGB0000000000000000000000000000000000SANDBOXFAKE01
+
+=== PHASE E_VOID continuation (reversibility + final zero) ===
+FIND page=0 records=1000 offset=0
+FIND page=1 records=1000 offset=1000
+FIND page=2 records=1000 offset=2000
+FIND page=3 records=859 offset=3000
+FIND_RESULT callID_suffix=6V3GHG01 matched=1
+E4_AFTER_VOID_NOW status=200 n=1 conv= pay= hasConverted=true/false hasPayout=true/false wasConvAdj=true/true wasPayAdj=true/true
+E4_REVERT_OVERRIDE_5 status=200 body={"transactionId":"TRe0ba6b4b-4190-440d-820c-811f5e9b178a","result":{"payoutAmount":5.0,"conversionAmount":5.0}}
+FIND page=0 records=1000 offset=0
+FIND page=1 records=1000 offset=1000
+FIND page=2 records=1000 offset=2000
+FIND page=3 records=859 offset=3000
+FIND_RESULT callID_suffix=6V3GHG01 matched=1
+E4_AFTER_REVERT status=200 n=1 conv=5.00 pay=5.00 hasConverted=true/true hasPayout=true/true wasConvAdj=true/true wasPayAdj=true/true
+VOID_REVERSIBLE=true (expect ~5/5 if yes; afterVoid conv/pay were /)
+E5_FINAL_ZERO status=200 body={"transactionId":"TRaa2d5b66-c26a-4970-9e0c-8256a672887a","result":{"payoutAmount":0.0,"conversionAmount":0.0}}
+FIND page=0 records=1000 offset=0
+FIND page=1 records=1000 offset=1000
+FIND page=2 records=1000 offset=2000
+FIND page=3 records=859 offset=3000
+FIND_RESULT callID_suffix=6V3GHG01 matched=1
+E5_FINAL status=200 n=1 conv= pay= hasConverted=true/false hasPayout=true/false wasConvAdj=true/true wasPayAdj=true/true
+SANDBOX_RESTORED_ZERO=true

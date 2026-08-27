@@ -44,8 +44,11 @@ import { LiveActivityStrip } from '@/components/dashboard/LiveActivityStrip';
 
 export default function DashboardPage(): JSX.Element {
   const router = useRouter();
-  const { startDate, platform, preset } = useDateFilter();
-  const filters = useMemo(() => dateFilterToQuery(startDate, platform), [startDate, platform]);
+  const { startDate, platform, preset, showDemo } = useDateFilter();
+  const filters = useMemo(
+    () => dateFilterToQuery(startDate, platform, showDemo),
+    [startDate, platform, showDemo],
+  );
   const [metrics, setMetrics] = useState<MetricsResult | null>(null);
   const [platformMix, setPlatformMix] = useState<PlatformMixRow[]>([]);
   const [exposure, setExposure] = useState<ExposureSummary | null>(null);
@@ -55,8 +58,8 @@ export default function DashboardPage(): JSX.Element {
   const [loading, setLoading] = useState(true);
 
   const chartFilters = useMemo(
-    () => chartFiltersForLastDays(7, platform || undefined),
-    [platform],
+    () => chartFiltersForLastDays(7, platform || undefined, showDemo),
+    [platform, showDemo],
   );
 
   const { pings, newRowKeys, isPollingFallback, connected, liveEvents } = useHybridPingFeed({
@@ -74,8 +77,8 @@ export default function DashboardPage(): JSX.Element {
     Promise.all([
       fetchAnalyticsMetrics(token, filters),
       fetchPlatformMix(token, filters),
-      fetchComplianceExposure(token),
-      fetchScores(token, { limit: 5, offset: 0 }),
+      fetchComplianceExposure(token, { show_demo: showDemo || undefined }),
+      fetchScores(token, { limit: 5, offset: 0, show_demo: showDemo || undefined }),
       fetchPings(token, 100, 0, chartFilters),
     ])
       .then(([metricsRes, platformMixRes, exposureRes, scoresRes, chartPingsRes]) => {
@@ -95,7 +98,17 @@ export default function DashboardPage(): JSX.Element {
         setError('Failed to load dashboard data');
       })
       .finally(() => setLoading(false));
-  }, [router, filters.from, filters.platform, preset, chartFilters.from, chartFilters.platform]);
+  }, [
+    router,
+    filters.from,
+    filters.platform,
+    filters.show_demo,
+    preset,
+    chartFilters.from,
+    chartFilters.platform,
+    chartFilters.show_demo,
+    showDemo,
+  ]);
 
   const platformOptions = usePlatformOptions();
 

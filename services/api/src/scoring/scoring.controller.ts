@@ -29,15 +29,18 @@ export class ScoringController {
     @Query('callId') callId?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('show_demo') showDemoRaw?: string,
   ): Promise<{ data: ScoreRecord[] } | ScoreRecord | null> {
     if (callId) {
       const score = await this.scoringService.getScore(tenantId, callId);
       return score;
     }
+    const showDemo = showDemoRaw === 'true' || showDemoRaw === '1';
     const data = await this.scoringService.listScores(
       tenantId,
       limit ? Number(limit) : 50,
       offset ? Number(offset) : 0,
+      showDemo,
     );
     return { data };
   }

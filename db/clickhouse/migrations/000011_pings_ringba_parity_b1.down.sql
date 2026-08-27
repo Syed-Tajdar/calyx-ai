@@ -1,0 +1,11 @@
+ALTER TABLE pings DROP COLUMN IF EXISTS campaign_name;
+ALTER TABLE pings DROP COLUMN IF EXISTS publisher_name;
+ALTER TABLE pings DROP COLUMN IF EXISTS target_name;
+ALTER TABLE pings DROP COLUMN IF EXISTS buyer_id;
+ALTER TABLE pings DROP COLUMN IF EXISTS buyer_name;
+ALTER TABLE pings DROP COLUMN IF EXISTS duration_seconds;
+ALTER TABLE pings DROP COLUMN IF EXISTS call_length_seconds;
+ALTER TABLE pings DROP COLUMN IF EXISTS has_recording;
+ALTER TABLE pings DROP COLUMN IF EXISTS recording_known;
+ALTER TABLE pings DROP COLUMN IF EXISTS profit_gross;
+ALTER TABLE pings DROP COLUMN IF EXISTS sync_path;

@@ -22,8 +22,11 @@ import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
 
 export default function ReportsPage(): JSX.Element {
   const router = useRouter();
-  const { startDate, platform, preset } = useDateFilter();
-  const filters = useMemo(() => dateFilterToQuery(startDate, platform), [startDate, platform]);
+  const { startDate, platform, preset, showDemo } = useDateFilter();
+  const filters = useMemo(
+    () => dateFilterToQuery(startDate, platform, showDemo),
+    [startDate, platform, showDemo],
+  );
   const [metrics, setMetrics] = useState<MetricsResult | null>(null);
   const [pnl, setPnl] = useState<PnLResult | null>(null);
   const [error, setError] = useState('');
@@ -47,7 +50,7 @@ export default function ReportsPage(): JSX.Element {
         setError('Failed to load reports');
       })
       .finally(() => setLoading(false));
-  }, [router, filters.from, filters.platform, preset]);
+  }, [router, filters.from, filters.platform, filters.show_demo, preset]);
 
   return (
     <div className="space-y-8">

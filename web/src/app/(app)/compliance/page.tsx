@@ -20,9 +20,12 @@ import {
   ViolationRecord,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { useDateFilter } from '@/lib/date-filter';
+import { FilterBar } from '@/components/ui/FilterBar';
 
 export default function CompliancePage(): JSX.Element {
   const router = useRouter();
+  const { showDemo } = useDateFilter();
   const [exposure, setExposure] = useState<ExposureSummary | null>(null);
   const [scores, setScores] = useState<RiskScoreRecord[]>([]);
   const [violations, setViolations] = useState<ViolationRecord[]>([]);
@@ -33,10 +36,11 @@ export default function CompliancePage(): JSX.Element {
     const token = getToken();
     if (!token) return;
 
+    setLoading(true);
     Promise.all([
-      fetchComplianceExposure(token),
-      fetchComplianceRiskScores(token, 25),
-      fetchComplianceViolations(token, 25),
+      fetchComplianceExposure(token, { show_demo: showDemo || undefined }),
+      fetchComplianceRiskScores(token, 25, { show_demo: showDemo || undefined }),
+      fetchComplianceViolations(token, 25, { show_demo: showDemo || undefined }),
     ])
       .then(([exp, scoreRes, violationRes]) => {
         setExposure(exp);
@@ -51,7 +55,7 @@ export default function CompliancePage(): JSX.Element {
         setError('Failed to load compliance data');
       })
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, showDemo]);
 
   const avgRisk = exposure?.avg_risk_score ?? 0;
 
@@ -62,6 +66,7 @@ export default function CompliancePage(): JSX.Element {
         description="Risk scoring, DNC matches, and liability exposure — your competitive moat."
       />
       <IntelligenceSubNav />
+      <FilterBar showDemoToggle />
 
       {loading && <PageLoader />}
       {error && <ErrorBanner message={error} />}

@@ -346,6 +346,7 @@ export interface FetchScoresOptions {
   callId?: string;
   limit?: number;
   offset?: number;
+  show_demo?: boolean;
 }
 
 export async function fetchScores(
@@ -356,6 +357,7 @@ export async function fetchScores(
   if (options.callId) params.set('callId', options.callId);
   if (options.limit !== undefined) params.set('limit', String(options.limit));
   if (options.offset !== undefined) params.set('offset', String(options.offset));
+  if (options.show_demo) params.set('show_demo', 'true');
   const qs = params.toString();
   return fetchWithAuth<ScoreRecord | null | { data: ScoreRecord[] }>(
     token,
@@ -375,9 +377,9 @@ export async function fetchEnrichment(
   token: string,
   aniHash: string,
   limit = 100,
-): Promise<{ data: EnrichmentAttribute[]; total: number }> {
+): Promise<{ data: EnrichmentAttribute[]; total: number; limit?: number }> {
   const params = new URLSearchParams({ limit: String(limit) });
-  return fetchWithAuth<{ data: EnrichmentAttribute[]; total: number }>(
+  return fetchWithAuth<{ data: EnrichmentAttribute[]; total: number; limit?: number }>(
     token,
     `/enrichment/${encodeURIComponent(aniHash)}?${params.toString()}`,
   );
@@ -385,34 +387,37 @@ export async function fetchEnrichment(
 
 export async function fetchAnalyticsMetrics(
   token: string,
-  filters: { from?: string; to?: string } = {},
+  filters: { from?: string; to?: string; show_demo?: boolean } = {},
 ): Promise<MetricsResult> {
   const params = new URLSearchParams();
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
+  if (filters.show_demo) params.set('show_demo', 'true');
   const qs = params.toString();
   return fetchWithAuth<MetricsResult>(token, `/analytics/metrics${qs ? `?${qs}` : ''}`);
 }
 
 export async function fetchPnL(
   token: string,
-  filters: { from?: string; to?: string } = {},
+  filters: { from?: string; to?: string; show_demo?: boolean } = {},
 ): Promise<PnLResult> {
   const params = new URLSearchParams();
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
+  if (filters.show_demo) params.set('show_demo', 'true');
   const qs = params.toString();
   return fetchWithAuth<PnLResult>(token, `/analytics/pnl${qs ? `?${qs}` : ''}`);
 }
 
 export async function fetchPlatformMix(
   token: string,
-  filters: { from?: string; to?: string; platform?: string } = {},
+  filters: { from?: string; to?: string; platform?: string; show_demo?: boolean } = {},
 ): Promise<PlatformMixRow[]> {
   const params = new URLSearchParams();
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.platform) params.set('platform', filters.platform);
+  if (filters.show_demo) params.set('show_demo', 'true');
   const qs = params.toString();
   return fetchWithAuth<PlatformMixRow[]>(token, `/analytics/platform-mix${qs ? `?${qs}` : ''}`);
 }
@@ -498,8 +503,14 @@ export async function updateIntegrationSyncMode(
   });
 }
 
-export async function fetchCoverageHeatmap(token: string): Promise<HeatmapResult> {
-  return fetchWithAuth<HeatmapResult>(token, '/coverage/heatmap');
+export async function fetchCoverageHeatmap(
+  token: string,
+  options: { show_demo?: boolean } = {},
+): Promise<HeatmapResult> {
+  const params = new URLSearchParams();
+  if (options.show_demo) params.set('show_demo', 'true');
+  const qs = params.toString();
+  return fetchWithAuth<HeatmapResult>(token, `/coverage/heatmap${qs ? `?${qs}` : ''}`);
 }
 
 export interface RiskScoreRecord {
@@ -533,8 +544,10 @@ export interface ExposureSummary {
 export async function fetchComplianceRiskScores(
   token: string,
   limit = 50,
+  options: { show_demo?: boolean } = {},
 ): Promise<{ data: RiskScoreRecord[] }> {
   const params = new URLSearchParams({ limit: String(limit) });
+  if (options.show_demo) params.set('show_demo', 'true');
   return fetchWithAuth<{ data: RiskScoreRecord[] }>(
     token,
     `/compliance/risk-scores?${params.toString()}`,
@@ -544,16 +557,27 @@ export async function fetchComplianceRiskScores(
 export async function fetchComplianceViolations(
   token: string,
   limit = 50,
+  options: { show_demo?: boolean } = {},
 ): Promise<{ data: ViolationRecord[] }> {
   const params = new URLSearchParams({ limit: String(limit) });
+  if (options.show_demo) params.set('show_demo', 'true');
   return fetchWithAuth<{ data: ViolationRecord[] }>(
     token,
     `/compliance/violations?${params.toString()}`,
   );
 }
 
-export async function fetchComplianceExposure(token: string): Promise<ExposureSummary> {
-  return fetchWithAuth<ExposureSummary>(token, '/compliance/exposure');
+export async function fetchComplianceExposure(
+  token: string,
+  options: { show_demo?: boolean } = {},
+): Promise<ExposureSummary> {
+  const params = new URLSearchParams();
+  if (options.show_demo) params.set('show_demo', 'true');
+  const qs = params.toString();
+  return fetchWithAuth<ExposureSummary>(
+    token,
+    `/compliance/exposure${qs ? `?${qs}` : ''}`,
+  );
 }
 
 export interface AskResponse {
@@ -638,14 +662,26 @@ export interface CallDeepView {
   ping: {
     platform: string;
     publisher_id: string;
+    publisher_name?: string;
     campaign_id: string;
+    campaign_name?: string;
     target_id: string;
+    target_name?: string;
+    buyer_id?: string;
+    buyer_name?: string;
     state: string;
     event_type: string;
     revenue: number;
     payout: number;
+    profit_gross?: number;
+    duration_seconds?: number;
+    call_length_seconds?: number;
+    has_recording?: boolean;
+    recording_known?: boolean;
     ani_hash: string;
     received_at: string;
+    occurred_at?: string;
+    sync_path?: string;
   } | null;
   scoring: {
     overall_score: number;

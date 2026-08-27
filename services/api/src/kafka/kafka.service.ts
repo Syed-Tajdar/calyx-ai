@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Kafka, Producer } from 'kafkajs';
+import { Producer } from 'kafkajs';
 import { loadEnv } from '../config/env';
+import { createKafkaClient } from './kafka-client';
 
 @Injectable()
 export class KafkaService implements OnModuleInit, OnModuleDestroy {
@@ -8,7 +9,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
   constructor() {
     const env = loadEnv();
-    const kafka = new Kafka({ brokers: [env.KAFKA_BROKER] });
+    const kafka = createKafkaClient([env.KAFKA_BROKER]);
     this.producer = kafka.producer();
   }
 

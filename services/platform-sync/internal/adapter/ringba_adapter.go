@@ -137,8 +137,18 @@ func (a *RingbaAdapter) fetchPage(ctx context.Context, creds map[string]string, 
 			{"column": "conversionAmount"},
 			{"column": "payoutAmount"},
 			{"column": "campaignId"},
+			{"column": "campaignName"},
 			{"column": "publisherId"},
+			{"column": "publisherName"},
 			{"column": "targetId"},
+			{"column": "targetName"},
+			{"column": "buyer"},
+			{"column": "buyerId"},
+			{"column": "connectedCallLengthInSeconds"},
+			{"column": "callLengthInSeconds"},
+			{"column": "hasRecording"},
+			{"column": "isDuplicate"},
+			{"column": "profitGross"},
 			{"column": "tag:InboundNumber:State"},
 			{"column": "tag:InboundNumber:Region"},
 		},
@@ -228,17 +238,61 @@ func mapRingbaCallLogEntry(raw json.RawMessage) models.RemoteCall {
 	publisher := firstNonEmpty(lookup("publisherId"), lookup("publisherID"))
 	target := firstNonEmpty(lookup("targetId"), lookup("targetID"))
 
+	connectedLen := firstUint32(lookup, "connectedCallLengthInSeconds")
+	callLen := firstUint32(lookup, "callLengthInSeconds")
+	hasRec, recKnown := parseRingbaBool(lookup("hasRecording"))
+	platDup, _ := parseRingbaBool(lookup("isDuplicate"))
+
 	return models.RemoteCall{
-		ExternalCallID: callID,
-		CallerID:       caller,
-		State:          state.NormalizeState(stateVal),
-		Revenue:        rev,
-		Payout:         pay,
-		CampaignID:     campaign,
-		PublisherID:    publisher,
-		TargetID:       target,
-		EventType:      "incoming",
-		OccurredAt:     occurred,
+		ExternalCallID:    callID,
+		CallerID:          caller,
+		State:             state.NormalizeState(stateVal),
+		Revenue:           rev,
+		Payout:            pay,
+		CampaignID:        campaign,
+		PublisherID:       publisher,
+		TargetID:          target,
+		EventType:         "incoming",
+		OccurredAt:        occurred,
+		PlatformDuplicate: platDup,
+		CampaignName:      lookup("campaignName"),
+		PublisherName:     lookup("publisherName"),
+		TargetName:        lookup("targetName"),
+		BuyerID:           firstNonEmpty(lookup("buyerId"), lookup("buyerID")),
+		BuyerName:         lookup("buyer"),
+		DurationSeconds:   connectedLen,
+		CallLengthSeconds: callLen,
+		HasRecording:      hasRec,
+		RecordingKnown:    recKnown,
+		ProfitGross:       firstFloat(lookup, "profitGross"),
+	}
+}
+
+func firstUint32(lookup func(string) string, keys ...string) uint32 {
+	for _, k := range keys {
+		if v := strings.TrimSpace(lookup(k)); v != "" {
+			f, err := strconv.ParseFloat(v, 64)
+			if err == nil && f >= 0 {
+				return uint32(f)
+			}
+		}
+	}
+	return 0
+}
+
+// parseRingbaBool returns (value, present). present=false when the key was absent/empty.
+func parseRingbaBool(raw string) (value bool, present bool) {
+	v := strings.TrimSpace(raw)
+	if v == "" {
+		return false, false
+	}
+	switch strings.ToLower(v) {
+	case "true", "1", "yes", "y":
+		return true, true
+	case "false", "0", "no", "n":
+		return false, true
+	default:
+		return false, true
 	}
 }
 
