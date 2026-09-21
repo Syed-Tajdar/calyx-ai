@@ -1,0 +1,6 @@
+﻿                  id                  | platform |       name       | sync_mode | is_active | writeback_enabled 
+--------------------------------------+----------+------------------+-----------+-----------+-------------------
+ ce6fd338-af48-47d8-850a-bd10b855e2f4 | ringba   | Ringba Live      | real      | f         | t
+ db273021-f9da-444e-89c9-8f037c57f3ad | ringba   | Ringba Dev Pixel | mock      | t         | f
+(2 rows)
+

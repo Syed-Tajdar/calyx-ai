@@ -14,6 +14,7 @@ type SyncIntegration struct {
 	SyncStatus          string
 	LastSyncError       string
 	InitialLookbackDays int
+	WritebackEnabled    bool
 }
 
 type RemoteCall struct {
@@ -46,6 +47,17 @@ type RemoteCall struct {
 	// RecordingKnown distinguishes "false from API" vs "webhook never sent the field".
 	RecordingKnown bool
 	ProfitGross    float64
+	// HasConverted: Ringba hasConverted present+true. Absent on Get Call Log means false.
+	HasConverted bool
+	HasConvertedPresent bool
+	HasConnected        bool
+	WasBlocked          bool
+	BlockReason         string
+	WasConversionAdjusted bool
+	WasPayoutAdjusted     bool
+	// OfflineConversionUploadedPresent is false when the key was silent-omitted.
+	OfflineConversionUploadedPresent bool
+	OfflineConversionUploaded        bool
 }
 
 type PingMessage struct {
@@ -76,6 +88,7 @@ type PingMessage struct {
 	HasRecording      bool    `json:"has_recording,omitempty"`
 	RecordingKnown    bool    `json:"recording_known,omitempty"`
 	ProfitGross       float64 `json:"profit_gross,omitempty"`
+	HasConverted      bool    `json:"has_converted,omitempty"`
 	// SyncPath: "api_sync" | "webhook" — UI empty-state distinction (P-B1.4).
 	SyncPath string `json:"sync_path,omitempty"`
 }

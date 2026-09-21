@@ -1,0 +1,334 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260921193647
+Username: DESKTOP-TM1VJ74\DELL
+RunAs User: DESKTOP-TM1VJ74\DELL
+Configuration Name: 
+Machine: DESKTOP-TM1VJ74 (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NonInteractive -File C:\Users\DELL\AppData\Local\Temp\ps-script-4d8a5ba1-7031-40ad-8d26-da0cfa9380f2.ps1
+Process ID: 3492
+PSVersion: 5.1.26100.9444
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9444
+BuildVersion: 10.0.26100.9444
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is C:\Users\DELL\calyx-AI\docs\evidence\ringba-writeback-phase1b\verify-system.txt
+
+=== Docker containers ===
+  PASS ingestion (running)
+  PASS consumer (running)
+  PASS scoring (running)
+  PASS enrichment (running)
+  PASS providerconfig (running)
+  PASS compliance-intelligence (running)
+  PASS ask-ai (running)
+  PASS ad-attribution (running)
+  PASS api (running)
+  PASS web (running)
+  PASS postgres (running, healthy)
+  PASS redis (running, healthy)
+  PASS clickhouse (running, healthy)
+  PASS redpanda (running, healthy)
+
+=== Service health endpoints ===
+  PASS :8080/healthz (200)
+  PASS :8081/healthz (200)
+  PASS :8082/healthz (200)
+  PASS :8083/healthz (200)
+  PASS :8084/healthz (200)
+  PASS :8085/healthz (200)
+  PASS :8086/healthz (200)
+  PASS :8087/healthz (200)
+  PASS :3000/healthz (200)
+  PASS :3000/readyz (200)
+
+=== API presentation verification ===
+
+
+=== Web routes (http://localhost:3001) ===
+  PASS /login (200)
+  PASS /dashboard (200)
+  PASS /pings (200)
+  PASS /scoring (200)
+  PASS /scoring/scorecards (200)
+  PASS /intelligence (200)
+  PASS /ask (200)
+  PASS /compliance (200)
+  PASS /attribution (200)
+  PASS /coverage (200)
+  PASS /reports (200)
+  PASS /settings (200)
+  PASS /calls/demo-call-1 (200)
+
+=== WebSocket live feed ===
+
+
+=== Pipeline smoke (multi-platform 4/4) ===
+
+
+=== Unit tests ===
+docker : go: downloading github.com/redis/go-redis/v9 v9.7.0
+At C:\Users\DELL\AppData\Local\Temp\ps-script-4d8a5ba1-7031-40ad-8d26-da0cfa9380f2.ps1:120 char:3
++   docker run --rm -v "${repo}:/src" -v calyx-go-mod:/go/pkg/mod -v ca ...
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (go: downloading...redis/v9 v9.7.0:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+docker : go: downloading github.com/redis/go-redis/v9 v9.7.0
+At C:\Users\DELL\AppData\Local\Temp\ps-script-4d8a5ba1-7031-40ad-8d26-da0cfa9380f2.ps1:120 char:3
++   docker run --rm -v "${repo}:/src" -v calyx-go-mod:/go/pkg/mod -v ca ...
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (go: downloading...redis/v9 v9.7.0:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+go: downloading github.com/segmentio/kafka-go v0.4.47
+go: downloading github.com/segmentio/kafka-go v0.4.47
+go: downloading github.com/jackc/pgx/v5 v5.7.2
+go: downloading github.com/jackc/pgx/v5 v5.7.2
+go: downloading github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
+go: downloading github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
+go: downloading github.com/cespare/xxhash/v2 v2.2.0
+go: downloading github.com/cespare/xxhash/v2 v2.2.0
+go: downloading github.com/jackc/puddle/v2 v2.2.2
+go: downloading github.com/jackc/puddle/v2 v2.2.2
+go: downloading github.com/jackc/pgpassfile v1.0.0
+go: downloading github.com/jackc/pgpassfile v1.0.0
+go: downloading golang.org/x/text v0.21.0
+go: downloading golang.org/x/text v0.21.0
+go: downloading github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+go: downloading github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+go: downloading golang.org/x/crypto v0.31.0
+go: downloading golang.org/x/crypto v0.31.0
+go: downloading github.com/klauspost/compress v1.15.9
+go: downloading github.com/klauspost/compress v1.15.9
+go: downloading github.com/pierrec/lz4/v4 v4.1.15
+go: downloading github.com/pierrec/lz4/v4 v4.1.15
+go: downloading golang.org/x/sync v0.10.0
+go: downloading golang.org/x/sync v0.10.0
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/cmd/hmacsig	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/cmd/platformsig	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/dedup	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/config	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/connectors	0.014s
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/crypto	0.021s
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/normalizer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/store	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/pkg/kafka	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/pkg/redis	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/handlers	0.088s
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/producer	0.018s
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/security	0.010s
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/state	0.010s
+docker : go: downloading github.com/ClickHouse/clickhouse-go/v2 v2.30.0
+At C:\Users\DELL\AppData\Local\Temp\ps-script-4d8a5ba1-7031-40ad-8d26-da0cfa9380f2.ps1:120 char:3
++   docker run --rm -v "${repo}:/src" -v calyx-go-mod:/go/pkg/mod -v ca ...
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (go: downloading...e-go/v2 v2.30.0:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+docker : go: downloading github.com/ClickHouse/clickhouse-go/v2 v2.30.0
+At C:\Users\DELL\AppData\Local\Temp\ps-script-4d8a5ba1-7031-40ad-8d26-da0cfa9380f2.ps1:120 char:3
++   docker run --rm -v "${repo}:/src" -v calyx-go-mod:/go/pkg/mod -v ca ...
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (go: downloading...e-go/v2 v2.30.0:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+go: downloading github.com/shopspring/decimal v1.4.0
+go: downloading github.com/shopspring/decimal v1.4.0
+go: downloading github.com/pierrec/lz4/v4 v4.1.21
+go: downloading github.com/pierrec/lz4/v4 v4.1.21
+go: downloading github.com/klauspost/compress v1.17.7
+go: downloading github.com/klauspost/compress v1.17.7
+go: downloading github.com/ClickHouse/ch-go v0.61.5
+go: downloading github.com/ClickHouse/ch-go v0.61.5
+go: downloading github.com/andybalholm/brotli v1.1.1
+go: downloading github.com/andybalholm/brotli v1.1.1
+go: downloading github.com/pkg/errors v0.9.1
+go: downloading github.com/pkg/errors v0.9.1
+go: downloading go.opentelemetry.io/otel/trace v1.26.0
+go: downloading go.opentelemetry.io/otel/trace v1.26.0
+go: downloading github.com/google/uuid v1.6.0
+go: downloading github.com/google/uuid v1.6.0
+go: downloading go.opentelemetry.io/otel v1.26.0
+go: downloading go.opentelemetry.io/otel v1.26.0
+go: downloading github.com/paulmach/orb v0.11.1
+go: downloading github.com/paulmach/orb v0.11.1
+go: downloading gopkg.in/yaml.v3 v3.0.1
+go: downloading gopkg.in/yaml.v3 v3.0.1
+go: downloading github.com/go-faster/errors v0.7.1
+go: downloading github.com/go-faster/errors v0.7.1
+go: downloading github.com/go-faster/city v1.0.1
+go: downloading github.com/go-faster/city v1.0.1
+go: downloading github.com/segmentio/asm v1.2.0
+go: downloading github.com/segmentio/asm v1.2.0
+go: downloading golang.org/x/sys v0.26.0
+go: downloading golang.org/x/sys v0.26.0
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/consumer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/writer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/pkg/kafka	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/consumer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/events	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/mockemitter	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/pii	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/scoring	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/pkg/kafka	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/pkg/redis	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/config	0.016s
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/cache	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/consumer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/providers	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/kafka	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/redis	[no test files]
+docker : go: downloading github.com/hashicorp/golang-lru/v2 v2.0.7
+At C:\Users\DELL\AppData\Local\Temp\ps-script-4d8a5ba1-7031-40ad-8d26-da0cfa9380f2.ps1:120 char:3
++   docker run --rm -v "${repo}:/src" -v calyx-go-mod:/go/pkg/mod -v ca ...
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (go: downloading...g-lru/v2 v2.0.7:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+docker : go: downloading github.com/hashicorp/golang-lru/v2 v2.0.7
+At C:\Users\DELL\AppData\Local\Temp\ps-script-4d8a5ba1-7031-40ad-8d26-da0cfa9380f2.ps1:120 char:3
++   docker run --rm -v "${repo}:/src" -v calyx-go-mod:/go/pkg/mod -v ca ...
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (go: downloading...g-lru/v2 v2.0.7:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/adapter	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/crypto	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/handlers	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/catalog	0.033s
+ok  	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/config	0.006s
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/registry	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/pkg/redis	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/loader	0.008s
+docker : go: downloading golang.org/x/sys v0.28.0
+At C:\Users\DELL\AppData\Local\Temp\ps-script-4d8a5ba1-7031-40ad-8d26-da0cfa9380f2.ps1:120 char:3
++   docker run --rm -v "${repo}:/src" -v calyx-go-mod:/go/pkg/mod -v ca ...
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (go: downloading golang.org/x/sys v0.28.0:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+docker : go: downloading golang.org/x/sys v0.28.0
+At C:\Users\DELL\AppData\Local\Temp\ps-script-4d8a5ba1-7031-40ad-8d26-da0cfa9380f2.ps1:120 char:3
++   docker run --rm -v "${repo}:/src" -v calyx-go-mod:/go/pkg/mod -v ca ...
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (go: downloading golang.org/x/sys v0.28.0:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/attestation	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/consumer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/dedup	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/dnc	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/providerconfig	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/publisher	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/pkg/kafka	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/pkg/redis	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/riskscoring	0.064s
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/cost	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/embeddings	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/handlers	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/nlquery	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/pipeline	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/providerconfig	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/pkg/postgres	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/nlsql	0.017s
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/consumer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/dedup	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/dispatcher	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/mockbridge	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/platforms	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/providerconfig	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/publisher	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/pkg/kafka	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/pkg/redis	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/matcher	0.006s
+node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help 
+npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+
+> @calyx-ai/api@0.0.1 test
+> jest --passWithNoTests
+
+'jest' is not recognized as an internal or external command,
+'jest' is not recognized as an internal or external command,
+operable program or batch file.
+operable program or batch file.
+
+=== Web production build ===
+node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help 
+npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+
+> @calyx-ai/web@0.0.1 build
+> next build
+
+'next' is not recognized as an internal or external command,
+'next' is not recognized as an internal or external command,
+operable program or batch file.
+operable program or batch file.
+
+=== SYSTEM VERIFICATION SUMMARY ===
+  Docker:     14 / 14
+  Healthz:    10 / 10
+  API:        PASS (20/20)
+  Web routes: 13 / 13
+  WebSocket:  FAIL
+  Unit tests: FAIL
+  Web build:  FAIL
+  Pipeline:   FAIL
+
+SYSTEM VERIFY FAIL (see sections above)
+**********************
+Windows PowerShell transcript end
+End time: 20260921194037
+**********************

@@ -30,6 +30,7 @@ type PingMessage struct {
 	HasRecording      bool    `json:"has_recording,omitempty"`
 	RecordingKnown    bool    `json:"recording_known,omitempty"`
 	ProfitGross       float64 `json:"profit_gross,omitempty"`
+	HasConverted      bool    `json:"has_converted,omitempty"`
 	SyncPath          string  `json:"sync_path,omitempty"`
 }
 

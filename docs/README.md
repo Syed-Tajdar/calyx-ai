@@ -30,15 +30,18 @@ Management and engineering documentation for the Calyx AI presentation package.
 | [call-detail-parity-ringba-audit.md](call-detail-parity-ringba-audit.md) | Audit trail |
 | [ui-credibility-fixes-report.md](ui-credibility-fixes-report.md) | C1–C3 credibility fixes |
 
-## Ringba write-back (research only — not shipped)
+## Ringba write-back
 
 | Document | Status |
 |----------|--------|
 | [ringba-writeback-probe-report.md](ringba-writeback-probe-report.md) | **Done** — read paths, columns, fake-ID probes |
-| [ringba-writeback-sandbox-report.md](ringba-writeback-sandbox-report.md) | **Done** — payments/void/annotate/webhook CRUD; convert loop **open** |
-| `ringba-writeback-phase-g-report.md` | **Pending** — needs clean sandbox call from operator |
+| [ringba-writeback-sandbox-report.md](ringba-writeback-sandbox-report.md) | **Done** — payments/void/annotate/webhook CRUD; convert loop was open until Phase G |
+| [ringba-writeback-phase-g-report.md](ringba-writeback-phase-g-report.md) | **PASS** — clean call convert loop closed; `hasConverted` semantics pinned |
+| [ringba-writeback-product-slice-report.md](ringba-writeback-product-slice-report.md) | **Shipped (API only)** — `hasConverted` mapped; allowlisted convert; no write UI; hand-off for review |
+| [writeback-phase0-field-verification.md](writeback-phase0-field-verification.md) | **Read-only** — columns + calllogs field ids/values; `[PROVEN]`/`[UNKNOWN]` |
+| [writeback-phase05-two-unknowns.md](writeback-phase05-two-unknowns.md) | **Read-only** — `hasConverted` stability + reason-field presence on convert-miss |
 
-Evidence dirs: `docs/evidence/ringba-writeback-probe/` · `docs/evidence/ringba-writeback-sandbox/` · `docs/evidence/ringba-parity-a-b1/` · `docs/evidence/ringba-parity-delta/`
+Evidence dirs: `docs/evidence/ringba-writeback-probe/` · `docs/evidence/ringba-writeback-sandbox/` · `docs/evidence/ringba-writeback-phase-g/` · `docs/evidence/ringba-writeback-product-slice/` · `docs/evidence/ringba-writeback-phase0/` · `docs/evidence/ringba-writeback-phase05/` · `docs/evidence/ringba-parity-a-b1/` · `docs/evidence/ringba-parity-delta/`
 
 ## API sync & ingestion
 

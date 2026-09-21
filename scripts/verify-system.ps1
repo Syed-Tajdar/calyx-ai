@@ -48,7 +48,8 @@ try {
   $rows = @($ps | ForEach-Object { $_ | ConvertFrom-Json })
   $appServices = @(
     "ingestion", "consumer", "scoring", "enrichment", "providerconfig",
-    "compliance-intelligence", "ask-ai", "ad-attribution", "api", "web"
+    "compliance-intelligence", "ask-ai", "ad-attribution", "api", "web",
+    "platform-sync"
   )
   $infraHealthy = @("postgres", "redis", "clickhouse", "redpanda")
   foreach ($name in ($appServices + $infraHealthy)) {
@@ -74,7 +75,7 @@ try {
 }
 
 Write-Section "Service health endpoints"
-$healthPorts = @(8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 3000)
+$healthPorts = @(8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 3000, 8088)
 foreach ($port in $healthPorts) {
   $summary.HealthEndpoints.Total++
   if (Test-HttpStatus ":$port/healthz" "http://localhost:$port/healthz") {
@@ -124,7 +125,7 @@ $testFailed = $false
 $goServices = @(
   "services\ingestion", "services\consumer", "services\scoring", "services\enrichment",
   "services\providerconfig", "services\compliance-intelligence", "services\ask-ai",
-  "services\ad-attribution"
+  "services\ad-attribution", "services\platform-sync", "packages\pingdedup"
 )
 $prevEap = $ErrorActionPreference
 $ErrorActionPreference = "Continue"

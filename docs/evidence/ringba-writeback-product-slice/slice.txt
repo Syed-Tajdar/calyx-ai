@@ -1,0 +1,20 @@
+SLICE=ringba-writeback-product-map-allowlist DATE=2026-09-18/19
+SCOPE=ringba-only NO_WRITE_UI TICKER_PAUSED
+ALLOWLIST=CA98abf9d92be446e786f298680a3bbee6
+INTEGRATION=ce6fd338-af48-47d8-850a-bd10b855e2f4 is_active=false sync_mode=real
+
+GO_TEST platform-sync internal/writeback=ok internal/adapter=ok
+GO_BUILD platform-sync cmd/server=ok
+GO_TEST packages/pingdedup=ok
+PG_MIGRATE 000024_writeback_integration_any=applied
+CH_COLUMN pings.has_converted=UInt8
+CH_COUNTS has_converted=0 rows=4154 (pre-mapping ingest)
+REBUILD api,platform-sync,web,consumer=ok
+HEALTH platform-sync:8088=ok api:3000/healthz=ok
+LOG writeback_allowlist_configured=true
+SMOKE nest_convert_unauth=401 platform_sync_empty_body=400
+UI settings_no_convert_button=yes ringba_live_hidden=yes
+UI deep_view_converted_field=yes sample_RGB7202 converted=No revenue=13
+SANDBOX_CALL …V3NYI01 in_clickhouse=no product_convert_fired=no
+PHASE_G_PROOF=docs/ringba-writeback-phase-g-report.md
+TOKENS=REDACTED ANI=not_printed

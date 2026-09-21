@@ -5,7 +5,7 @@ param(
     [string]$Platform = "ringba"
 )
 
-$callId = [guid]::NewGuid().ToString()
+$callId = "smoke-" + [guid]::NewGuid().ToString()
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $ingestionDir = Join-Path $repoRoot "services\ingestion"
@@ -59,7 +59,7 @@ $login = Invoke-RestMethod -Uri "http://localhost:3000/auth/login" -Method POST 
   -ContentType "application/json" `
   -Body '{"email":"admin@calyx.ai","password":"calyx_dev"}'
 
-$pings = Invoke-RestMethod -Uri "http://localhost:3000/pings?limit=20" -Method GET `
+$pings = Invoke-RestMethod -Uri "http://localhost:3000/pings?limit=20&show_demo=true" -Method GET `
   -Headers @{ Authorization = "Bearer $($login.access_token)" }
 
 $found = $pings.data | Where-Object { $_.external_call_id -eq $callId -and $_.platform -eq $Platform }

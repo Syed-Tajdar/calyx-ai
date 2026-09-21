@@ -1,0 +1,30 @@
+PHASE=0.5 READ-ONLY BASE=https://api.ringba.com/v2/{accountId} TOKEN=REDACTED
+ENDPOINTS=POST /calllogs
+NO_WRITE_ENDPOINTS
+GVOID_ID=RGB0B96293B9F8915CA75C5CCDCF7BCFD0CFAAEDB9CV3NYI01
+
+R1 time=2026-09-19T11:32:37Z hasConverted_present=true val=true conversionAmount=0.00 payoutAmount=0.00 wasConversionAdjusted=true wasPayoutAdjusted=true hasConnected=true
+R2 time=2026-09-19T11:33:08Z hasConverted_present=true val=true conversionAmount=0.00 payoutAmount=0.00 wasConversionAdjusted=true wasPayoutAdjusted=true hasConnected=true
+R3 time=2026-09-19T11:36:10Z hasConverted_present=true val=true conversionAmount=0.00 payoutAmount=0.00 wasConversionAdjusted=true wasPayoutAdjusted=true hasConnected=true
+U1_ACROSS_THREE hasConverted_identical=true conversionAmount_identical=true
+
+MIN time=2026-09-19T11:36:11Z hasConverted_present=true val=true conversionAmount=0.00 keys=conversionAmount,hasConverted,inboundCallId
+FULL time=2026-09-19T11:36:12Z hasConverted_present=true val=true conversionAmount=0.00 payoutAmount=0.00 wasConversionAdjusted=true wasPayoutAdjusted=true hasConnected=true hasPayout=true
+U1_MIN_VS_FULL hasConverted_identical=true conversionAmount_identical=true
+
+U2_WINDOW start=2026-09-05T13:36:12Z end=2026-09-19T13:36:12Z
+U2_SCAN records=1716
+noConversionReason present=0/1716
+noPayoutReason present=0/1716
+incompleteCallReason present=0/1716
+offlineConversionUploaded present=0/1716
+blockReason present=239/1716 val="The bid has expired" n=239
+EX_blockReason={"blockReason":"The bid has expired","campaignId":"CA07d575e1be024382a5e730151fc80e8d","campaignName":"Final Expense","hasPreviouslyConnected":false,"inboundCallId":"RGBB67B37C996FCC8BF147DAD1E9881800462C054CFRGB2D02","wasBlocked":true}
+
+TYPE_B_COUNT=939 shown=5
+TYPE_B_1={"campaignId":"CA07d575e1be024382a5e730151fc80e8d","campaignName":"Final Expense","hasConnected":true,"hasPreviouslyConnected":false,"inboundCallId":"RGBDE46FD56187405E86131837144FE4EFD19260001RGB1A02","targetName":"RingbaX Final Expense paid-search RTT"}
+TYPE_B_2={"campaignId":"CA07d575e1be024382a5e730151fc80e8d","campaignName":"Final Expense","hasConnected":true,"hasPreviouslyConnected":false,"inboundCallId":"RGBFCF3782135426D3ECDCFFEE980602AEF71E3972BRGBA302","targetName":"RingbaX Final Expense paid-search RTT"}
+TYPE_B_3={"campaignId":"CA07d575e1be024382a5e730151fc80e8d","campaignName":"Final Expense","hasConnected":true,"hasPreviouslyConnected":false,"inboundCallId":"RGB82A53EC17EAF381316357D591CC35F9F0ABAD445RGBB102","targetName":"RingbaX Final Expense paid-search RTT"}
+TYPE_B_4={"campaignId":"CA07d575e1be024382a5e730151fc80e8d","campaignName":"Final Expense","hasConnected":true,"hasPreviouslyConnected":false,"inboundCallId":"RGB169AB126AE63DC06EAD2BD385F41B14C47B65A91RGBC702","targetName":"RingbaX Final Expense paid-search RTT"}
+TYPE_B_5={"campaignId":"CA07d575e1be024382a5e730151fc80e8d","campaignName":"Final Expense","hasConnected":true,"hasPreviouslyConnected":false,"inboundCallId":"RGB6A507FDA6FD3CF43DE4741E1ACCB2E8CA3C16B3DRGB9302","targetName":"RingbaX Final Expense paid-search RTT"}
+PHASE_05_READ_ONLY_COMPLETE

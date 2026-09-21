@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/models"
@@ -35,10 +36,92 @@ func (s *IntegrationStore) ListAPISync(ctx context.Context) ([]models.SyncIntegr
 }
 
 func (s *IntegrationStore) GetAPISync(ctx context.Context, tenantID, integrationID string) (*models.SyncIntegration, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT * FROM get_api_sync_integration($1::uuid, $2::uuid)`,
-		tenantID, integrationID,
-	)
+	return s.getAPISync(ctx, `SELECT * FROM get_api_sync_integration($1::uuid, $2::uuid)`, tenantID, integrationID)
+}
+
+// GetAPISyncAny includes paused (is_active=false) api_sync rows — used by write-back only.
+func (s *IntegrationStore) GetAPISyncAny(ctx context.Context, tenantID, integrationID string) (*models.SyncIntegration, error) {
+	row := s.pool.QueryRow(ctx, `SELECT * FROM get_api_sync_integration_any($1::uuid, $2::uuid)`, tenantID, integrationID)
+	var item models.SyncIntegration
+	var lastSync *time.Time
+	var cursor *string
+	var syncStatus *string
+	var syncError *string
+	var lookbackDays int
+	if err := row.Scan(
+		&item.ID, &item.TenantID, &item.Platform, &item.Name, &item.SyncMode,
+		&item.APICredentialsBlob, &cursor, &lastSync, &syncStatus, &syncError,
+		&lookbackDays, &item.WritebackEnabled,
+	); err != nil {
+		return nil, fmt.Errorf("integration not found")
+	}
+	if cursor != nil {
+		item.SyncCursor = *cursor
+	}
+	item.LastSyncAt = lastSync
+	if syncStatus != nil {
+		item.SyncStatus = *syncStatus
+	}
+	if syncError != nil {
+		item.LastSyncError = *syncError
+	}
+	if item.SyncMode == "" {
+		item.SyncMode = "mock"
+	}
+	if lookbackDays < 1 {
+		lookbackDays = 30
+	}
+	item.InitialLookbackDays = lookbackDays
+	return &item, nil
+}
+
+func (s *IntegrationStore) InsertWritebackAudit(ctx context.Context, row AuditRow) (string, error) {
+	var id string
+	err := s.pool.QueryRow(ctx, `
+		SELECT insert_writeback_audit(
+			$1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10, $11
+		)::text`,
+		row.TenantID, nilUUID(row.UserID), nilUUID(row.IntegrationID),
+		row.InboundCallID, row.Action, row.Amount, row.Outcome,
+		nullIfEmpty(row.RingbaRef), nullIfEmpty(row.CampaignID),
+		nullIfEmpty(row.Message), nullIfEmpty(row.OfflineUploaded),
+	).Scan(&id)
+	if err != nil {
+		return "", fmt.Errorf("insert writeback audit: %w", err)
+	}
+	return id, nil
+}
+
+type AuditRow struct {
+	TenantID        string
+	UserID          string
+	IntegrationID   string
+	InboundCallID   string
+	Action          string
+	Amount          float64
+	Outcome         string
+	RingbaRef       string
+	CampaignID      string
+	Message         string
+	OfflineUploaded string
+}
+
+func nilUUID(s string) interface{} {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return s
+}
+
+func nullIfEmpty(s string) interface{} {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return s
+}
+
+func (s *IntegrationStore) getAPISync(ctx context.Context, query, tenantID, integrationID string) (*models.SyncIntegration, error) {
+	rows, err := s.pool.Query(ctx, query, tenantID, integrationID)
 	if err != nil {
 		return nil, err
 	}

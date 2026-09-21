@@ -1,0 +1,8 @@
+﻿                  id                  | action  |                    inbound_call_id                     | amount | outcome |                message                | offline_conversion_uploaded |            campaign_id             |         requested_at          
+--------------------------------------+---------+--------------------------------------------------------+--------+---------+---------------------------------------+-----------------------------+------------------------------------+-------------------------------
+ 7bc2d488-0dc4-41ab-b65b-7813a4a4b3d2 | convert | RGB0000000000000000000000000000000000000000FAKEPROBE01 |   0.00 | failed  | ringba: call not found in 7d window   | absent                      |                                    | 2026-09-19 13:44:44.984303+00
+ 13c69857-d354-4893-a9f6-67868aa1159f | convert | RGB0B96293B9F8915CA75C5CCDCF7BCFD0CFAAEDB9CV3NYI01     |   1.00 | pending | fire accepted; not settled within 12s | absent                      | CA98abf9d92be446e786f298680a3bbee6 | 2026-09-19 13:45:14.147516+00
+ 7c172761-5968-4ffc-92ae-39f8e528cf4a | void    | RGB0B96293B9F8915CA75C5CCDCF7BCFD0CFAAEDB9CV3NYI01     |   0.00 | failed  | writeback: call is not converted      | absent                      | CA98abf9d92be446e786f298680a3bbee6 | 2026-09-19 13:45:45.79072+00
+ b6234da3-1904-40bb-8980-0346064f5d35 | convert | RGB0000000000000000000000000000000000000000FAKEPROBE02 |   0.00 | failed  | ringba: call not found in 7d window   | absent                      |                                    | 2026-09-19 13:52:59.25267+00
+(4 rows)
+

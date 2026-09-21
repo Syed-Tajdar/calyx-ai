@@ -1,0 +1,45 @@
+PHASE=0 READ-ONLY BASE=https://api.ringba.com/v2/{accountId} TOKEN=REDACTED
+ENDPOINTS=GET /calllogs/columns ; POST /calllogs
+NO_WRITE_ENDPOINTS
+P01_COLUMNS_HTTP=200 ctype=application/json; charset=utf-8 bytes=25188
+P01_COLUMNS_COUNT=110 parse=ok
+
+TITLE "Converted" CONFIRMED id="hasConverted" type="boolean" roles=admin,user
+TITLE "Block Reason" CONFIRMED id="blockReason" type="keyword" roles=admin,user
+TITLE "No Conversion Reason" CONFIRMED id="noConversionReason" type="keyword" roles=admin,user
+TITLE "No Payout Reason" CONFIRMED id="noPayoutReason" type="keyword" roles=admin,user
+TITLE "Incomplete Call Reason" CONFIRMED id="incompleteCallReason" type="keyword" roles=admin,user
+TITLE "Offline Conversion Uploaded" CONFIRMED id="offlineConversionUploaded" type="boolean" roles=admin,user
+TITLE "Blocked" CONFIRMED id="wasBlocked" type="boolean" roles=admin,user
+TITLE "Connected" AMBIGUOUS count=2
+  id="hasConnected" type="boolean" roles=admin,user,affiliate
+  id="buyerHasConnected" type="boolean" roles=buyer
+ACCEPT_PROBE title="Connected" id="hasConnected" http=200
+ACCEPT_PROBE title="Connected" id="buyerHasConnected" http=422 message="Value column buyerHasConnected is not available for this role(admin)"
+TITLE "Connected" LIVE_ACCEPT id="hasConnected"
+TITLE "Previously Connected" CONFIRMED id="hasPreviouslyConnected" type="boolean" roles=admin,user,affiliate
+TITLE "Conversion Adjusted" CONFIRMED id="wasConversionAdjusted" type="boolean" roles=admin,user
+TITLE "Payout Adjusted" CONFIRMED id="wasPayoutAdjusted" type="boolean" roles=admin,user
+TITLE "Has Annotations" CONFIRMED id="hasAnnotations" type="boolean" roles=admin,user
+TITLE "TCPA Shield Count" CONFIRMED id="tcpaCount" type="long" roles=admin,user
+TITLE "TCPA Shield Blocked" CONFIRMED id="wasBlockedByTCPA" type="boolean" roles=admin,user
+TITLE "TCPA Shield Cost" CONFIRMED id="tcpaCost" type="money" roles=admin,user
+TITLE "Error Message" matches=0
+TITLE "Provider Id" matches=0
+
+P02_WINDOW start=2026-09-05T03:01:52Z end=2026-09-19T03:01:52Z
+CALLLOGS page=0 records=1000 offset=0
+CALLLOGS page=1 records=716 offset=1000
+P02_SCAN pages=2 records=1716 scanned=1716
+TYPE_A_COUNT=239
+TYPE_A={"blockReason":"The bid has expired","campaignId":"CA07d575e1be024382a5e730151fc80e8d","campaignName":"Final Expense","hasPreviouslyConnected":false,"inboundCallId":"RGB6BEAEA84640DD1F2791393C0FC85AFCFA48AE2DBRGB1D02","wasBlocked":true}
+TYPE_A_ABSENT=hasConnected,hasConverted,conversionAmount,payoutAmount,noConversionReason,noPayoutReason,incompleteCallReason,offlineConversionUploaded,hasAnnotations,wasConversionAdjusted,wasPayoutAdjusted,tcpaCount,wasBlockedByTCPA,tcpaCost,targetName
+TYPE_B_COUNT=939
+TYPE_B={"campaignId":"CA07d575e1be024382a5e730151fc80e8d","campaignName":"Final Expense","hasConnected":true,"hasPreviouslyConnected":false,"inboundCallId":"RGB784DE4A8D79875FD6B7064F4CD9BFFB1E6D04B3FV359T01","targetName":"RingbaX Final Expense paid-search RTT"}
+TYPE_B_ABSENT=hasConverted,blockReason,wasBlocked,conversionAmount,payoutAmount,noConversionReason,noPayoutReason,incompleteCallReason,offlineConversionUploaded,hasAnnotations,wasConversionAdjusted,wasPayoutAdjusted,tcpaCount,wasBlockedByTCPA,tcpaCost
+TCPA_FIELD id="tcpaCount" present=0/1716 nonempty=0
+TCPA_FIELD id="wasBlockedByTCPA" present=0/1716 nonempty=0
+TCPA_FIELD id="tcpaCost" present=0/1716 nonempty=0
+GVOID={"campaignId":"CA98abf9d92be446e786f298680a3bbee6","campaignName":"Calyx-Sandbox-DO-NOT-USE","conversionAmount":"0.00","hasConnected":true,"hasConverted":true,"hasPreviouslyConnected":false,"inboundCallId":"RGB0B96293B9F8915CA75C5CCDCF7BCFD0CFAAEDB9CV3NYI01","payoutAmount":"0.00","targetName":"CALYX - TARGET - SANBOX - DO - NOT - USE","wasConversionAdjusted":true,"wasPayoutAdjusted":true}
+GVOID_ABSENT=hasAnnotations,blockReason,wasBlocked,noConversionReason,noPayoutReason,incompleteCallReason,offlineConversionUploaded,tcpaCount,wasBlockedByTCPA,tcpaCost
+PHASE_0_READ_ONLY_COMPLETE

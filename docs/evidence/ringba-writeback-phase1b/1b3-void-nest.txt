@@ -1,0 +1,5 @@
+﻿elapsed_sec=7.9878367
+{"outcome":"confirmed","inbound_call_id":"RGB512060522F815F149F10AD1B143CCF4BD5E5F709V3LIN01","campaign_id":"CA98abf9d92be446e786f298680a3bbee6","amount":1,"has_converted":false,"conversion_amount":0,"audit_id":"cd6a37a6-4c06-4564-8843-2d5792489be0","message":"void confirmed; reversible via a later convert","offline_conversion_uploaded":"absent","ringba_response_ref":"TR47005109-08a8-4c01-8664-aad1822dc8f3","void_reversible":true}
+HTTP=200
+TIME_TOTAL=7.927287
+

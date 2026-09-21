@@ -1,0 +1,38 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260921193532
+Username: DESKTOP-TM1VJ74\DELL
+RunAs User: DESKTOP-TM1VJ74\DELL
+Configuration Name: 
+Machine: DESKTOP-TM1VJ74 (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NonInteractive -File C:\Users\DELL\AppData\Local\Temp\ps-script-1a6ae8a2-de8b-44f5-b812-3ab212273640.ps1
+Process ID: 27388
+PSVersion: 5.1.26100.9444
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9444
+BuildVersion: 10.0.26100.9444
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is C:\Users\DELL\calyx-AI\docs\evidence\ringba-writeback-phase1b\verify-ingestion-slice.txt
+=== Ingestion slice verify ===
+Before: analytics.total_pings=4153 coverage.total_pings=4151
+Sending unique Ringba ping (f2b1d903-b545-4b14-8df6-dc6154060154, state=WA)...
+PASS: unique ping landed in /pings (external_call_id=f2b1d903-b545-4b14-8df6-dc6154060154)
+PASS: unique ping incremented analytics.total_pings (4153 to 4154)
+PASS: unique ping incremented coverage.total_pings (4151 to 4152)
+Resending identical Ringba ping (same CallID + revenue) -- content-hash must suppress...
+PASS: identical resend added ZERO new rows (count=1)
+Sending changed-revenue Ringba ping (same CallID)...
+PASS: changed payload published new row with is_duplicate=0 and revenue>=42.5
+PASS: analytics.total_pings after content-hash tests=4154
+Retreaver call_key ciphertext check...
+PASS: call_key stored as ciphertext (length=94, plaintext not in DB)
+
+INGESTION SLICE VERIFY PASS
+**********************
+Windows PowerShell transcript end
+End time: 20260921193628
+**********************

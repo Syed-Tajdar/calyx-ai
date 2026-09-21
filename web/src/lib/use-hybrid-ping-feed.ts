@@ -63,7 +63,14 @@ function wsPingToRecord(payload: Record<string, unknown>): PingRecord | null {
 }
 
 function pingMatchesFilters(row: PingRecord, filters: PingFetchFilters): boolean {
-  if (!filters.show_demo && row.external_call_id.startsWith('apisync-')) return false;
+  if (
+    !filters.show_demo &&
+    (row.external_call_id.startsWith('apisync-') ||
+      row.external_call_id.startsWith('demo-') ||
+      row.external_call_id.startsWith('smoke-'))
+  ) {
+    return false;
+  }
   if (filters.platform && row.platform !== filters.platform) return false;
   if (filters.from) {
     if (new Date(pingEventAt(row)).getTime() < new Date(filters.from).getTime()) return false;

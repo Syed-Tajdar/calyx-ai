@@ -85,7 +85,7 @@ Implement export-as-primary (or a hybrid) **before**:
 | E Top Scores label vs ordering | Confirm semantics | Before customer-facing demo |
 | F AVG CALL SCORE sample disclosure | Disclose N or suppress thin trend | Before customer-facing demo |
 | G Recording playback (Ringba B2) | `hasRecording` yes; `recordingUrl` obtainable — **PII/policy** is the blocker | Customer requirement OR GA — whichever first |
-| J Ringba converted-state unmapped | Identifier unproven; silent-omit on `hasConverted` | **Before any write-back implementation (blocking)** |
+| J Ringba converted-state | **Shipped 2026-09-18** — `hasConverted` mapped + campaign-allowlisted convert API; no write UI | Write UI / payments-override later |
 | H `verify-api-sync.ps1` post-C3 | Script asserts metrics growth from `apisync-%` | Before next pre-push relying on that script |
 | I WS live smoke 0-events | **Fixed (Delta 2)** | KafkaJS lacked Snappy; D1 rpk produce crashed live consumer — see `part1-delta2-report.md` |
 
@@ -185,25 +185,21 @@ Implement export-as-primary (or a hybrid) **before**:
 
 ---
 
-## J — Ringba converted-state is unmapped (write-back gate)
+## J — Ringba converted-state (write-back gate)
 
-### State today
+### State after product slice (2026-09-18)
 
-- Identifier for Ringba **Converted** is unproven on Get Call Log: `converted` / `isConverted` / `Converted` return HTTP 422; `hasConverted` is accepted but **silently omitted** from records.
-- Correctly **not** synthesised from `conversionAmount` (Part 2).
+- **Inbound convert + read-back `[PROVEN]`** on a clean sandbox call (Phase G). Report: [`ringba-writeback-phase-g-report.md`](ringba-writeback-phase-g-report.md).
+- Adapter **requests** `hasConverted` and maps it (`absent`/`false` → not converted; present `true` → converted) through Kafka → ClickHouse `pings.has_converted` → deep-view **Converted**. Report: [`ringba-writeback-product-slice-report.md`](ringba-writeback-product-slice-report.md).
+- Convert writes: inbound GET webhook, fail-closed `RINGBA_WRITEBACK_ALLOWED_CAMPAIGN_IDS`, Live credentials (paused ticker allowed). No Settings write button.
 
-### Why this blocks write-back
+### Remaining
 
-After Calyx posts a conversion to Ringba, reconciliation requires reading back whether Ringba actually recorded it. Writing without a reliable read-back produces the worst class of silent gap — converted in Calyx, not converted in Ringba, with nothing surfacing the divergence.
+Write UI; `payments` / `payments/override` / void product paths; Retreaver write-back.
 
-### Fix shape
+### Build trigger (UI)
 
-- Obtain the official API identifier (or alternate endpoint) for per-call converted state from Ringba docs / support / Export JSON Settings.
-- Map into Calyx; use as reconciliation baseline for convert / cancel / annotate.
-
-### Build trigger
-
-**Before any conversion write-back implementation begins. Blocking, not advisory.**
+Customer asks to convert from Calyx UI **and** allowlist is confirmed for that account.
 
 ---
 

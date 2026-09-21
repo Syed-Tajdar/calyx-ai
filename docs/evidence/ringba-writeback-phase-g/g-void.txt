@@ -1,0 +1,11 @@
+PHASE=G-VOID BASE=https://api.ringba.com/v2/{accountId} TOKEN=REDACTED SANDBOX=RGB0B96293B9F8915CA75C5CCDCF7BCFD0CFAAEDB9CV3NYI01
+FIND page=0 records=797 offset=0
+V0 conv=1.00 hasConverted_present=true val=true pay=0.00 campaign=Calyx-Sandbox-DO-NOT-USE
+V1_VOID status=200 location="" body={"transactionId":"TRf496260a-8dc2-4491-9dc7-61c0d2feb92c","result":{"payoutAmount":0.0,"conversionAmount":0.0}}
+FIND page=0 records=797 offset=0
+V2 conv= hasConverted_present=true val=false pay= campaign=Calyx-Sandbox-DO-NOT-USE
+V3_OVERRIDE_0 status=200 location="" body={"transactionId":"TR7ebe6f79-8249-4cd6-8b0f-0b9e9c263685","result":{"payoutAmount":0.0,"conversionAmount":0.0}}
+FIND page=0 records=797 offset=0
+V4 conv= hasConverted_present=true val=false pay= campaign=Calyx-Sandbox-DO-NOT-USE
+G_VOID_LEFT_CONV= hasConverted_present=true val=false
+PHASE_G_VOID_COMPLETE

@@ -26,6 +26,7 @@ export interface CallDeepViewPing {
   has_recording: boolean;
   /** True when has_recording was set by API sync (distinguishes false vs not provided). */
   recording_known: boolean;
+  has_converted: boolean;
   ani_hash: string;
   received_at: string;
   /** Platform call time when known; empty string if never set (epoch). Prefer over received_at in UI. */
@@ -100,6 +101,7 @@ interface DeepViewRow {
   call_length_seconds: string;
   has_recording: string;
   recording_known: string;
+  has_converted: string;
   ani_hash: string;
   ping_received_at: string;
   ping_occurred_at: string;
@@ -156,6 +158,7 @@ export class DeepQueryService {
           toString(p.call_length_seconds) AS call_length_seconds,
           toString(p.has_recording) AS has_recording,
           toString(p.recording_known) AS recording_known,
+          toString(p.has_converted) AS has_converted,
           p.ani_hash,
           p.ping_received_at,
           p.ping_occurred_at,
@@ -199,6 +202,7 @@ export class DeepQueryService {
             argMax(call_length_seconds, received_at) AS call_length_seconds,
             argMax(has_recording, received_at) AS has_recording,
             argMax(recording_known, received_at) AS recording_known,
+            argMax(has_converted, received_at) AS has_converted,
             argMax(sync_path, received_at) AS sync_path,
             argMaxIf(ani_hash, received_at, ani_hash != '') AS ani_hash,
             formatDateTime(max(received_at), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS ping_received_at,
@@ -282,6 +286,7 @@ export class DeepQueryService {
         call_length_seconds: Number(row.call_length_seconds ?? 0),
         has_recording: Number(row.has_recording ?? 0) === 1,
         recording_known: Number(row.recording_known ?? 0) === 1,
+        has_converted: Number(row.has_converted ?? 0) === 1,
         ani_hash: row.ani_hash,
         received_at: row.ping_received_at,
         occurred_at:

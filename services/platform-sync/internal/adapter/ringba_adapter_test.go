@@ -129,6 +129,9 @@ func TestMapRingbaParityB1Fields(t *testing.T) {
 	if got.ProfitGross != 6.12 {
 		t.Fatalf("profit=%v", got.ProfitGross)
 	}
+	if got.HasConverted {
+		t.Fatal("hasConverted absent must map false")
+	}
 	if got.PlatformDuplicate {
 		t.Fatal("isDuplicate false must map PlatformDuplicate=false")
 	}

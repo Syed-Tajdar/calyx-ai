@@ -65,6 +65,7 @@ func (p *Producer) Publish(ctx context.Context, tenantID, platform string, call 
 		HasRecording:      call.HasRecording,
 		RecordingKnown:    call.RecordingKnown,
 		ProfitGross:       call.ProfitGross,
+		HasConverted:      call.HasConverted,
 		SyncPath:          "api_sync",
 	}
 	if !call.OccurredAt.IsZero() {

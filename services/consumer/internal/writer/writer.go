@@ -43,6 +43,10 @@ func (w *BatchWriter) InsertBatch(ctx context.Context, pings []models.PingMessag
 		if p.RecordingKnown {
 			recKnown = 1
 		}
+		hasConv := uint8(0)
+		if p.HasConverted {
+			hasConv = 1
+		}
 		occurred := p.OccurredTime()
 		if occurred.IsZero() {
 			occurred = time.Unix(0, 0).UTC()
@@ -74,6 +78,7 @@ func (w *BatchWriter) InsertBatch(ctx context.Context, pings []models.PingMessag
 			HasRecording:      hasRec,
 			RecordingKnown:    recKnown,
 			ProfitGross:       p.ProfitGross,
+			HasConverted:      hasConv,
 			SyncPath:          p.SyncPath,
 		})
 	}

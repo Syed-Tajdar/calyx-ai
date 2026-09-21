@@ -112,6 +112,7 @@ services:
       - ../db/clickhouse/migrations/000009_pings_platform_duplicate.up.sql:/init-phase9.sql:ro
       - ../db/clickhouse/migrations/000010_enrichment_attrs_replacing.up.sql:/init-phase10.sql:ro
       - ../db/clickhouse/migrations/000011_pings_ringba_parity_b1.up.sql:/init-phase11.sql:ro
+      - ../db/clickhouse/migrations/000012_pings_has_converted.up.sql:/init-phase12.sql:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -126,6 +127,7 @@ services:
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase9.sql || true
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase10.sql || true
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase11.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase12.sql || true
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -227,6 +229,8 @@ services:
       NOTIFICATION_CHANNEL: mock
       CREDENTIAL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       PLATFORM_SYNC_URL: http://platform-sync:8088
+      WRITEBACK_ENABLED: "true"
+      WRITEBACK_INTERNAL_TOKEN: "dev_writeback_internal_token_change_me"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -396,8 +400,8 @@ services:
       ANI_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       MOCK_MODE: "true"
       MOCK_DEDUP_PROOF: "0"
-      # Temporary for scripts/prove-ringba-bogus-redaction.ps1 — leave empty/unset for prod pulls
-      # RINGBA_BASE_URL: https://this-host-does-not-exist-xyz.invalid
+      WRITEBACK_ENABLED: "true"
+      WRITEBACK_INTERNAL_TOKEN: "dev_writeback_internal_token_change_me"
       SYNC_INTERVAL_SEC: "120"
       DEDUP_TTL_HOURS: "168"
     depends_on:

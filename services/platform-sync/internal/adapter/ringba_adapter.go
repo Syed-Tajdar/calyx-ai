@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -110,6 +112,10 @@ func ringbaDefaultCursor(lastSyncAt string, lookbackDays int) ringbaCursor {
 }
 
 func (a *RingbaAdapter) fetchPage(ctx context.Context, creds map[string]string, cs ringbaCursor) ([]models.RemoteCall, bool, error) {
+	return a.fetchPageWith(ctx, creds, cs, nil)
+}
+
+func (a *RingbaAdapter) fetchPageWith(ctx context.Context, creds map[string]string, cs ringbaCursor, extraCols []string) ([]models.RemoteCall, bool, error) {
 	token := creds["api_token"]
 	if token == "" {
 		token = creds["api_key"]
@@ -122,36 +128,39 @@ func (a *RingbaAdapter) fetchPage(ctx context.Context, creds map[string]string, 
 	if size < 1 || size > ringbaMaxPageSize {
 		size = ringbaMaxPageSize
 	}
-	// Official body: reportStart/reportEnd (+ size/offset). Empty filters = no attribute filter.
-	// valueColumns: default pages omit money + geo tags; request State/Region for coverage.
+	vc := []map[string]string{
+		{"column": "inboundCallId"},
+		{"column": "callDt"},
+		{"column": "inboundPhoneNumber"},
+		{"column": "conversionAmount"},
+		{"column": "payoutAmount"},
+		{"column": "campaignId"},
+		{"column": "campaignName"},
+		{"column": "publisherId"},
+		{"column": "publisherName"},
+		{"column": "targetId"},
+		{"column": "targetName"},
+		{"column": "buyer"},
+		{"column": "buyerId"},
+		{"column": "connectedCallLengthInSeconds"},
+		{"column": "callLengthInSeconds"},
+		{"column": "hasRecording"},
+		{"column": "hasConverted"},
+		{"column": "isDuplicate"},
+		{"column": "profitGross"},
+		{"column": "tag:InboundNumber:State"},
+		{"column": "tag:InboundNumber:Region"},
+	}
+	for _, col := range extraCols {
+		vc = append(vc, map[string]string{"column": col})
+	}
 	body := map[string]interface{}{
-		"reportStart": cs.ReportStart,
-		"reportEnd":   cs.ReportEnd,
-		"filters":     []interface{}{},
-		"size":        size,
-		"offset":      cs.Offset,
-		"valueColumns": []map[string]string{
-			{"column": "inboundCallId"},
-			{"column": "callDt"},
-			{"column": "inboundPhoneNumber"},
-			{"column": "conversionAmount"},
-			{"column": "payoutAmount"},
-			{"column": "campaignId"},
-			{"column": "campaignName"},
-			{"column": "publisherId"},
-			{"column": "publisherName"},
-			{"column": "targetId"},
-			{"column": "targetName"},
-			{"column": "buyer"},
-			{"column": "buyerId"},
-			{"column": "connectedCallLengthInSeconds"},
-			{"column": "callLengthInSeconds"},
-			{"column": "hasRecording"},
-			{"column": "isDuplicate"},
-			{"column": "profitGross"},
-			{"column": "tag:InboundNumber:State"},
-			{"column": "tag:InboundNumber:Region"},
-		},
+		"reportStart":  cs.ReportStart,
+		"reportEnd":    cs.ReportEnd,
+		"filters":      []interface{}{},
+		"size":         size,
+		"offset":       cs.Offset,
+		"valueColumns": vc,
 	}
 	bodyJSON, _ := json.Marshal(body)
 	// Official: POST https://api.ringba.com/v2/{accountId}/calllogs
@@ -241,6 +250,12 @@ func mapRingbaCallLogEntry(raw json.RawMessage) models.RemoteCall {
 	connectedLen := firstUint32(lookup, "connectedCallLengthInSeconds")
 	callLen := firstUint32(lookup, "callLengthInSeconds")
 	hasRec, recKnown := parseRingbaBool(lookup("hasRecording"))
+	hasConv, hasConvPresent := parseRingbaBool(lookup("hasConverted"))
+	hasConn, _ := parseRingbaBool(lookup("hasConnected"))
+	wasBlocked, _ := parseRingbaBool(lookup("wasBlocked"))
+	wasConvAdj, _ := parseRingbaBool(lookup("wasConversionAdjusted"))
+	wasPayAdj, _ := parseRingbaBool(lookup("wasPayoutAdjusted"))
+	offline, offlinePresent := parseRingbaBool(lookup("offlineConversionUploaded"))
 	platDup, _ := parseRingbaBool(lookup("isDuplicate"))
 
 	return models.RemoteCall{
@@ -265,6 +280,15 @@ func mapRingbaCallLogEntry(raw json.RawMessage) models.RemoteCall {
 		HasRecording:      hasRec,
 		RecordingKnown:    recKnown,
 		ProfitGross:       firstFloat(lookup, "profitGross"),
+		HasConverted:                     hasConv,
+		HasConvertedPresent:              hasConvPresent,
+		HasConnected:                     hasConn,
+		WasBlocked:                       wasBlocked,
+		BlockReason:                      lookup("blockReason"),
+		WasConversionAdjusted:            wasConvAdj,
+		WasPayoutAdjusted:                wasPayAdj,
+		OfflineConversionUploadedPresent: offlinePresent,
+		OfflineConversionUploaded:        offline,
 	}
 }
 
@@ -445,4 +469,163 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// LookupCall finds one inboundCallId in a 7-day Get Call Log window.
+func (a *RingbaAdapter) LookupCall(ctx context.Context, creds map[string]string, inboundCallID string) (models.RemoteCall, error) {
+	inboundCallID = strings.TrimSpace(inboundCallID)
+	if inboundCallID == "" {
+		return models.RemoteCall{}, fmt.Errorf("ringba: inbound call id required")
+	}
+	end := time.Now().UTC().Add(2 * time.Hour)
+	cs := ringbaCursor{
+		ReportStart: end.Add(-7 * 24 * time.Hour).Format(time.RFC3339),
+		ReportEnd:   end.Format(time.RFC3339),
+		Offset:      0,
+		Size:        ringbaMaxPageSize,
+	}
+	for page := 0; page < 8; page++ {
+		calls, hasMore, err := a.fetchPageWith(ctx, creds, cs, []string{
+			"hasConnected", "wasBlocked", "blockReason",
+			"offlineConversionUploaded", "wasConversionAdjusted", "wasPayoutAdjusted",
+		})
+		if err != nil {
+			return models.RemoteCall{}, err
+		}
+		for _, c := range calls {
+			if c.ExternalCallID == inboundCallID {
+				return c, nil
+			}
+		}
+		if !hasMore {
+			break
+		}
+		cs.Offset += cs.Size
+	}
+	return models.RemoteCall{}, fmt.Errorf("ringba: call not found in 7d window")
+}
+
+type RingbaConversionWebhook struct {
+	ID   string
+	Name string
+}
+
+func (a *RingbaAdapter) ListConversionWebhooks(ctx context.Context, creds map[string]string) ([]RingbaConversionWebhook, error) {
+	token, accountID, err := ringbaCreds(creds)
+	if err != nil {
+		return nil, err
+	}
+	reqURL := fmt.Sprintf("%s/%s/WebHooks", ringbaAPIBase(), accountID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Token "+token)
+	ringbaLimiters.ForAccount(accountID).Wait()
+	resp, respBody, err := a.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkHTTPStatus(resp.StatusCode, respBody, resp.Header, "ringba"); err != nil {
+		return nil, err
+	}
+	var parsed struct {
+		WebHooks []struct {
+			ID          string `json:"id"`
+			Name        string `json:"name"`
+			Enabled     bool   `json:"enabled"`
+			WebHookType string `json:"webHookType"`
+		} `json:"webHooks"`
+	}
+	if err := json.Unmarshal(respBody, &parsed); err != nil {
+		return nil, fmt.Errorf("ringba: parse webhooks: %w", err)
+	}
+	out := make([]RingbaConversionWebhook, 0, len(parsed.WebHooks))
+	for _, wh := range parsed.WebHooks {
+		if !wh.Enabled {
+			continue
+		}
+		if wh.WebHookType != "" && !strings.EqualFold(wh.WebHookType, "conversion") {
+			continue
+		}
+		out = append(out, RingbaConversionWebhook{ID: wh.ID, Name: wh.Name})
+	}
+	return out, nil
+}
+
+// FireInboundConversion GETs the Ringba inbound conversion hook (Phase G proven path).
+func (a *RingbaAdapter) FireInboundConversion(ctx context.Context, hookID, inboundCallID string, amount float64) error {
+	hookID = strings.TrimSpace(hookID)
+	if hookID == "" {
+		return fmt.Errorf("ringba: conversion webhook id required")
+	}
+	q := url.Values{}
+	q.Set("call_id", inboundCallID)
+	q.Set("call_revenue", strconv.FormatFloat(amount, 'f', 2, 64))
+	q.Set("converted", "yes")
+	fireURL := "https://webhook.ringba.com/hook/" + hookID + "?" + q.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fireURL, nil)
+	if err != nil {
+		return err
+	}
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("ringba: conversion webhook HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// VoidCall POSTs official …/calls/void (G-void proven body, including Ringba's voidConverionAmount spelling).
+func (a *RingbaAdapter) VoidCall(ctx context.Context, creds map[string]string, inboundCallID string, convAmt, payAmt float64) (string, error) {
+	token, accountID, err := ringbaCreds(creds)
+	if err != nil {
+		return "", err
+	}
+	body := map[string]interface{}{
+		"inboundCallId":       inboundCallID,
+		"voidReason":          "CALYX write-back void",
+		"voidConversion":      true,
+		"voidPayout":          true,
+		"voidConverionAmount": convAmt,
+		"voidPayoutAmount":    payAmt,
+	}
+	raw, _ := json.Marshal(body)
+	reqURL := fmt.Sprintf("%s/%s/calls/void", ringbaAPIBase(), accountID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(raw))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Token "+token)
+	req.Header.Set("Content-Type", "application/json")
+	ringbaLimiters.ForAccount(accountID).Wait()
+	resp, respBody, err := a.http.Do(req)
+	if err != nil {
+		return "", err
+	}
+	if err := checkHTTPStatus(resp.StatusCode, respBody, resp.Header, "ringba"); err != nil {
+		return "", err
+	}
+	var parsed struct {
+		TransactionID string `json:"transactionId"`
+	}
+	_ = json.Unmarshal(respBody, &parsed)
+	return parsed.TransactionID, nil
+}
+
+func ringbaCreds(creds map[string]string) (token, accountID string, err error) {
+	token = creds["api_token"]
+	if token == "" {
+		token = creds["api_key"]
+	}
+	accountID = creds["account_id"]
+	if token == "" || accountID == "" {
+		return "", "", fmt.Errorf("ringba: api_token and account_id required")
+	}
+	return token, accountID, nil
 }

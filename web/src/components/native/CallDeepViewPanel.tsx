@@ -202,6 +202,9 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
                 '—'
               )}
             </Field>
+            <Field label="Converted">
+              {ping.has_converted ? 'Yes' : 'No'}
+            </Field>
             <Field label="Recording">
               {ping.recording_known ? (
                 ping.has_recording ? 'Yes' : 'No'

@@ -1,0 +1,5 @@
+﻿METRICS
+{"total_pings":4114,"total_revenue":19222.76,"total_payout":15432.65,"cpa":0.0899368011667477,"rpc":4.67252309188138,"roi":924.3540540540538,"duplicate_rate":0.04205153135634419}
+
+EXPOSURE
+{"total_exposure_usd":3372.450472652912,"violation_count":36,"avg_risk_score":27.01385512882839,"dnc_match_count":36}

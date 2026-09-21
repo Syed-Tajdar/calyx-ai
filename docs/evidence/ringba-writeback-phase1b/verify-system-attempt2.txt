@@ -1,0 +1,291 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260921194415
+Username: DESKTOP-TM1VJ74\DELL
+RunAs User: DESKTOP-TM1VJ74\DELL
+Configuration Name: 
+Machine: DESKTOP-TM1VJ74 (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NonInteractive -File C:\Users\DELL\AppData\Local\Temp\ps-script-0353ebc8-9ced-440a-bfa9-b0051a71ac22.ps1
+Process ID: 26900
+PSVersion: 5.1.26100.9444
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9444
+BuildVersion: 10.0.26100.9444
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is C:\Users\DELL\calyx-AI\docs\evidence\ringba-writeback-phase1b\verify-system.txt
+
+=== Docker containers ===
+  PASS ingestion (running)
+  PASS consumer (running)
+  PASS scoring (running)
+  PASS enrichment (running)
+  PASS providerconfig (running)
+  PASS compliance-intelligence (running)
+  PASS ask-ai (running)
+  PASS ad-attribution (running)
+  PASS api (running)
+  PASS web (running)
+  PASS postgres (running, healthy)
+  PASS redis (running, healthy)
+  PASS clickhouse (running, healthy)
+  PASS redpanda (running, healthy)
+
+=== Service health endpoints ===
+  PASS :8080/healthz (200)
+  PASS :8081/healthz (200)
+  PASS :8082/healthz (200)
+  PASS :8083/healthz (200)
+  PASS :8084/healthz (200)
+  PASS :8085/healthz (200)
+  PASS :8086/healthz (200)
+  PASS :8087/healthz (200)
+  PASS :3000/healthz (200)
+  PASS :3000/readyz (200)
+
+=== API presentation verification ===
+
+
+=== Web routes (http://localhost:3001) ===
+  PASS /login (200)
+  PASS /dashboard (200)
+  PASS /pings (200)
+  PASS /scoring (200)
+  PASS /scoring/scorecards (200)
+  PASS /intelligence (200)
+  PASS /ask (200)
+  PASS /compliance (200)
+  PASS /attribution (200)
+  PASS /coverage (200)
+  PASS /reports (200)
+  PASS /settings (200)
+  PASS /calls/demo-call-1 (200)
+
+=== WebSocket live feed ===
+
+
+=== Pipeline smoke (multi-platform 4/4) ===
+
+
+=== Unit tests ===
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/cmd/hmacsig	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/cmd/platformsig	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/dedup	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/connectors	(cached)
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/crypto	(cached)
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/normalizer	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/handlers	(cached)
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/producer	(cached)
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/store	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/pkg/redis	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/security	(cached)
+?   	github.com/Syed-Tajdar/calyx-ai/services/ingestion/pkg/kafka	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/state	(cached)
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/consumer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/writer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/consumer/pkg/kafka	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/consumer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/pkg/kafka	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/pkg/redis	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/mockemitter	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/config	(cached)
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/scoring	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/events	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/scoring/internal/pii	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/cache	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/consumer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/internal/providers	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/kafka	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/enrichment/pkg/redis	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/adapter	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/crypto	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/handlers	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/registry	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/catalog	(cached)
+?   	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/pkg/redis	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/config	(cached)
+ok  	github.com/Syed-Tajdar/calyx-ai/services/providerconfig/internal/loader	(cached)
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/attestation	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/consumer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/dedup	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/dnc	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/providerconfig	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/publisher	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/pkg/kafka	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/internal/riskscoring	(cached)
+?   	github.com/Syed-Tajdar/calyx-ai/services/compliance-intelligence/pkg/redis	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/cost	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/embeddings	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/handlers	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/nlquery	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/pipeline	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/providerconfig	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/pkg/postgres	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ask-ai/internal/nlsql	(cached)
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/cmd/server	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/config	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/consumer	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/dedup	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/dispatcher	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/mockbridge	[no test files]
+ok  	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/matcher	(cached)
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/models	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/platforms	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/providerconfig	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/internal/publisher	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/pkg/clickhouse	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/pkg/kafka	[no test files]
+?   	github.com/Syed-Tajdar/calyx-ai/services/ad-attribution/pkg/redis	[no test files]
+node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help 
+npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+
+> @calyx-ai/api@0.0.1 test
+> jest --passWithNoTests
+
+PASS src/common/demo-rows.spec.ts (32.265 s)
+PASS src/common/demo-rows.spec.ts (32.265 s)
+PASS src/scorecards/scorecards.schemas.spec.ts (66.87 s)
+PASS src/scorecards/scorecards.schemas.spec.ts (66.87 s)
+PASS src/database/postgres.service.spec.ts (70.42 s)
+PASS src/database/postgres.service.spec.ts (70.42 s)
+A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due to 
+improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure that 
+.unref() was called on them.
+A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due
+to improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure
+that .unref() was called on them.
+
+
+Test Suites: 3 passed, 3 total
+Test Suites: 3 passed, 3 total
+Tests:       12 passed, 12 total
+Tests:       12 passed, 12 total
+Snapshots:   0 total
+Snapshots:   0 total
+Time:        76.863 s
+Time:        76.863 s
+Ran all test suites.
+Ran all test suites.
+
+=== Web production build ===
+node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help 
+npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+
+> @calyx-ai/web@0.0.1 build
+> next build
+
+  Γû▓ Next.js 14.2.35
+
+   Creating an optimized production build ...
+request to https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap failed, reason: write 
+ECONNABORTED
+request to https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap failed, reason: write
+ECONNABORTED
+
+
+Retrying 1/3...
+Retrying 1/3...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/16) ...
+   Generating static pages (4/16)
+   Generating static pages (8/16)
+   Generating static pages (12/16)
+ Γ£ô Generating static pages (16/16)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+Γöî Γùï /                                    139 B          87.8 kB
+Γö£ Γùï /_not-found                          876 B          88.5 kB
+Γö£ Γùï /ask                                 6.6 kB          113 kB
+Γö£ Γùï /attribution                         5.12 kB         111 kB
+Γö£ ╞Æ /calls/[callId]                      6.37 kB         126 kB
+Γö£ Γùï /compliance                          4.15 kB         114 kB
+Γö£ Γùï /coverage                            7 kB            217 kB
+Γö£ Γùï /dashboard                           13 kB           241 kB
+Γö£ Γùï /intelligence                        5.2 kB          112 kB
+Γö£ Γùï /login                               2.55 kB         104 kB
+Γö£ Γùï /pings                               2.89 kB         140 kB
+Γö£ Γùï /reports                             4.1 kB          214 kB
+Γö£ Γùï /scoring                             4.41 kB         115 kB
+Γö£ Γùï /scoring/scorecards                  6.5 kB          122 kB
+Γöö Γùï /settings                            11.4 kB         124 kB
++ First Load JS shared by all            87.6 kB
+  Γö£ chunks/117-2ba52a228eca3415.js       31.9 kB
+  Γö£ chunks/fd9d1056-40b17256bdb832d4.js  53.6 kB
+  Γöö other shared chunks (total)          2.07 kB
+
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+
+
+=== SYSTEM VERIFICATION SUMMARY ===
+  Docker:     14 / 14
+  Healthz:    10 / 10
+  API:        PASS (20/20)
+  Web routes: 13 / 13
+  WebSocket:  FAIL
+  Unit tests: PASS
+  Web build:  PASS
+  Pipeline:   FAIL
+
+SYSTEM VERIFY FAIL (see sections above)
+**********************
+Windows PowerShell transcript end
+End time: 20260921194951
+**********************

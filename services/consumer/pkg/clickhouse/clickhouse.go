@@ -37,6 +37,7 @@ type PingRow struct {
 	HasRecording      uint8
 	RecordingKnown    uint8
 	ProfitGross       float64
+	HasConverted      uint8
 	SyncPath          string
 }
 
@@ -78,7 +79,7 @@ func (c *Client) InsertPings(ctx context.Context, rows []PingRow) error {
 			received_at, call_key, occurred_at,
 			campaign_name, publisher_name, target_name, buyer_id, buyer_name,
 			duration_seconds, call_length_seconds, has_recording, recording_known,
-			profit_gross, sync_path
+			profit_gross, has_converted, sync_path
 		)
 	`)
 	if err != nil {
@@ -113,6 +114,7 @@ func (c *Client) InsertPings(ctx context.Context, rows []PingRow) error {
 			row.HasRecording,
 			row.RecordingKnown,
 			decimal.NewFromFloat(row.ProfitGross),
+			row.HasConverted,
 			row.SyncPath,
 		); err != nil {
 			return fmt.Errorf("clickhouse.InsertPings: append: %w", err)

@@ -47,7 +47,7 @@ function signRingba(query) {
 }
 
 async function seedPing() {
-  const callId = randomUUID();
+  const callId = `smoke-${randomUUID()}`;
   const query = `CallID=${callId}&caller_id=15551234567&state=TX&event=incoming&call_revenue=12.50`;
   const signature = signRingba(query);
   const url = `${INGESTION_BASE}/webhooks/ringba/dev_ringba_token_change_me?${query}`;

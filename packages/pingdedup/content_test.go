@@ -55,6 +55,11 @@ func TestHashParityB1FieldsChangeHash(t *testing.T) {
 	if Hash(d1) == Hash(d2) {
 		t.Fatal("duration_seconds must be part of hash")
 	}
+	c1 := Content{ExternalCallID: "x", HasConverted: false}
+	c2 := Content{ExternalCallID: "x", HasConverted: true}
+	if Hash(c1) == Hash(c2) {
+		t.Fatal("has_converted must be part of hash")
+	}
 }
 
 func TestHashPlatformDuplicate(t *testing.T) {

@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Delete,
+  BadRequestException,
+  ForbiddenException,
   Get,
   HttpCode,
   Param,
@@ -11,7 +13,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { z } from 'zod';
-import { CurrentTenant } from '../common/tenant.decorator';
+import { CurrentTenant, CurrentUser } from '../common/tenant.decorator';
+import { JwtPayload } from '../auth/jwt-payload.interface';
 import {
   CreateIntegrationInput,
   IntegrationRecord,
@@ -40,6 +43,47 @@ const syncModeSchema = z.object({
   sync_mode: z.enum(['mock', 'real']),
   initial_lookback_days: z.number().int().min(1).max(365).optional(),
 });
+
+const convertWritebackSchema = z.object({
+  inbound_call_id: z.string().min(8).max(128),
+  amount: z.number({
+    required_error: 'amount must be a positive number',
+    invalid_type_error: 'amount must be a positive number',
+  }).positive({ message: 'amount must be a positive number' }),
+});
+
+const voidWritebackSchema = z.object({
+  inbound_call_id: z.string().min(8).max(128),
+});
+
+function writebackEnabled(): boolean {
+  const v = process.env.WRITEBACK_ENABLED;
+  return v === 'true' || v === '1';
+}
+
+function parseWriteback<S extends z.ZodTypeAny>(schema: S, body: unknown): z.output<S> {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    const msg = parsed.error.issues[0]?.message ?? 'Validation failed';
+    throw new BadRequestException(msg);
+  }
+  return parsed.data;
+}
+
+/** Registers write-back routes only when WRITEBACK_ENABLED is true/1. */
+function ConditionalWritebackConvert(): MethodDecorator {
+  if (writebackEnabled()) {
+    return Post(':id/writeback/convert');
+  }
+  return () => undefined;
+}
+
+function ConditionalWritebackVoid(): MethodDecorator {
+  if (writebackEnabled()) {
+    return Post(':id/writeback/void');
+  }
+  return () => undefined;
+}
 
 @Controller('integrations')
 @UseGuards(AuthGuard('jwt'))
@@ -87,6 +131,47 @@ export class IntegrationsController {
     @Param('id') id: string,
   ): Promise<{ status: string }> {
     return this.integrationsService.triggerBackfill(tenantId, id);
+  }
+
+  @ConditionalWritebackConvert()
+  @HttpCode(200)
+  async convertWriteback(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<unknown> {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Write-back is admin-only');
+    }
+    const parsed = parseWriteback(convertWritebackSchema, body);
+    return this.integrationsService.convertWriteback(
+      tenantId,
+      user.sub,
+      id,
+      parsed.inbound_call_id,
+      parsed.amount,
+    );
+  }
+
+  @ConditionalWritebackVoid()
+  @HttpCode(200)
+  async voidWriteback(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<unknown> {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Write-back is admin-only');
+    }
+    const parsed = parseWriteback(voidWritebackSchema, body);
+    return this.integrationsService.voidWriteback(
+      tenantId,
+      user.sub,
+      id,
+      parsed.inbound_call_id,
+    );
   }
 
   @Patch(':id/sync-mode')

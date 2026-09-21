@@ -2,7 +2,7 @@
 
 Pay-per-call analytics and intelligence platform.
 
-> **Presentation build:** `MOCK_MODE=true` (intelligence) · `MOCK_EMITTER_ENABLED=false` (Kafka → `/live`) · **Retreaver + Ringba CERTIFIED** · **Ringba call-detail parity A+B1 + Delta PASS** · **Write-back research (probe + sandbox) — no product ship yet** · **Coverage = US + Canada** · Ping Feed headline = **distinct calls** · API sync Test/Live · Redis `maxmemory 1gb` + `volatile-ttl` · Teal Glass UI · Docs in [`docs/`](docs/README.md)
+> **Presentation build:** `MOCK_MODE=true` (intelligence) · `MOCK_EMITTER_ENABLED=false` (Kafka → `/live`) · **Retreaver + Ringba CERTIFIED** · **Ringba call-detail parity A+B1 + Delta PASS** · **Write-back: `hasConverted` mapped + allowlisted convert API (no UI)** · **Coverage = US + Canada** · Ping Feed headline = **distinct calls** · API sync Test/Live · Redis `maxmemory 1gb` + `volatile-ttl` · Teal Glass UI · Docs in [`docs/`](docs/README.md)
 
 See [`docs/design-system-v2.md`](docs/design-system-v2.md) for UI/UX specification.  
 UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.md)  
@@ -23,7 +23,7 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 | **Ringba LIVE cert** | **YES** — D8/D9/D10/D5/D8b ([`docs/phase2-ringba-live-certified.md`](docs/phase2-ringba-live-certified.md)) |
 | **Ringba parity A+B1** | **PASS** — P-A, P-B1.1–B1.5 ([`docs/ringba-parity-a-b1-report.md`](docs/ringba-parity-a-b1-report.md)) |
 | **Ringba parity Delta** | **PASS** — P2D1–P2D5 republish + cohort proof ([`docs/ringba-parity-delta-report.md`](docs/ringba-parity-delta-report.md)) |
-| **Ringba write-back (research)** | **Probe + sandbox done** — read paths + payments/void/annotate/webhook CRUD live-proven; **convert loop still open** ([reports below](#ringba-write-back--research-only-not-shipped)) |
+| **Ringba write-back** | **Phase G PASS** + product slice: `hasConverted` mapped through Kafka/CH; allowlisted `POST /integrations/:id/writeback/convert` (no UI) ([reports below](#ringba-write-back)) |
 | **Retreaver FINAL cert** | **YES** ([`docs/retreaver-final-certification-report.md`](docs/retreaver-final-certification-report.md)) |
 | **Platform certification** | Retreaver **YES** · Ringba **YES** · TrackDrive next ([`docs/platform-certification.md`](docs/platform-certification.md)) |
 | Redis bound memory | **PASS** — `maxmemory=1gb`, `volatile-ttl`, AOF; dedup flat on re-sync ([`docs/redis-maxmemory-report.md`](docs/redis-maxmemory-report.md)) |
@@ -36,9 +36,11 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 - **Ringba call-detail parity (A + B1):** duration = connected talk time; payout/profit/campaign/publisher/target/buyer/geo/recording flags mapped from live `POST …/calllogs`; `hasConverted` accepted but silent-omit noted. Report: [`docs/ringba-parity-a-b1-report.md`](docs/ringba-parity-a-b1-report.md).
 - **Ringba parity Delta (P2D1–P2D5):** explained ~538 “missing B1” (mock rows + first-page Redis gap); forced lookback + targeted Redis delete → **RGB gap 0**; cohort `uniqExact` stable; real webhook deep-view proof. Report: [`docs/ringba-parity-delta-report.md`](docs/ringba-parity-delta-report.md).
 - **Ringba write-back probe (read-only + fake-ID writes):** official Postman collection obtained; `GET …/calllogs/columns` (109 cols); `hasConverted` omission rule proven; annotate 500 on fake ID. Report: [`docs/ringba-writeback-probe-report.md`](docs/ringba-writeback-probe-report.md).
-- **Ringba write-back sandbox (disposable call only):** **`payments` = relative**, **`payments/override` = absolute** (live: $10 → +$5 → $15); void reversible; annotate + webhook create/getUrl/delete proven; **webhook fire → convert not closed** (HTTP 200, no state change). Report: [`docs/ringba-writeback-sandbox-report.md`](docs/ringba-writeback-sandbox-report.md). **Phase G** (clean call + convert loop + read-back semantics) **pending** — needs new sandbox call ID from operator.
-- **Roadmap:** deferred gaps + write-back gates in [`docs/enterprise-roadmap.md`](docs/enterprise-roadmap.md) (§G recording, §J converted read-back — partially addressed by research, convert loop still open).
+- **Ringba write-back sandbox (disposable call only):** **`payments` = relative**, **`payments/override` = absolute** (live: $10 → +$5 → $15); void reversible; annotate + webhook create/getUrl/delete proven; Phase F fire→convert failed on a **dirty** call. Report: [`docs/ringba-writeback-sandbox-report.md`](docs/ringba-writeback-sandbox-report.md).
+- **Phase G (2026-09-18):** clean sandbox call `…V3NYI01` — GET My Webhook → **`hasConverted=true` + `$1.00`**. Convert loop **CLOSED**. Report: [`docs/ringba-writeback-phase-g-report.md`](docs/ringba-writeback-phase-g-report.md).
+- **Roadmap:** deferred gaps in [`docs/enterprise-roadmap.md`](docs/enterprise-roadmap.md) (§G recording). §J adapter mapping + allowlisted convert API shipped 2026-09-18 (no write UI).
 - **Research harness only (not product):** `services/platform-sync/cmd/probe-ringba-*` — live probes; never prints tokens/ANI.
+- **Product convert (2026-09-18 / Phase 1):** Ringba `hasConverted` on sync → Kafka → ClickHouse → deep-view **Converted**. Writes: inbound GET webhook, two-level gate (`WRITEBACK_ENABLED` + per-tenant `integrations.writeback_enabled`), Live credentials even if ticker paused. No Settings write button.
 
 **Recent (2026-07-21) — Ringba LIVE certification + ops hardening:**
 
@@ -52,21 +54,22 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 
 ---
 
-## Ringba write-back — research only (NOT shipped)
+## Ringba write-back
 
-Live API research on the **production Ringba account** using a disposable sandbox campaign (`CALYX-SANDBOX-DO-NOT-USE`). **No adapter, UI, migrations, or product endpoints** — evidence only.
+Live API research on the **production Ringba account** using a disposable sandbox campaign (`CALYX-SANDBOX-DO-NOT-USE`). Convert loop is proven (Phase G). Product slice (2026-09-18): adapter maps `hasConverted`; convert writes are campaign-allowlisted. **No write UI.**
 
 | Slice | Status | Key finding |
 |-------|--------|-------------|
 | **Write-back probe** | **Done** | Official spec via Postman JSON; `hasConverted` present=true / absent=false; column ids for adjustments; fake-ID annotate ambiguous (500) |
 | **Sandbox verify** | **Done** | `payments` **relative**; `payments/override` **absolute**; `void` live + reversible; annotate + webhook CRUD + `getUrl` live |
-| **Convert loop** | **OPEN** | Webhook fire returns 200 but call did not show converted at $1 — likely needs target Postback/Webhook + clean call |
-| **Phase G** | **Pending** | Clean new sandbox call + close convert loop + pin `hasConverted` semantics — [`docs/ringba-writeback-phase-g-report.md`](docs/ringba-writeback-phase-g-report.md) (not started; gated on operator call ID) |
+| **Convert loop** | **CLOSED** | Clean call `…V3NYI01`: GET My Webhook → `hasConverted=true` + `$1.00` |
+| **Phase G** | **PASS** | [`docs/ringba-writeback-phase-g-report.md`](docs/ringba-writeback-phase-g-report.md) |
+| **Product map + allowlist** | **Shipped (API only)** | [`docs/ringba-writeback-product-slice-report.md`](docs/ringba-writeback-product-slice-report.md) — `has_converted` on pings / deep-view; allowlisted `POST /integrations/:id/writeback/convert`; no write UI |
 
-Reports: [`ringba-writeback-probe-report.md`](docs/ringba-writeback-probe-report.md) · [`ringba-writeback-sandbox-report.md`](docs/ringba-writeback-sandbox-report.md)  
-Evidence: `docs/evidence/ringba-writeback-probe/` · `docs/evidence/ringba-writeback-sandbox/`
+Reports: [`ringba-writeback-probe-report.md`](docs/ringba-writeback-probe-report.md) · [`ringba-writeback-sandbox-report.md`](docs/ringba-writeback-sandbox-report.md) · [`ringba-writeback-phase-g-report.md`](docs/ringba-writeback-phase-g-report.md) · [`ringba-writeback-product-slice-report.md`](docs/ringba-writeback-product-slice-report.md)  
+Evidence: `docs/evidence/ringba-writeback-probe/` · `docs/evidence/ringba-writeback-sandbox/` · `docs/evidence/ringba-writeback-phase-g/` · `docs/evidence/ringba-writeback-product-slice/`
 
-**Do not implement write-back in product until:** convert loop closed on a clean call + reliable read-back signal documented (Phase G).
+**Convert API:** Ringba Live (`sync_mode=real`) required; paused ticker (`is_active=false`) is allowed so pull stays off. Amount cap $25. Prefers existing conversion webhook named `My Webhook`. Already-converted calls are refused. Payments/override/void are not exposed.
 
 **Deploy note (2026-07-21):** After Ringba deep-link / Redis changes:
 

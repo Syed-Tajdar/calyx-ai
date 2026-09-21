@@ -678,6 +678,7 @@ export interface CallDeepView {
     call_length_seconds?: number;
     has_recording?: boolean;
     recording_known?: boolean;
+    has_converted?: boolean;
     ani_hash: string;
     received_at: string;
     occurred_at?: string;

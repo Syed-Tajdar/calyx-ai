@@ -1,0 +1,3 @@
+POST-CONVERT LOOKUP token=REDACTED
+LOOKUP_OK id=RGB512060522F815F149F10AD1B143CCF4BD5E5F709V3LIN01 campaignId=CA98abf9d92be446e786f298680a3bbee6 campaignName="Calyx-Sandbox-DO-NOT-USE" hasConverted=true hasConvertedPresent=true revenue=1 payout=0 hasConnected=true wasBlocked=false wasConversionAdjusted=false wasPayoutAdjusted=false durationSec=96 callLengthSec=166
+RAW_MATCH hasConverted_present=true hasConverted=true conversionAmount_present=true conversionAmount=1.00 payoutAmount_present=false payoutAmount=<nil> wasConversionAdjusted_present=false wasPayoutAdjusted_present=false hasConnected=true connectedCallLengthInSeconds=96

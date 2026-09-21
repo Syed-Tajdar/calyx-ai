@@ -1,0 +1,23 @@
+PHASE=G BASE=https://api.ringba.com/v2/{accountId} TOKEN=REDACTED SANDBOX=RGB0B96293B9F8915CA75C5CCDCF7BCFD0CFAAEDB9CV3NYI01
+FIND page=0 records=823 offset=0
+G0_RECORD_JSON_START
+{"campaignId":"CA98abf9d92be446e786f298680a3bbee6","campaignName":"Calyx-Sandbox-DO-NOT-USE","hasPayout":true,"inboundCallId":"RGB0B96293B9F8915CA75C5CCDCF7BCFD0CFAAEDB9CV3NYI01","payoutAmount":"0.00","publisherName":"Calyx - Test","targetId":"TAd5332f67bf994754b8a23b8847feb413","targetName":"CALYX - TARGET - SANBOX - DO - NOT - USE"}
+G0_RECORD_JSON_END
+ASSERT PASS campaign sandbox got="Calyx-Sandbox-DO-NOT-USE"
+ASSERT PASS targetId sandbox got="TAd5332f67bf994754b8a23b8847feb413"
+ASSERT PASS conversionAmount==0 got="<nil>"
+ASSERT PASS payoutAmount==0 got="0.00"
+ASSERT PASS hasConverted absent got="<nil>"
+ASSERT PASS wasConversionAdjusted absent got="<nil>"
+G1_WEBHOOKS status=200 ids=[WHff15579db4d74c1c9b6867a571b17afc WH748080906786471ba75e9f20bf3f3c81 WHe510903f82d34e4b9b4aef4173dbc23a]
+G2_FIRE_MY_WEBHOOK id=WH748080906786471ba75e9f20bf3f3c81
+FIRE_URL=https://webhook.ringba.com/hook/WH748080906786471ba75e9f20bf3f3c81?call_id=REDACTED&call_revenue=1.00&converted=yes
+FIRE_GET status=200 body=
+FIND page=0 records=823 offset=0
+G2_READBACK_GET conv=1.00 pay=0.00 hasConverted_present=true val=true wasAdj_present=false campaign=Calyx-Sandbox-DO-NOT-USE
+G2_CONVERTED_AFTER_GET=true
+FIND page=0 records=822 offset=0
+G4_FINAL conv=1.00 pay=0.00 hasConverted_present=true val=true wasAdj_present=false campaign=Calyx-Sandbox-DO-NOT-USE
+PHASE_G_CONVERT_LOOP=true hasConverted_present=true val=true conv=1.00
+G5_NO_CREATED_WEBHOOK skip delete
+PHASE_G_COMPLETE

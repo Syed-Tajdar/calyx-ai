@@ -40,6 +40,7 @@ type Content struct {
 	CallLengthSeconds  uint32 // whole-call Duration
 	HasRecording       bool
 	ProfitGross        float64
+	HasConverted       bool
 }
 
 // Hash returns sha256 hex of the canonical content encoding.
@@ -55,6 +56,10 @@ func Hash(c Content) string {
 	rec := "0"
 	if c.HasRecording {
 		rec = "1"
+	}
+	converted := "0"
+	if c.HasConverted {
+		converted = "1"
 	}
 	payload := strings.Join([]string{
 		norm(c.ExternalCallID),
@@ -76,6 +81,7 @@ func Hash(c Content) string {
 		fmt.Sprintf("%d", c.CallLengthSeconds),
 		rec,
 		fmt.Sprintf("%.6f", c.ProfitGross),
+		converted,
 	}, "\x1f")
 	sum := sha256.Sum256([]byte(payload))
 	return hex.EncodeToString(sum[:])

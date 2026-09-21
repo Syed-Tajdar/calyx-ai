@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -221,6 +222,98 @@ export class IntegrationsService {
     };
   }
 
+  async convertWriteback(
+    tenantId: string,
+    userId: string,
+    id: string,
+    inboundCallId: string,
+    amount: number,
+  ): Promise<Record<string, unknown>> {
+    return this.callWriteback(tenantId, userId, id, 'convert', inboundCallId, amount);
+  }
+
+  async voidWriteback(
+    tenantId: string,
+    userId: string,
+    id: string,
+    inboundCallId: string,
+  ): Promise<Record<string, unknown>> {
+    return this.callWriteback(tenantId, userId, id, 'void', inboundCallId, undefined);
+  }
+
+  private async callWriteback(
+    tenantId: string,
+    userId: string,
+    id: string,
+    action: 'convert' | 'void',
+    inboundCallId: string,
+    amount?: number,
+  ): Promise<Record<string, unknown>> {
+    const row = await this.getRowAny(tenantId, id);
+    if (row.connection_mode !== 'api_sync') {
+      throw new BadRequestException('Write-back is only available for API key integrations');
+    }
+    if (row.platform !== 'ringba') {
+      throw new BadRequestException('Write-back currently supports Ringba only');
+    }
+    if (row.sync_mode !== 'real') {
+      throw new BadRequestException('Write-back requires Live (sync_mode=real)');
+    }
+    if (!row.writeback_enabled) {
+      throw new ForbiddenException('Write-back is not enabled for this integration');
+    }
+    const token = process.env.WRITEBACK_INTERNAL_TOKEN ?? '';
+    if (!token) {
+      throw new ServiceUnavailableException('Write-back internal token is not configured');
+    }
+    if (action === 'convert' && (amount === undefined || !(amount > 0))) {
+      throw new BadRequestException('amount must be a positive number');
+    }
+
+    const syncUrl = process.env.PLATFORM_SYNC_URL ?? 'http://localhost:8088';
+    const res = await fetch(`${syncUrl}/writeback/${action}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        integration_id: id,
+        tenant_id: tenantId,
+        user_id: userId,
+        inbound_call_id: inboundCallId,
+        amount: amount,
+      }),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      message?: string;
+      [key: string]: unknown;
+    };
+    if (res.status === HttpStatus.ACCEPTED) {
+      throw new HttpException(body, HttpStatus.ACCEPTED);
+    }
+    if (!res.ok) {
+      const msg = body.message ?? `Write-back failed (${res.status})`;
+      if (res.status === HttpStatus.UNAUTHORIZED) {
+        throw new HttpException(msg, HttpStatus.UNAUTHORIZED);
+      }
+      if (res.status === HttpStatus.FORBIDDEN) {
+        throw new ForbiddenException(msg);
+      }
+      if (res.status === HttpStatus.NOT_FOUND) {
+        throw new NotFoundException(msg);
+      }
+      if (res.status === HttpStatus.BAD_REQUEST) {
+        throw new BadRequestException(msg);
+      }
+      if (res.status === HttpStatus.CONFLICT) {
+        throw new HttpException(msg, HttpStatus.CONFLICT);
+      }
+      throw new ServiceUnavailableException(msg);
+    }
+    return body;
+  }
+
   async triggerSync(tenantId: string, id: string): Promise<{ status: string }> {
     const row = await this.getRow(tenantId, id);
     if (row.connection_mode !== 'api_sync') {
@@ -430,6 +523,36 @@ export class IntegrationsService {
     sync_status: string;
     api_credentials_blob: Buffer | null;
   }> {
+    return this.getIntegrationRow(tenantId, id, true);
+  }
+
+  /** Includes paused (is_active=false) rows — write-back only. */
+  private async getRowAny(
+    tenantId: string,
+    id: string,
+  ): Promise<{
+    connection_mode: ConnectionMode;
+    platform: string;
+    sync_mode: SyncMode | null;
+    sync_status: string;
+    api_credentials_blob: Buffer | null;
+    writeback_enabled: boolean;
+  }> {
+    return this.getIntegrationRow(tenantId, id, false);
+  }
+
+  private async getIntegrationRow(
+    tenantId: string,
+    id: string,
+    activeOnly: boolean,
+  ): Promise<{
+    connection_mode: ConnectionMode;
+    platform: string;
+    sync_mode: SyncMode | null;
+    sync_status: string;
+    api_credentials_blob: Buffer | null;
+    writeback_enabled: boolean;
+  }> {
     return this.postgres.withTenant(tenantId, async (client) => {
       const result = await client.query<{
         connection_mode: ConnectionMode;
@@ -437,9 +560,15 @@ export class IntegrationsService {
         sync_mode: SyncMode | null;
         sync_status: string;
         api_credentials_blob: Buffer | null;
+        writeback_enabled: boolean;
       }>(
-        `SELECT connection_mode, platform, sync_mode, sync_status, api_credentials_blob
-         FROM integrations WHERE id = $1::uuid AND is_active = TRUE`,
+        activeOnly
+          ? `SELECT connection_mode, platform, sync_mode, sync_status, api_credentials_blob,
+                    COALESCE(writeback_enabled, FALSE) AS writeback_enabled
+             FROM integrations WHERE id = $1::uuid AND is_active = TRUE`
+          : `SELECT connection_mode, platform, sync_mode, sync_status, api_credentials_blob,
+                    COALESCE(writeback_enabled, FALSE) AS writeback_enabled
+             FROM integrations WHERE id = $1::uuid`,
         [id],
       );
       if (result.rowCount === 0) {

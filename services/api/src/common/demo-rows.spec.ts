@@ -3,12 +3,14 @@ import * as path from 'path';
 import {
   apiSyncExclusionSql,
   demoExclusionSql,
-  API_SYNC_ID_PREFIX,
+  testDataExclusionSql,
+  TEST_DATA_ID_PREFIXES,
 } from './demo-rows';
 
 /**
- * Read paths that MUST exclude apisync-% rows via apiSyncExclusionSql (or deprecated alias).
- * If a new aggregate/list query is added without the helper, this test fails.
+ * Read paths that MUST exclude test-data prefixes via testDataExclusionSql
+ * (or a deprecated alias). If a new aggregate/list query is added without the
+ * helper, this test fails.
  */
 const REQUIRED_API_SYNC_EXCLUSION_FILES = [
   'analytics/analytics.service.ts',
@@ -18,24 +20,30 @@ const REQUIRED_API_SYNC_EXCLUSION_FILES = [
   'pings/pings.filters.ts',
 ] as const;
 
-describe('apiSyncExclusionSql', () => {
-  it('excludes apisync-% by default', () => {
-    expect(apiSyncExclusionSql('external_call_id')).toBe(
-      `AND external_call_id NOT LIKE '${API_SYNC_ID_PREFIX}%'`,
-    );
+describe('testDataExclusionSql', () => {
+  it('excludes apisync-, demo-, and smoke- by default', () => {
+    const sql = testDataExclusionSql('external_call_id');
+    for (const prefix of TEST_DATA_ID_PREFIXES) {
+      expect(sql).toContain(`NOT LIKE '${prefix}%'`);
+    }
+    expect(TEST_DATA_ID_PREFIXES).toEqual(['apisync-', 'demo-', 'smoke-']);
     expect(apiSyncExclusionSql('call_id')).toContain("NOT LIKE 'apisync-%'");
+    expect(apiSyncExclusionSql('call_id')).toContain("NOT LIKE 'demo-%'");
+    expect(apiSyncExclusionSql('call_id')).toContain("NOT LIKE 'smoke-%'");
   });
 
-  it('returns empty when includeApiSync is true', () => {
+  it('returns empty when show_demo includes all three families', () => {
+    expect(testDataExclusionSql('external_call_id', true)).toBe('');
     expect(apiSyncExclusionSql('external_call_id', true)).toBe('');
   });
 
   it('rejects unsafe column identifiers', () => {
-    expect(() => apiSyncExclusionSql("id; DROP TABLE pings")).toThrow(/invalid/);
+    expect(() => testDataExclusionSql("id; DROP TABLE pings")).toThrow(/invalid/);
   });
 
-  it('deprecated demoExclusionSql alias still works', () => {
-    expect(demoExclusionSql('external_call_id')).toBe(apiSyncExclusionSql('external_call_id'));
+  it('deprecated aliases match the three-prefix helper', () => {
+    expect(demoExclusionSql('external_call_id')).toBe(testDataExclusionSql('external_call_id'));
+    expect(apiSyncExclusionSql('external_call_id')).toBe(testDataExclusionSql('external_call_id'));
   });
 });
 
@@ -49,7 +57,7 @@ describe('api-sync exclusion anti-drift', () => {
       const content = fs.readFileSync(full, 'utf8');
       expect(content).toContain("from '../common/demo-rows'");
       expect(
-        /apiSyncExclusionSql\(|demoExclusionSql\(/.test(content),
+        /(testDataExclusionSql|apiSyncExclusionSql|demoExclusionSql)\(/.test(content),
       ).toBe(true);
       // No duplicated inline predicate — must go through the helper.
       expect(content).not.toMatch(/NOT LIKE ['"]apisync-%['"]/);
@@ -62,7 +70,7 @@ describe('api-sync exclusion anti-drift', () => {
       'utf8',
     );
     expect(analytics).toMatch(
-      /(apiSyncExclusionSql|demoExclusionSql)\(\s*['"]external_call_id['"]/,
+      /(testDataExclusionSql|apiSyncExclusionSql|demoExclusionSql)\(\s*['"]external_call_id['"]/,
     );
   });
 });

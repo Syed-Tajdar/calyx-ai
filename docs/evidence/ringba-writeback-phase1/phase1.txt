@@ -1,0 +1,124 @@
+PHASE 1 LIVE PROOFS  2026-09-19T18:52:20.9632188+05:00
+
+===== 1.1 unauthenticated POST /writeback/convert =====
+{"message":"unauthorized"} HTTP=401
+
+
+===== 1.1 wrong Bearer token =====
+{"message":"unauthorized"} HTTP=401
+
+
+===== 1.1 authenticated empty body (handler reached) =====
+integration_id, tenant_id, and inbound_call_id required  HTTP=400
+
+
+===== OUT OF SCOPE POST /sync remains unauthenticated (no 401) =====
+integration_id and tenant_id required  HTTP=400
+
+
+===== OUT OF SCOPE POST /test-auth remains unauthenticated (no 401) =====
+integration_id and tenant_id required  HTTP=400
+
+
+===== login A =====
+HTTP=201 token=REDACTED
+
+
+===== Nest convert without JWT =====
+{"message":"Unauthorized","statusCode":401}
+HTTP=401
+
+
+
+===== 1.7 amount -1 =====
+{"message":"amount must be a positive number","error":"Bad Request","statusCode":400}
+HTTP=400
+
+
+
+===== 1.7 amount 0 =====
+{"message":"amount must be a positive number","error":"Bad Request","statusCode":400}
+HTTP=400
+
+
+
+===== 1.7 amount missing =====
+{"message":"amount must be a positive number","error":"Bad Request","statusCode":400}
+HTTP=400
+
+
+
+===== 1.4 lock still held -> second convert =====
+{"statusCode":409,"message":"writeback: convert already in progress for this call"}
+HTTP=409
+
+
+
+===== 1.3 call not on tenant account =====
+{"message":"writeback: call not found on this tenant's Ringba account","error":"Not Found","statusCode":404}
+HTTP=404
+
+
+
+===== 1.3 platform-sync tenant B against tenant A integration row =====
+{"message":"writeback: integration not found","outcome":"failed"}
+
+HTTP=404
+
+
+
+===== login B =====
+HTTP=201 token=REDACTED
+
+
+===== 1.3 Nest tenant B JWT vs tenant A integration =====
+{"message":"Integration not found","error":"Not Found","statusCode":404}
+HTTP=404
+
+
+
+===== 1.2 per-tenant writeback_enabled=false =====
+{"message":"Write-back is not enabled for this integration","error":"Forbidden","statusCode":403}
+HTTP=403
+
+
+
+===== 1.2 per-tenant flag restored =====
+t
+
+
+===== 1.8 audit UPDATE refused =====
+docker : ERROR:  writeback_audit is immutable
+At C:\Users\DELL\AppData\Local\Temp\ps-script-42d66013-43a5-4985-af88-d33763c86b80.ps1:162 char:10
++ $immut = docker exec deploy-postgres-1 psql -U callloom -d callloom - ...
++          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ERROR:  writeback_audit is immutable:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+CONTEXT:  PL/pgSQL function writeback_audit_immutable() line 3 at RAISE
+
+
+===== 1.8 audit DELETE refused =====
+docker : ERROR:  writeback_audit is immutable
+At C:\Users\DELL\AppData\Local\Temp\ps-script-42d66013-43a5-4985-af88-d33763c86b80.ps1:164 char:8
++ $del = docker exec deploy-postgres-1 psql -U callloom -d callloom -t  ...
++        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ERROR:  writeback_audit is immutable:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+CONTEXT:  PL/pgSQL function writeback_audit_immutable() line 3 at RAISE
+
+
+===== 1.2 global WRITEBACK_ENABLED=false (valid Bearer) =====
+404 page not found
+
+HTTP=404
+
+
+
+===== 1.2 global WRITEBACK_ENABLED restored true (handler reachable) =====
+integration_id, tenant_id, and inbound_call_id required
+
+HTTP=400
+
+

@@ -30,18 +30,21 @@ function Send-RingbaPing {
 Write-Host "=== Ingestion slice verify ===" -ForegroundColor Cyan
 
 $headers = Get-AuthHeaders
-$metricsBefore = Invoke-RestMethod -Uri "$apiBase/analytics/metrics" -Method GET -Headers $headers
-$coverageBefore = Invoke-RestMethod -Uri "$apiBase/coverage/heatmap" -Method GET -Headers $headers
+$metricsDefaultBefore = Invoke-RestMethod -Uri "$apiBase/analytics/metrics" -Method GET -Headers $headers
+$metricsBefore = Invoke-RestMethod -Uri "$apiBase/analytics/metrics?show_demo=true" -Method GET -Headers $headers
+$coverageBefore = Invoke-RestMethod -Uri "$apiBase/coverage/heatmap?show_demo=true" -Method GET -Headers $headers
 $beforePings = [int]$metricsBefore.total_pings
+$beforeDefault = [int]$metricsDefaultBefore.total_pings
 $beforeHeatmap = [int]$coverageBefore.total_pings
-Write-Host "Before: analytics.total_pings=$beforePings coverage.total_pings=$beforeHeatmap"
+Write-Host "Before show_demo=true: analytics.total_pings=$beforePings coverage.total_pings=$beforeHeatmap"
+Write-Host "Before default view: analytics.total_pings=$beforeDefault"
 
 function Wait-ForPingRow {
   param([string]$ExternalCallId, [int]$TimeoutSec = 30)
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   do {
     $headers = Get-AuthHeaders
-    $pings = Invoke-RestMethod -Uri "$apiBase/pings?limit=100" -Method GET -Headers $headers
+    $pings = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true" -Method GET -Headers $headers
     $row = @($pings.data | Where-Object { $_.external_call_id -eq $ExternalCallId } | Select-Object -First 1)
     if ($row.Count -gt 0) { return $row[0] }
     Start-Sleep -Seconds 2
@@ -49,7 +52,7 @@ function Wait-ForPingRow {
   return $null
 }
 
-$callId = [guid]::NewGuid().ToString()
+$callId = "smoke-" + [guid]::NewGuid().ToString()
 Write-Host "Sending unique Ringba ping ($callId, state=WA)..."
 Send-RingbaPing -CallId $callId -State "WA"
 
@@ -61,10 +64,20 @@ if (-not $row) {
 Write-Host "PASS: unique ping landed in /pings (external_call_id=$callId)"
 
 $headers = Get-AuthHeaders
-$metricsAfter = Invoke-RestMethod -Uri "$apiBase/analytics/metrics" -Method GET -Headers $headers
-$coverageAfter = Invoke-RestMethod -Uri "$apiBase/coverage/heatmap" -Method GET -Headers $headers
+$metricsDefaultAfter = Invoke-RestMethod -Uri "$apiBase/analytics/metrics" -Method GET -Headers $headers
+$metricsAfter = Invoke-RestMethod -Uri "$apiBase/analytics/metrics?show_demo=true" -Method GET -Headers $headers
+$coverageAfter = Invoke-RestMethod -Uri "$apiBase/coverage/heatmap?show_demo=true" -Method GET -Headers $headers
 $afterPings = [int]$metricsAfter.total_pings
+$afterDefault = [int]$metricsDefaultAfter.total_pings
 $afterHeatmap = [int]$coverageAfter.total_pings
+
+Write-Host ("show_demo=true   total " + $beforePings + " -> " + $afterPings)
+Write-Host ("default view     total " + $beforeDefault + " -> " + $afterDefault)
+
+if ($afterDefault -ne $beforeDefault) {
+  Write-Host "FAIL: default view changed ($beforeDefault -> $afterDefault); smoke row leaked into KPIs" -ForegroundColor Red
+  exit 1
+}
 
 if ($afterPings -lt ($beforePings + 1)) {
   Write-Host "FAIL: analytics.total_pings expected increase, got $afterPings" -ForegroundColor Red
@@ -80,14 +93,14 @@ Write-Host ('PASS: unique ping incremented coverage.total_pings (' + $beforeHeat
 
 Write-Host "Resending identical Ringba ping (same CallID + revenue) -- content-hash must suppress..."
 $headers = Get-AuthHeaders
-$pingsBeforeResend = Invoke-RestMethod -Uri "$apiBase/pings?limit=100" -Method GET -Headers $headers
+$pingsBeforeResend = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true" -Method GET -Headers $headers
 $sameBefore = @($pingsBeforeResend.data | Where-Object { $_.external_call_id -eq $callId })
 $rowCountBefore = $sameBefore.Count
 Send-RingbaPing -CallId $callId -State "WA" -Revenue "7.25"
 Start-Sleep -Seconds 10
 
 $headers = Get-AuthHeaders
-$pings = Invoke-RestMethod -Uri "$apiBase/pings?limit=100" -Method GET -Headers $headers
+$pings = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true" -Method GET -Headers $headers
 $dupRows = @($pings.data | Where-Object { $_.external_call_id -eq $callId })
 if ($dupRows.Count -ne $rowCountBefore) {
   $msg = 'FAIL: identical resend changed row count (' + $rowCountBefore + ' to ' + $dupRows.Count + '); expected unchanged'
@@ -100,7 +113,7 @@ Write-Host "Sending changed-revenue Ringba ping (same CallID)..."
 Send-RingbaPing -CallId $callId -State "WA" -Revenue "42.50"
 Start-Sleep -Seconds 12
 $headers = Get-AuthHeaders
-$pings2 = Invoke-RestMethod -Uri "$apiBase/pings?limit=100" -Method GET -Headers $headers
+$pings2 = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true" -Method GET -Headers $headers
 $changedRows = @($pings2.data | Where-Object { $_.external_call_id -eq $callId })
 if ($changedRows.Count -lt ($rowCountBefore + 1)) {
   Write-Host ('FAIL: revenue change did not add a new row (had ' + $rowCountBefore + ', got ' + $changedRows.Count + ')') -ForegroundColor Red
@@ -113,12 +126,12 @@ if (-not $newRow) {
 }
 Write-Host "PASS: changed payload published new row with is_duplicate=0 and revenue>=42.5"
 
-$metricsDup = Invoke-RestMethod -Uri "$apiBase/analytics/metrics" -Method GET -Headers $headers
+$metricsDup = Invoke-RestMethod -Uri "$apiBase/analytics/metrics?show_demo=true" -Method GET -Headers $headers
 $dupPings = [int]$metricsDup.total_pings
 Write-Host ('PASS: analytics.total_pings after content-hash tests=' + $dupPings)
 
 Write-Host "Retreaver call_key ciphertext check..."
-$retCallId = [guid]::NewGuid().ToString()
+$retCallId = "smoke-" + [guid]::NewGuid().ToString()
 $callKey = "verify_key_$([guid]::NewGuid().ToString('N').Substring(0,8))"
 $token = "dev_retreaver_token_change_me"
 $query = ('call_uuid=' + $retCallId + '&call_key=' + $callKey + '&caller=15551234567&state=CA&event=incoming&revenue=5.50')

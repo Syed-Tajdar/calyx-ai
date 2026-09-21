@@ -8,16 +8,18 @@ import (
 )
 
 type Config struct {
-	Port                   string
-	DatabaseURL            string
-	RedisURL               string
-	KafkaBrokers           []string
-	KafkaTopic             string
+	Port                    string
+	DatabaseURL             string
+	RedisURL                string
+	KafkaBrokers            []string
+	KafkaTopic              string
 	CredentialEncryptionKey string
-	ANIEncryptionKey       []byte
-	SyncInterval           time.Duration
-	DedupTTL               time.Duration
-	MockMode               bool
+	ANIEncryptionKey        []byte
+	SyncInterval            time.Duration
+	DedupTTL                time.Duration
+	MockMode                bool
+	WritebackEnabled        bool
+	WritebackAuthToken      string
 }
 
 func Load() (Config, error) {
@@ -58,6 +60,10 @@ func Load() (Config, error) {
 		}
 		dedupHours = parsed
 	}
+	writebackEnabled := false
+	if v := os.Getenv("WRITEBACK_ENABLED"); v == "true" || v == "1" {
+		writebackEnabled = true
+	}
 	return Config{
 		Port:                    port,
 		DatabaseURL:             databaseURL,
@@ -69,6 +75,8 @@ func Load() (Config, error) {
 		SyncInterval:            time.Duration(intervalSec) * time.Second,
 		DedupTTL:                time.Duration(dedupHours) * time.Hour,
 		MockMode:                mockMode,
+		WritebackEnabled:        writebackEnabled,
+		WritebackAuthToken:      os.Getenv("WRITEBACK_INTERNAL_TOKEN"),
 	}, nil
 }
 

@@ -1,0 +1,1 @@
+ALTER TABLE pings ADD COLUMN IF NOT EXISTS has_converted UInt8 DEFAULT 0;

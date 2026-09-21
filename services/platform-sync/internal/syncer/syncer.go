@@ -156,6 +156,7 @@ func remoteCallContent(call models.RemoteCall) dedup.Content {
 		CallLengthSeconds:  call.CallLengthSeconds,
 		HasRecording:       call.HasRecording,
 		ProfitGross:        call.ProfitGross,
+		HasConverted:       call.HasConverted,
 	}
 }
 
