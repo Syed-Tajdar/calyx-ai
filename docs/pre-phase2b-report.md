@@ -99,6 +99,6 @@ Drop is 14 calls and $195.00, the old-smoke `argMax` sum. The after snapshot is 
 
 ## 7 — Commit
 
-Commit hash is filled in after `git commit`. `git status` after that commit is the cleanliness check.
+`5838d804feba75287f67c624473fdc3f6a53f605` on `main`. 100 files. `git status` after that commit was clean. This paragraph is the only follow-up, so the report itself records the hash.
 
 Phase 2 was not started. API sync was not turned live.
