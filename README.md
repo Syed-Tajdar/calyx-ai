@@ -80,6 +80,8 @@ docker compose up -d --force-recreate api platform-sync web redis
 # Hard-refresh http://localhost:3001 — Open in Ringba must open call-logs report + copy id
 ```
 
+Production items that must change before go-live: [`docs/deploy-checklist.md`](docs/deploy-checklist.md).
+
 **Recent (2026-07-14) — Coverage = US + Canada + Feed distinct-calls header:**
 
 - **Decision:** keep US + Canada (all four platforms support Canada — BC/ON/etc. are real calls, not junk).
