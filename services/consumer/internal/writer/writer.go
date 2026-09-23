@@ -52,34 +52,40 @@ func (w *BatchWriter) InsertBatch(ctx context.Context, pings []models.PingMessag
 			occurred = time.Unix(0, 0).UTC()
 		}
 		rows = append(rows, clickhouse.PingRow{
-			TenantID:          p.TenantID,
-			Platform:          p.Platform,
-			ExternalCallID:    p.ExternalCallID,
-			ANIHash:           p.ANIHash,
-			CampaignID:        p.CampaignID,
-			PublisherID:       p.PublisherID,
-			TargetID:          p.TargetID,
-			State:             p.State,
-			EventType:         p.EventType,
-			Revenue:           p.Revenue,
-			Payout:            p.Payout,
-			IsDuplicate:       dup,
-			PlatformDuplicate: platDup,
-			ReceivedAt:        p.ReceivedTime(),
-			OccurredAt:        occurred,
-			CallKey:           p.CallKey,
-			CampaignName:      p.CampaignName,
-			PublisherName:     p.PublisherName,
-			TargetName:        p.TargetName,
-			BuyerID:           p.BuyerID,
-			BuyerName:         p.BuyerName,
-			DurationSeconds:   p.DurationSeconds,
-			CallLengthSeconds: p.CallLengthSeconds,
-			HasRecording:      hasRec,
-			RecordingKnown:    recKnown,
-			ProfitGross:       p.ProfitGross,
-			HasConverted:      hasConv,
-			SyncPath:          p.SyncPath,
+			TenantID:              p.TenantID,
+			Platform:              p.Platform,
+			ExternalCallID:        p.ExternalCallID,
+			ANIHash:               p.ANIHash,
+			CampaignID:            p.CampaignID,
+			PublisherID:           p.PublisherID,
+			TargetID:              p.TargetID,
+			State:                 p.State,
+			EventType:             p.EventType,
+			Revenue:               p.Revenue,
+			Payout:                p.Payout,
+			IsDuplicate:           dup,
+			PlatformDuplicate:     platDup,
+			ReceivedAt:            p.ReceivedTime(),
+			OccurredAt:            occurred,
+			CallKey:               p.CallKey,
+			CampaignName:          p.CampaignName,
+			PublisherName:         p.PublisherName,
+			TargetName:            p.TargetName,
+			BuyerID:               p.BuyerID,
+			BuyerName:             p.BuyerName,
+			DurationSeconds:       p.DurationSeconds,
+			CallLengthSeconds:     p.CallLengthSeconds,
+			HasRecording:          hasRec,
+			RecordingKnown:        recKnown,
+			ProfitGross:           p.ProfitGross,
+			HasConverted:          hasConv,
+			SyncPath:              p.SyncPath,
+			HasConnected:          u8ptr(p.HasConnected),
+			WasBlocked:            u8ptr(p.WasBlocked),
+			BlockReason:           p.BlockReason,
+			WasConversionAdjusted:      u8ptr(p.WasConversionAdjusted),
+			RequiredDurationSeconds:    p.RequiredDurationSeconds,
+			MaxRequiredDurationSeconds: p.MaxRequiredDurationSeconds,
 		})
 	}
 
@@ -87,6 +93,17 @@ func (w *BatchWriter) InsertBatch(ctx context.Context, pings []models.PingMessag
 		return fmt.Errorf("writer.InsertBatch: %w", err)
 	}
 	return nil
+}
+
+func u8ptr(v *bool) *uint8 {
+	if v == nil {
+		return nil
+	}
+	n := uint8(0)
+	if *v {
+		n = 1
+	}
+	return &n
 }
 
 // Ping checks ClickHouse connectivity.

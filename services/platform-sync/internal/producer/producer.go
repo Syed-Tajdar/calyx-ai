@@ -40,33 +40,39 @@ func (p *Producer) Publish(ctx context.Context, tenantID, platform string, call 
 		eventType = "incoming"
 	}
 	msg := models.PingMessage{
-		TenantID:          tenantID,
-		Platform:          platform,
-		ExternalCallID:    call.ExternalCallID,
-		ANIHash:           aniHash,
-		CampaignID:        call.CampaignID,
-		PublisherID:       call.PublisherID,
-		TargetID:          call.TargetID,
-		State:             state.NormalizeState(call.State),
-		EventType:         eventType,
-		Revenue:           call.Revenue,
-		Payout:            call.Payout,
-		IsDuplicate:       isDuplicate,
-		PlatformDuplicate: call.PlatformDuplicate,
-		ReceivedAt:        receivedAt,
-		CallKey:           callKeyStored,
-		CampaignName:      call.CampaignName,
-		PublisherName:     call.PublisherName,
-		TargetName:        call.TargetName,
-		BuyerID:           call.BuyerID,
-		BuyerName:         call.BuyerName,
-		DurationSeconds:   call.DurationSeconds,
-		CallLengthSeconds: call.CallLengthSeconds,
-		HasRecording:      call.HasRecording,
-		RecordingKnown:    call.RecordingKnown,
-		ProfitGross:       call.ProfitGross,
-		HasConverted:      call.HasConverted,
-		SyncPath:          "api_sync",
+		TenantID:                   tenantID,
+		Platform:                   platform,
+		ExternalCallID:             call.ExternalCallID,
+		ANIHash:                    aniHash,
+		CampaignID:                 call.CampaignID,
+		PublisherID:                call.PublisherID,
+		TargetID:                   call.TargetID,
+		State:                      state.NormalizeState(call.State),
+		EventType:                  eventType,
+		Revenue:                    call.Revenue,
+		Payout:                     call.Payout,
+		IsDuplicate:                isDuplicate,
+		PlatformDuplicate:          call.PlatformDuplicate,
+		ReceivedAt:                 receivedAt,
+		CallKey:                    callKeyStored,
+		CampaignName:               call.CampaignName,
+		PublisherName:              call.PublisherName,
+		TargetName:                 call.TargetName,
+		BuyerID:                    call.BuyerID,
+		BuyerName:                  call.BuyerName,
+		DurationSeconds:            call.DurationSeconds,
+		CallLengthSeconds:          call.CallLengthSeconds,
+		HasRecording:               call.HasRecording,
+		RecordingKnown:             call.RecordingKnown,
+		ProfitGross:                call.ProfitGross,
+		HasConverted:               call.HasConverted,
+		HasConnected:               boolPtr(call.HasConnected),
+		WasBlocked:                 boolPtr(call.WasBlocked),
+		BlockReason:                call.BlockReason,
+		WasConversionAdjusted:      boolPtr(call.WasConversionAdjusted),
+		RequiredDurationSeconds:    call.RequiredDurationSeconds,
+		MaxRequiredDurationSeconds: call.MaxRequiredDurationSeconds,
+		SyncPath:                   "api_sync",
 	}
 	if !call.OccurredAt.IsZero() {
 		msg.OccurredAt = call.OccurredAt.UTC().UnixMilli()
@@ -76,6 +82,10 @@ func (p *Producer) Publish(ctx context.Context, tenantID, platform string, call 
 		return err
 	}
 	return p.client.Write(ctx, p.topic, tenantID, body)
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }
 
 func (p *Producer) Ping(ctx context.Context) error {

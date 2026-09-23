@@ -48,16 +48,20 @@ type RemoteCall struct {
 	RecordingKnown bool
 	ProfitGross    float64
 	// HasConverted: Ringba hasConverted present+true. Absent on Get Call Log means false.
-	HasConverted bool
-	HasConvertedPresent bool
-	HasConnected        bool
-	WasBlocked          bool
-	BlockReason         string
+	HasConverted          bool
+	HasConvertedPresent   bool
+	HasConnected          bool
+	WasBlocked            bool
+	BlockReason           string
 	WasConversionAdjusted bool
 	WasPayoutAdjusted     bool
 	// OfflineConversionUploadedPresent is false when the key was silent-omitted.
 	OfflineConversionUploadedPresent bool
 	OfflineConversionUploaded        bool
+	// RequiredDurationSeconds: Ringba ringTreeWinningBidDynamicDuration.
+	// nil = key absent. pointer to 0 = present zero. pointer to N = N seconds.
+	RequiredDurationSeconds    *uint32
+	MaxRequiredDurationSeconds *uint32
 }
 
 type PingMessage struct {
@@ -75,8 +79,8 @@ type PingMessage struct {
 	IsDuplicate    bool    `json:"is_duplicate"`
 	ReceivedAt     int64   `json:"received_at_unix_ms"`
 	// OccurredAt: platform source call time (unix ms). 0 if unknown — consumers fall back to ReceivedAt.
-	OccurredAt int64  `json:"occurred_at_unix_ms,omitempty"`
-	CallKey    string `json:"call_key,omitempty"`
+	OccurredAt        int64   `json:"occurred_at_unix_ms,omitempty"`
+	CallKey           string  `json:"call_key,omitempty"`
 	PlatformDuplicate bool    `json:"platform_duplicate"`
 	CampaignName      string  `json:"campaign_name,omitempty"`
 	PublisherName     string  `json:"publisher_name,omitempty"`
@@ -89,6 +93,15 @@ type PingMessage struct {
 	RecordingKnown    bool    `json:"recording_known,omitempty"`
 	ProfitGross       float64 `json:"profit_gross,omitempty"`
 	HasConverted      bool    `json:"has_converted,omitempty"`
+	// Phase 2A booleans are pointers so false is sent and a missing key stays NULL
+	// on webhook rows (not provided). API sync always sets them.
+	HasConnected          *bool  `json:"has_connected,omitempty"`
+	WasBlocked            *bool  `json:"was_blocked,omitempty"`
+	BlockReason           string `json:"block_reason,omitempty"`
+	WasConversionAdjusted *bool  `json:"was_conversion_adjusted,omitempty"`
+	// Required duration: nil omits the key (webhook / not provided). Pointer to 0 serializes as 0.
+	RequiredDurationSeconds    *uint32 `json:"required_duration_seconds,omitempty"`
+	MaxRequiredDurationSeconds *uint32 `json:"max_required_duration_seconds,omitempty"`
 	// SyncPath: "api_sync" | "webhook" — UI empty-state distinction (P-B1.4).
 	SyncPath string `json:"sync_path,omitempty"`
 }

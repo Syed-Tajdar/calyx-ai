@@ -11,34 +11,40 @@ import (
 
 // PingRow is a single row for the pings table.
 type PingRow struct {
-	TenantID          string
-	Platform          string
-	ExternalCallID    string
-	ANIHash           string
-	CampaignID        string
-	PublisherID       string
-	TargetID          string
-	State             string
-	EventType         string
-	Revenue           float64
-	Payout            float64
-	IsDuplicate       uint8
-	PlatformDuplicate uint8
-	ReceivedAt        time.Time
-	OccurredAt        time.Time
-	CallKey           string
-	CampaignName      string
-	PublisherName     string
-	TargetName        string
-	BuyerID           string
-	BuyerName         string
-	DurationSeconds   uint32
-	CallLengthSeconds uint32
-	HasRecording      uint8
-	RecordingKnown    uint8
-	ProfitGross       float64
-	HasConverted      uint8
-	SyncPath          string
+	TenantID              string
+	Platform              string
+	ExternalCallID        string
+	ANIHash               string
+	CampaignID            string
+	PublisherID           string
+	TargetID              string
+	State                 string
+	EventType             string
+	Revenue               float64
+	Payout                float64
+	IsDuplicate           uint8
+	PlatformDuplicate     uint8
+	ReceivedAt            time.Time
+	OccurredAt            time.Time
+	CallKey               string
+	CampaignName          string
+	PublisherName         string
+	TargetName            string
+	BuyerID               string
+	BuyerName             string
+	DurationSeconds       uint32
+	CallLengthSeconds     uint32
+	HasRecording          uint8
+	RecordingKnown        uint8
+	ProfitGross           float64
+	HasConverted          uint8
+	SyncPath              string
+	HasConnected          *uint8
+	WasBlocked            *uint8
+	BlockReason           string
+	WasConversionAdjusted *uint8
+	RequiredDurationSeconds    *uint32
+	MaxRequiredDurationSeconds *uint32
 }
 
 // Client wraps the ClickHouse native connection.
@@ -79,7 +85,9 @@ func (c *Client) InsertPings(ctx context.Context, rows []PingRow) error {
 			received_at, call_key, occurred_at,
 			campaign_name, publisher_name, target_name, buyer_id, buyer_name,
 			duration_seconds, call_length_seconds, has_recording, recording_known,
-			profit_gross, has_converted, sync_path
+			profit_gross, has_converted, sync_path,
+			has_connected, was_blocked, block_reason, was_conversion_adjusted,
+			required_duration_seconds, max_required_duration_seconds
 		)
 	`)
 	if err != nil {
@@ -116,6 +124,12 @@ func (c *Client) InsertPings(ctx context.Context, rows []PingRow) error {
 			decimal.NewFromFloat(row.ProfitGross),
 			row.HasConverted,
 			row.SyncPath,
+			row.HasConnected,
+			row.WasBlocked,
+			row.BlockReason,
+			row.WasConversionAdjusted,
+			row.RequiredDurationSeconds,
+			row.MaxRequiredDurationSeconds,
 		); err != nil {
 			return fmt.Errorf("clickhouse.InsertPings: append: %w", err)
 		}

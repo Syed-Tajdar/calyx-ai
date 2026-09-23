@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { Consumer, EachMessagePayload } from 'kafkajs';
 import { loadEnv } from '../config/env';
 import { createKafkaClient } from '../kafka/kafka-client';
+import { startResilientConsumer } from '../kafka/resilient-consumer';
 import { LiveGateway } from './live.gateway';
 import {
   callScoredPayloadSchema,
@@ -12,25 +13,32 @@ import {
   pingEventPayloadSchema,
 } from './live-event.types';
 
+export const LIVE_FEED_GROUP_ID = 'calyx-api-live-feed';
+
 @Injectable()
 export class KafkaLiveConsumerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(KafkaLiveConsumerService.name);
   private consumer: Consumer | null = null;
+  private kafkaLiveRequired = false;
 
   constructor(private readonly gateway: LiveGateway) {}
+
+  /** True when the API is configured to feed /live from Kafka (not the mock emitter). */
+  isKafkaLiveRequired(): boolean {
+    return this.kafkaLiveRequired;
+  }
 
   async onModuleInit(): Promise<void> {
     const env = loadEnv();
     // Prefer Kafka live whenever the synthetic emitter is off (real integration path).
     const useKafkaLive =
       !(env.MOCK_MODE ?? true) || !(env.MOCK_EMITTER_ENABLED ?? true);
+    this.kafkaLiveRequired = useKafkaLive;
     if (!useKafkaLive) {
       return;
     }
 
     const kafka = createKafkaClient([env.KAFKA_BROKER]);
-    this.consumer = kafka.consumer({ groupId: 'calyx-api-live-feed' });
-
     const topics = [
       env.KAFKA_TOPIC_PINGS,
       env.KAFKA_TOPIC_CALL_SCORED,
@@ -39,18 +47,19 @@ export class KafkaLiveConsumerService implements OnModuleInit, OnModuleDestroy {
     ];
 
     try {
-      await this.consumer.connect();
-      for (const topic of topics) {
-        await this.consumer.subscribe({ topic, fromBeginning: false });
-      }
-      await this.consumer.run({
+      this.consumer = await startResilientConsumer({
+        kafka,
+        groupId: LIVE_FEED_GROUP_ID,
+        topics,
+        logger: this.logger,
         eachMessage: async (payload: EachMessagePayload) => {
           await this.handleMessage(payload);
         },
       });
-      this.logger.log({ topics }, 'kafka live consumer started');
+      this.logger.log(`kafka live consumer started topics=${topics.join(',')}`);
     } catch (error: unknown) {
-      this.logger.error({ error: String(error) }, 'kafka live consumer failed to start');
+      this.logger.error(`kafka live consumer failed to start error=${String(error)}`);
+      // Leave kafkaLiveRequired true so /readyz stays not-ready; watchdog/exit handles recovery.
     }
   }
 

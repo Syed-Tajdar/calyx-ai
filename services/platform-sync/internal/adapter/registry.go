@@ -89,6 +89,9 @@ func (r *Registry) FetchAllPages(
 		final.Calls = append(final.Calls, res.Calls...)
 		final.NextCursor = res.NextCursor
 		final.HasMore = res.HasMore
+		final.RequestCount += res.RequestCount
+		final.OffsetFallbackWindows += res.OffsetFallbackWindows
+		final.OffsetFallbackRows += res.OffsetFallbackRows
 		if !res.HasMore {
 			break
 		}
@@ -100,6 +103,9 @@ func (r *Registry) FetchAllPages(
 			return PageResult{}, err
 		}
 		final.Calls = append(final.Calls, refresh.Calls...)
+		final.RequestCount += refresh.RequestCount
+		final.OffsetFallbackWindows += refresh.OffsetFallbackWindows
+		final.OffsetFallbackRows += refresh.OffsetFallbackRows
 		final.Page1Refresh = true
 		// Keep NextCursor from the deep walk, not the refresh.
 	}

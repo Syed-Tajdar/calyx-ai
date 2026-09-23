@@ -75,7 +75,11 @@ func (s *Service) handleMessage(ctx context.Context, msg kafkago.Message) error 
 		return err
 	}
 	if cached {
-		s.logger.Info("enrichment cache hit", "service", "enrichment", "tenant_id", ping.TenantID, "ani_hash", ping.ANIHash[:8])
+		aniLog := ping.ANIHash
+		if len(aniLog) > 8 {
+			aniLog = aniLog[:8]
+		}
+		s.logger.Info("enrichment cache hit", "service", "enrichment", "tenant_id", ping.TenantID, "ani_hash", aniLog)
 		return nil
 	}
 
@@ -98,10 +102,14 @@ func (s *Service) handleMessage(ctx context.Context, msg kafkago.Message) error 
 		return err
 	}
 
+	aniLog := ping.ANIHash
+	if len(aniLog) > 8 {
+		aniLog = aniLog[:8]
+	}
 	s.logger.Info("enrichment complete",
 		"service", "enrichment",
 		"tenant_id", ping.TenantID,
-		"ani_hash", ping.ANIHash[:8],
+		"ani_hash", aniLog,
 		"attribute_count", len(attrs),
 	)
 	return nil

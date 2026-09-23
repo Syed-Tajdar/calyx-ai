@@ -16,8 +16,11 @@ type PlatformAdapter interface {
 
 // PageResult is one page of remote calls plus an opaque cursor for the next page.
 type PageResult struct {
-	Calls        []models.RemoteCall
-	NextCursor   string
-	HasMore      bool
-	Page1Refresh bool // true when a deep-walk page=1 refresh pass was appended
+	Calls                 []models.RemoteCall
+	NextCursor            string
+	HasMore               bool
+	Page1Refresh          bool // true when a deep-walk page=1 refresh pass was appended
+	RequestCount          int  // HTTP requests made for this result
+	OffsetFallbackWindows int  // 1-minute windows that still filled a page and used offset
+	OffsetFallbackRows    int  // rows returned by those offset fallbacks
 }

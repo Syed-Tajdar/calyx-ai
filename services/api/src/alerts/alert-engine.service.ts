@@ -1,7 +1,8 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Consumer } from 'kafkajs';
 import { loadEnv } from '../config/env';
 import { createKafkaClient } from '../kafka/kafka-client';
+import { startResilientConsumer } from '../kafka/resilient-consumer';
 import { MockNotificationChannel } from './channels/mock.channel';
 import { AlertsService } from './alerts.service';
 
@@ -11,8 +12,11 @@ interface CallScoredEvent {
   overall_score: number;
 }
 
+export const ALERT_ENGINE_GROUP_ID = 'callloom-alert-engine';
+
 @Injectable()
 export class AlertEngineService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(AlertEngineService.name);
   private consumer: Consumer | null = null;
 
   constructor(
@@ -23,15 +27,12 @@ export class AlertEngineService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     const env = loadEnv();
     const kafka = createKafkaClient([env.KAFKA_BROKER]);
-    this.consumer = kafka.consumer({ groupId: 'callloom-alert-engine' });
 
-    await this.consumer.connect();
-    await this.consumer.subscribe({
-      topic: 'callloom.calls.call_scored.v1',
-      fromBeginning: false,
-    });
-
-    await this.consumer.run({
+    this.consumer = await startResilientConsumer({
+      kafka,
+      groupId: ALERT_ENGINE_GROUP_ID,
+      topics: ['callloom.calls.call_scored.v1'],
+      logger: this.logger,
       eachMessage: async ({ message }) => {
         if (!message.value) {
           return;

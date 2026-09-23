@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"math"
 	"net/url"
 	"os"
 	"strconv"
@@ -18,7 +19,9 @@ import (
 )
 
 // Official Get Call Log (developers.ringba.com):
-//   POST https://api.ringba.com/v2/{accountId}/calllogs
+//
+//	POST https://api.ringba.com/v2/{accountId}/calllogs
+//
 // Auth: Authorization: Token {apiToken}
 // Body: reportStart / reportEnd (ISO8601 UTC) + size/offset (+ optional filters / valueColumns).
 // Legacy CallLogs/Date + dateRange/callLog body returns HTTP 301 "endpoint moved".
@@ -63,25 +66,35 @@ func (a *RingbaAdapter) FetchPage(ctx context.Context, creds map[string]string, 
 	if cursor != "" {
 		_ = DecodeCursor(cursor, &cs)
 	}
-	if cs.Size < 1 || cs.Size > ringbaMaxPageSize {
-		cs.Size = ringbaMaxPageSize
+	start, err := time.Parse(time.RFC3339, cs.ReportStart)
+	if err != nil {
+		return PageResult{}, fmt.Errorf("ringba: report_start: %w", err)
 	}
-	calls, hasMore, err := a.fetchPage(ctx, creds, cs)
+	end, err := time.Parse(time.RFC3339, cs.ReportEnd)
+	if err != nil {
+		return PageResult{}, fmt.Errorf("ringba: report_end: %w", err)
+	}
+	// Offset on a stored cursor is not resumed. The whole time range is walked
+	// as single-page windows. page1_refresh in the registry runs only when a
+	// fetch returns HasMore and more than one page was taken; this path does
+	// not, because there is no deep offset page whose head can move mid-walk.
+	calls, stats, err := a.fetchWindowed(ctx, creds, start, end)
 	if err != nil {
 		return PageResult{}, err
 	}
-	next := cs
-	if hasMore {
-		next.Offset += next.Size
-	} else {
-		// Slide window forward with overlap so late revenue updates re-enter the fetch set.
-		next = ringbaDefaultCursor(time.Now().UTC().Format(time.RFC3339), lookbackDays)
-	}
+	next := ringbaDefaultCursor(time.Now().UTC().Format(time.RFC3339), lookbackDays)
 	nextCursor, err := EncodeCursor(next)
 	if err != nil {
 		return PageResult{}, err
 	}
-	return PageResult{Calls: calls, NextCursor: nextCursor, HasMore: hasMore}, nil
+	return PageResult{
+		Calls:                 calls,
+		NextCursor:            nextCursor,
+		HasMore:               false,
+		RequestCount:          stats.Requests,
+		OffsetFallbackWindows: stats.OffsetFallbackWindows,
+		OffsetFallbackRows:    stats.OffsetFallbackRows,
+	}, nil
 }
 
 func ringbaLookbackDays(lookbackDays int) int {
@@ -128,29 +141,7 @@ func (a *RingbaAdapter) fetchPageWith(ctx context.Context, creds map[string]stri
 	if size < 1 || size > ringbaMaxPageSize {
 		size = ringbaMaxPageSize
 	}
-	vc := []map[string]string{
-		{"column": "inboundCallId"},
-		{"column": "callDt"},
-		{"column": "inboundPhoneNumber"},
-		{"column": "conversionAmount"},
-		{"column": "payoutAmount"},
-		{"column": "campaignId"},
-		{"column": "campaignName"},
-		{"column": "publisherId"},
-		{"column": "publisherName"},
-		{"column": "targetId"},
-		{"column": "targetName"},
-		{"column": "buyer"},
-		{"column": "buyerId"},
-		{"column": "connectedCallLengthInSeconds"},
-		{"column": "callLengthInSeconds"},
-		{"column": "hasRecording"},
-		{"column": "hasConverted"},
-		{"column": "isDuplicate"},
-		{"column": "profitGross"},
-		{"column": "tag:InboundNumber:State"},
-		{"column": "tag:InboundNumber:Region"},
-	}
+	vc := ringbaValueColumns()
 	for _, col := range extraCols {
 		vc = append(vc, map[string]string{"column": col})
 	}
@@ -188,13 +179,61 @@ func (a *RingbaAdapter) fetchPageWith(ctx context.Context, creds map[string]stri
 	}
 	calls := make([]models.RemoteCall, 0, len(records))
 	for _, raw := range records {
-		calls = append(calls, mapRingbaCallLogEntry(raw))
+		call, err := mapRingbaCallLogEntry(raw)
+		if err != nil {
+			return nil, false, err
+		}
+		calls = append(calls, call)
 	}
 	return calls, len(records) >= size, nil
 }
 
+// orderByColumns was probed live: {"column":"callDt","direction":"asc"} returns
+// HTTP 422 "Invalid sort column callDt". Empty orderByColumns is accepted in
+// community samples, but a documented valid sort column for this account was
+// not confirmed. Windowed single-page fetches do not rely on sort order.
+
+func ringbaValueColumns() []map[string]string {
+	names := []string{
+		"inboundCallId",
+		"callDt",
+		"inboundPhoneNumber",
+		"conversionAmount",
+		"payoutAmount",
+		"campaignId",
+		"campaignName",
+		"publisherId",
+		"publisherName",
+		"targetId",
+		"targetName",
+		"buyer",
+		"buyerId",
+		"connectedCallLengthInSeconds",
+		"callLengthInSeconds",
+		"hasRecording",
+		"hasConverted",
+		"hasConnected",
+		"wasBlocked",
+		"blockReason",
+		"wasConversionAdjusted",
+		"ringTreeWinningBidDynamicDuration",
+		"ringTreeWinningBidMaxDynamicDuration",
+		"isDuplicate",
+		"profitGross",
+		"tag:InboundNumber:State",
+		"tag:InboundNumber:Region",
+	}
+	vc := make([]map[string]string, 0, len(names))
+	for _, name := range names {
+		vc = append(vc, map[string]string{"column": name})
+	}
+	return vc
+}
+
 // parseRingbaCallLogResponse prefers official Get Call Log shape:
-//   { isSuccessful, transactionId, report: { records, partialResult } }
+//
+//	{ isSuccessful, transactionId, report: { records, partialResult } }
+//
 // Legacy callLog.data / result.callLog.data kept for fixtures only.
 func parseRingbaCallLogResponse(respBody []byte) ([]json.RawMessage, error) {
 	var modern struct {
@@ -226,7 +265,7 @@ func parseRingbaCallLogResponse(respBody []byte) ([]json.RawMessage, error) {
 	return legacy.CallLog.Data, nil
 }
 
-func mapRingbaCallLogEntry(raw json.RawMessage) models.RemoteCall {
+func mapRingbaCallLogEntry(raw json.RawMessage) (models.RemoteCall, error) {
 	lookup := ringbaFieldLookup(raw)
 	rev := firstFloat(lookup, "conversionAmount", "revenue")
 	pay := firstFloat(lookup, "payoutAmount", "payout")
@@ -251,35 +290,44 @@ func mapRingbaCallLogEntry(raw json.RawMessage) models.RemoteCall {
 	callLen := firstUint32(lookup, "callLengthInSeconds")
 	hasRec, recKnown := parseRingbaBool(lookup("hasRecording"))
 	hasConv, hasConvPresent := parseRingbaBool(lookup("hasConverted"))
+	// Requested columns: a missing key is Ringba omitting false, not "never asked".
 	hasConn, _ := parseRingbaBool(lookup("hasConnected"))
 	wasBlocked, _ := parseRingbaBool(lookup("wasBlocked"))
 	wasConvAdj, _ := parseRingbaBool(lookup("wasConversionAdjusted"))
 	wasPayAdj, _ := parseRingbaBool(lookup("wasPayoutAdjusted"))
 	offline, offlinePresent := parseRingbaBool(lookup("offlineConversionUploaded"))
 	platDup, _ := parseRingbaBool(lookup("isDuplicate"))
+	required, err := ringbaOptionalSeconds(raw, "ringTreeWinningBidDynamicDuration")
+	if err != nil {
+		return models.RemoteCall{}, err
+	}
+	maxRequired, err := ringbaOptionalSeconds(raw, "ringTreeWinningBidMaxDynamicDuration")
+	if err != nil {
+		return models.RemoteCall{}, err
+	}
 
 	return models.RemoteCall{
-		ExternalCallID:    callID,
-		CallerID:          caller,
-		State:             state.NormalizeState(stateVal),
-		Revenue:           rev,
-		Payout:            pay,
-		CampaignID:        campaign,
-		PublisherID:       publisher,
-		TargetID:          target,
-		EventType:         "incoming",
-		OccurredAt:        occurred,
-		PlatformDuplicate: platDup,
-		CampaignName:      lookup("campaignName"),
-		PublisherName:     lookup("publisherName"),
-		TargetName:        lookup("targetName"),
-		BuyerID:           firstNonEmpty(lookup("buyerId"), lookup("buyerID")),
-		BuyerName:         lookup("buyer"),
-		DurationSeconds:   connectedLen,
-		CallLengthSeconds: callLen,
-		HasRecording:      hasRec,
-		RecordingKnown:    recKnown,
-		ProfitGross:       firstFloat(lookup, "profitGross"),
+		ExternalCallID:                   callID,
+		CallerID:                         caller,
+		State:                            state.NormalizeState(stateVal),
+		Revenue:                          rev,
+		Payout:                           pay,
+		CampaignID:                       campaign,
+		PublisherID:                      publisher,
+		TargetID:                         target,
+		EventType:                        "incoming",
+		OccurredAt:                       occurred,
+		PlatformDuplicate:                platDup,
+		CampaignName:                     lookup("campaignName"),
+		PublisherName:                    lookup("publisherName"),
+		TargetName:                       lookup("targetName"),
+		BuyerID:                          firstNonEmpty(lookup("buyerId"), lookup("buyerID")),
+		BuyerName:                        lookup("buyer"),
+		DurationSeconds:                  connectedLen,
+		CallLengthSeconds:                callLen,
+		HasRecording:                     hasRec,
+		RecordingKnown:                   recKnown,
+		ProfitGross:                      firstFloat(lookup, "profitGross"),
 		HasConverted:                     hasConv,
 		HasConvertedPresent:              hasConvPresent,
 		HasConnected:                     hasConn,
@@ -289,7 +337,70 @@ func mapRingbaCallLogEntry(raw json.RawMessage) models.RemoteCall {
 		WasPayoutAdjusted:                wasPayAdj,
 		OfflineConversionUploadedPresent: offlinePresent,
 		OfflineConversionUploaded:        offline,
+		RequiredDurationSeconds:          required,
+		MaxRequiredDurationSeconds:       maxRequired,
+	}, nil
+}
+
+// ringbaOptionalSeconds maps one timespan column.
+// Absent key → nil. Present 0 → pointer to 0. Present N → pointer to N.
+// A present value that is not a whole number of seconds is an error.
+func ringbaOptionalSeconds(raw json.RawMessage, key string) (*uint32, error) {
+	val, present, null, err := ringbaKeyState(raw, key)
+	if err != nil {
+		return nil, err
 	}
+	if !present {
+		return nil, nil
+	}
+	if null {
+		return nil, fmt.Errorf("ringba: %s is present but null", key)
+	}
+	val = strings.TrimSpace(val)
+	if val == "" {
+		return nil, fmt.Errorf("ringba: %s is present but empty", key)
+	}
+	f, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return nil, fmt.Errorf("ringba: %s=%q is not a number of seconds", key, val)
+	}
+	if f < 0 || f != math.Trunc(f) || f > math.MaxUint32 {
+		return nil, fmt.Errorf("ringba: %s=%v is not a whole number of seconds", key, f)
+	}
+	n := uint32(f)
+	return &n, nil
+}
+
+func ringbaKeyState(raw json.RawMessage, key string) (val string, present bool, null bool, err error) {
+	var flat map[string]interface{}
+	if err := json.Unmarshal(raw, &flat); err != nil {
+		return "", false, false, fmt.Errorf("ringba: parse record: %w", err)
+	}
+	if cols, ok := flat["columns"].([]interface{}); ok && len(cols) > 0 {
+		for _, item := range cols {
+			m, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if strings.EqualFold(ringbaAnyString(m["name"]), key) {
+				if m["value"] == nil {
+					return "", true, true, nil
+				}
+				return ringbaAnyString(m["value"]), true, false, nil
+			}
+		}
+		return "", false, false, nil
+	}
+	for k, v := range flat {
+		if !strings.EqualFold(k, key) {
+			continue
+		}
+		if v == nil {
+			return "", true, true, nil
+		}
+		return ringbaAnyString(v), true, false, nil
+	}
+	return "", false, false, nil
 }
 
 func firstUint32(lookup func(string) string, keys ...string) uint32 {

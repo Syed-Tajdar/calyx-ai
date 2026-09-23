@@ -14,7 +14,7 @@ import (
 // INTENTIONALLY EXCLUDED (documented blindness — do not add without Syed approval):
 //   - call_key: webhook-only on Retreaver; API-sync always empty → hashing it causes
 //     webhook↔API ping-pong republish loop. Read path must use
-//     argMaxIf(call_key, received_at, call_key != '') so empty API rows never clobber.
+//     argMaxIf(call_key, received_at, call_key != ”) so empty API rows never clobber.
 //   - ani_hash: enrichment identity; not part of financial/content identity for dedup.
 //   - sync_path: ingestion channel metadata; not call content.
 //   - recording_known / has_recording pairing: has_recording alone is hashed; recording_known
@@ -31,16 +31,26 @@ type Content struct {
 	TargetID          string
 	PlatformDuplicate bool
 	// Ringba parity B1 (and TrackDrive/CallGrid target shape) — appended only.
-	CampaignName       string
-	PublisherName      string
-	TargetName         string
-	BuyerID            string
-	BuyerName          string
-	DurationSeconds    uint32 // Connected Call Length (talk time)
-	CallLengthSeconds  uint32 // whole-call Duration
-	HasRecording       bool
-	ProfitGross        float64
-	HasConverted       bool
+	CampaignName      string
+	PublisherName     string
+	TargetName        string
+	BuyerID           string
+	BuyerName         string
+	DurationSeconds   uint32 // Connected Call Length (talk time)
+	CallLengthSeconds uint32 // whole-call Duration
+	HasRecording      bool
+	ProfitGross       float64
+	HasConverted      bool
+	// Phase 2A. Appended only — including them changes every existing hash once (B1-style republish).
+	// Zero means false. "Not provided" is a storage distinction (NULL), not a third hash state,
+	// so a webhook row and an API-sync false do not ping-pong.
+	HasConnected          bool
+	WasBlocked            bool
+	BlockReason           string
+	WasConversionAdjusted bool
+	// Phase 2A-fix. Pointers so absent (nil) hashes differently from present 0.
+	RequiredDurationSeconds    *uint32
+	MaxRequiredDurationSeconds *uint32
 }
 
 // Hash returns sha256 hex of the canonical content encoding.
@@ -60,6 +70,26 @@ func Hash(c Content) string {
 	converted := "0"
 	if c.HasConverted {
 		converted = "1"
+	}
+	connected := "0"
+	if c.HasConnected {
+		connected = "1"
+	}
+	blocked := "0"
+	if c.WasBlocked {
+		blocked = "1"
+	}
+	adjusted := "0"
+	if c.WasConversionAdjusted {
+		adjusted = "1"
+	}
+	req := ""
+	if c.RequiredDurationSeconds != nil {
+		req = fmt.Sprintf("%d", *c.RequiredDurationSeconds)
+	}
+	maxReq := ""
+	if c.MaxRequiredDurationSeconds != nil {
+		maxReq = fmt.Sprintf("%d", *c.MaxRequiredDurationSeconds)
 	}
 	payload := strings.Join([]string{
 		norm(c.ExternalCallID),
@@ -82,6 +112,12 @@ func Hash(c Content) string {
 		rec,
 		fmt.Sprintf("%.6f", c.ProfitGross),
 		converted,
+		connected,
+		blocked,
+		norm(c.BlockReason),
+		adjusted,
+		req,
+		maxReq,
 	}, "\x1f")
 	sum := sha256.Sum256([]byte(payload))
 	return hex.EncodeToString(sum[:])

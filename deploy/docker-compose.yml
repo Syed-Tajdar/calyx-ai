@@ -113,6 +113,8 @@ services:
       - ../db/clickhouse/migrations/000010_enrichment_attrs_replacing.up.sql:/init-phase10.sql:ro
       - ../db/clickhouse/migrations/000011_pings_ringba_parity_b1.up.sql:/init-phase11.sql:ro
       - ../db/clickhouse/migrations/000012_pings_has_converted.up.sql:/init-phase12.sql:ro
+      - ../db/clickhouse/migrations/000013_pings_phase2a_call_flags.up.sql:/init-phase13.sql:ro
+      - ../db/clickhouse/migrations/000014_pings_required_duration.up.sql:/init-phase14.sql:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -128,6 +130,8 @@ services:
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase10.sql || true
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase11.sql || true
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase12.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase13.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase14.sql || true
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -202,6 +206,8 @@ services:
     build:
       context: ..
       dockerfile: services/api/Dockerfile
+    # Process exits when the live Kafka consumer stays non-member (see resilient-consumer).
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:

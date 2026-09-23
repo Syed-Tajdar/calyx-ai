@@ -4,17 +4,17 @@ import "time"
 
 // PingMessage mirrors the Kafka JSON envelope from ingestion.
 type PingMessage struct {
-	TenantID       string  `json:"tenant_id"`
-	Platform       string  `json:"platform"`
-	ExternalCallID string  `json:"external_call_id"`
-	ANIHash        string  `json:"ani_hash"`
-	CampaignID     string  `json:"campaign_id"`
-	PublisherID    string  `json:"publisher_id"`
-	TargetID       string  `json:"target_id"`
-	State          string  `json:"state"`
-	EventType      string  `json:"event_type"`
-	Revenue        float64 `json:"revenue"`
-	Payout         float64 `json:"payout"`
+	TenantID          string  `json:"tenant_id"`
+	Platform          string  `json:"platform"`
+	ExternalCallID    string  `json:"external_call_id"`
+	ANIHash           string  `json:"ani_hash"`
+	CampaignID        string  `json:"campaign_id"`
+	PublisherID       string  `json:"publisher_id"`
+	TargetID          string  `json:"target_id"`
+	State             string  `json:"state"`
+	EventType         string  `json:"event_type"`
+	Revenue           float64 `json:"revenue"`
+	Payout            float64 `json:"payout"`
 	IsDuplicate       bool    `json:"is_duplicate"`
 	PlatformDuplicate bool    `json:"platform_duplicate"`
 	ReceivedAt        int64   `json:"received_at_unix_ms"`
@@ -31,7 +31,14 @@ type PingMessage struct {
 	RecordingKnown    bool    `json:"recording_known,omitempty"`
 	ProfitGross       float64 `json:"profit_gross,omitempty"`
 	HasConverted      bool    `json:"has_converted,omitempty"`
-	SyncPath          string  `json:"sync_path,omitempty"`
+	// Nil when the producer did not request the field (webhook, or a pre-Phase-2A message).
+	HasConnected          *bool  `json:"has_connected,omitempty"`
+	WasBlocked            *bool  `json:"was_blocked,omitempty"`
+	BlockReason           string `json:"block_reason,omitempty"`
+	WasConversionAdjusted *bool  `json:"was_conversion_adjusted,omitempty"`
+	RequiredDurationSeconds    *uint32 `json:"required_duration_seconds,omitempty"`
+	MaxRequiredDurationSeconds *uint32 `json:"max_required_duration_seconds,omitempty"`
+	SyncPath                   string  `json:"sync_path,omitempty"`
 }
 
 // ReceivedTime converts the unix millis field to UTC time.

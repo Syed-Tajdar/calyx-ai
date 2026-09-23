@@ -31,13 +31,16 @@ Each was found during write-back and pre-Phase-2 work. Do not deploy with any un
 
 - [ ] **Retreaver re-sync** — local ClickHouse currently has 0 real Retreaver calls (lost in
       the machine reset). Re-sync before relying on Retreaver data.
+- [ ] **Retreaver pagination** — the Retreaver adapter pages with `page`/`per_page`
+      over a changing `updated_at` window: the same pattern that silently skipped 431
+      Ringba calls. Apply the windowed approach before re-enabling Retreaver sync.
 - [ ] Confirm headline KPIs exclude test data (`apisync-`, `demo-`, `smoke-`) on the
       production database.
 
 ## Migrations
 
-- [ ] **ClickHouse `000012_pings_has_converted`** has no `down` migration. Add one, or
-      document the manual rollback, before production.
+- [x] **ClickHouse `000012_pings_has_converted`** down migration added
+      (`000012_pings_has_converted.down.sql`).
 
 ## Accounts
 

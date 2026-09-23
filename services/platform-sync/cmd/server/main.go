@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -66,8 +67,9 @@ func main() {
 	ad := adapter.NewRegistry()
 	prod := producer.NewProducer(kafkaClient, cfg.KafkaTopic, cfg.ANIEncryptionKey)
 	dedupChecker := dedup.NewChecker(redisClient, cfg.DedupTTL)
-	svc := syncer.NewService(st, ad, prod, dedupChecker, decryptor, logger)
-	logger.Info("platform-sync init", "dedup_mode", "content_hash", "mock_mode", cfg.MockMode, "writeback_enabled", cfg.WritebackEnabled)
+	syncLock := syncer.NewRedisSyncLocker(redisClient)
+	svc := syncer.NewService(st, ad, prod, dedupChecker, decryptor, logger, syncLock)
+	logger.Info("platform-sync init", "dedup_mode", "content_hash", "mock_mode", cfg.MockMode, "writeback_enabled", cfg.WritebackEnabled, "sync_lock", "redis_setnx")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -108,7 +110,7 @@ func main() {
 	defer ticker.Stop()
 	go func() {
 		for range ticker.C {
-			runCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			runCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 			if err := svc.RunAll(runCtx); err != nil {
 				logger.Error("scheduled sync failed", "error", redact.SanitizeErr(err))
 			}
@@ -139,9 +141,15 @@ func handleIntegrationAction(
 		http.Error(w, "integration_id and tenant_id required", http.StatusBadRequest)
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 	defer cancel()
 	if err := fn(ctx, req.TenantID, req.IntegrationID); err != nil {
+		if errors.Is(err, syncer.ErrAlreadyRunning) {
+			logger.Info("api sync rejected — already running",
+				"integration_id", req.IntegrationID, "tenant_id", req.TenantID)
+			http.Error(w, `{"status":"already_running"}`, http.StatusConflict)
+			return
+		}
 		logger.Error("request failed", "error", redact.SanitizeErr(err))
 		http.Error(w, "request failed", http.StatusInternalServerError)
 		return

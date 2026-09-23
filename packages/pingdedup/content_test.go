@@ -60,6 +60,34 @@ func TestHashParityB1FieldsChangeHash(t *testing.T) {
 	if Hash(c1) == Hash(c2) {
 		t.Fatal("has_converted must be part of hash")
 	}
+	conn1 := Content{ExternalCallID: "x", HasConnected: false}
+	conn2 := Content{ExternalCallID: "x", HasConnected: true}
+	if Hash(conn1) == Hash(conn2) {
+		t.Fatal("has_connected must be part of hash")
+	}
+	blk := Content{ExternalCallID: "x", WasBlocked: true, BlockReason: "The bid has expired"}
+	if Hash(blk) == Hash(conn1) {
+		t.Fatal("was_blocked and block_reason must be part of hash")
+	}
+	adj := Content{ExternalCallID: "x", WasConversionAdjusted: true}
+	if Hash(adj) == Hash(conn1) {
+		t.Fatal("was_conversion_adjusted must be part of hash")
+	}
+	zero := uint32(0)
+	ten := uint32(10)
+	absent := Content{ExternalCallID: "x"}
+	present0 := Content{ExternalCallID: "x", RequiredDurationSeconds: &zero}
+	present10 := Content{ExternalCallID: "x", RequiredDurationSeconds: &ten}
+	if Hash(absent) == Hash(present0) {
+		t.Fatal("absent required_duration must differ from present 0")
+	}
+	if Hash(present0) == Hash(present10) {
+		t.Fatal("required_duration 0 must differ from 10")
+	}
+	maxA := Content{ExternalCallID: "x", MaxRequiredDurationSeconds: &ten}
+	if Hash(maxA) == Hash(absent) {
+		t.Fatal("max_required_duration must be part of hash")
+	}
 }
 
 func TestHashPlatformDuplicate(t *testing.T) {

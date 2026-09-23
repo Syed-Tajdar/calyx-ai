@@ -21,11 +21,15 @@ func NewMockProvider() *MockProvider {
 
 // Enrich generates fake attributes from ani_hash.
 func (m *MockProvider) Enrich(aniHash string) ([]models.Attribute, error) {
+	prefix := aniHash
+	if len(prefix) > 8 {
+		prefix = prefix[:8]
+	}
 	attrs := make([]models.Attribute, 0, 520)
 	for i := 0; i < 520; i++ {
 		attrs = append(attrs, models.Attribute{
 			Key:   fmt.Sprintf("attr_%03d", i),
-			Value: fmt.Sprintf("%s_val_%d", aniHash[:8], i%100),
+			Value: fmt.Sprintf("%s_val_%d", prefix, i%100),
 		})
 	}
 	return attrs, nil

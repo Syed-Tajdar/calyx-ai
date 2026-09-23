@@ -3,6 +3,8 @@ package adapter
 import (
 	"testing"
 	"time"
+
+	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/models"
 )
 
 func TestMapRingbaCallLogEntryOccurredAt(t *testing.T) {
@@ -13,7 +15,7 @@ func TestMapRingbaCallLogEntryOccurredAt(t *testing.T) {
 			{"name": "revenue", "value": "1.5"}
 		]
 	}`)
-	got := mapRingbaCallLogEntry(raw)
+	got := mustMapRingba(t, raw)
 	if got.ExternalCallID != "id-1" {
 		t.Fatalf("id=%q", got.ExternalCallID)
 	}
@@ -38,7 +40,7 @@ func TestMapRingbaFlatRecordEpochMillisAndConversionAmount(t *testing.T) {
 		"targetId": "tgt-1",
 		"state": "California"
 	}`)
-	got := mapRingbaCallLogEntry(raw)
+	got := mustMapRingba(t, raw)
 	if got.ExternalCallID != "flat-id-1" {
 		t.Fatalf("id=%q", got.ExternalCallID)
 	}
@@ -113,7 +115,7 @@ func TestMapRingbaParityB1Fields(t *testing.T) {
 		"profitGross": 6.12,
 		"tag:InboundNumber:State": "CA"
 	}`)
-	got := mapRingbaCallLogEntry(raw)
+	got := mustMapRingba(t, raw)
 	if got.CampaignName != "Final Expense" || got.PublisherName != "Optimize To Convert" {
 		t.Fatalf("names campaign=%q publisher=%q", got.CampaignName, got.PublisherName)
 	}
@@ -132,8 +134,43 @@ func TestMapRingbaParityB1Fields(t *testing.T) {
 	if got.HasConverted {
 		t.Fatal("hasConverted absent must map false")
 	}
+	if got.HasConnected || got.WasBlocked || got.WasConversionAdjusted {
+		t.Fatal("absent phase-2 flags must map false")
+	}
 	if got.PlatformDuplicate {
 		t.Fatal("isDuplicate false must map PlatformDuplicate=false")
+	}
+}
+
+func TestMapRingbaPhase2Flags(t *testing.T) {
+	blocked := mustMapRingba(t, []byte(`{
+		"inboundCallId": "b1",
+		"wasBlocked": true,
+		"blockReason": "The bid has expired"
+	}`))
+	if blocked.HasConnected {
+		t.Fatal("absent hasConnected must be false")
+	}
+	if !blocked.WasBlocked || blocked.BlockReason != "The bid has expired" {
+		t.Fatalf("blocked=%v reason=%q", blocked.WasBlocked, blocked.BlockReason)
+	}
+	explicit := mustMapRingba(t, []byte(`{
+		"inboundCallId": "b2",
+		"hasConnected": false,
+		"wasBlocked": false,
+		"wasConversionAdjusted": true
+	}`))
+	if explicit.HasConnected || explicit.WasBlocked || !explicit.WasConversionAdjusted {
+		t.Fatalf("explicit %+v", explicit)
+	}
+	names := map[string]bool{}
+	for _, col := range ringbaValueColumns() {
+		names[col["column"]] = true
+	}
+	for _, want := range []string{"hasConnected", "wasBlocked", "blockReason", "wasConversionAdjusted"} {
+		if !names[want] {
+			t.Fatalf("valueColumns missing %s", want)
+		}
 	}
 }
 
@@ -144,8 +181,17 @@ func TestMapRingbaTagInboundNumberState(t *testing.T) {
 		"tag:InboundNumber:State": "Texas",
 		"tag:InboundNumber:Region": "South"
 	}`)
-	got := mapRingbaCallLogEntry(raw)
+	got := mustMapRingba(t, raw)
 	if got.State != "TX" {
 		t.Fatalf("state=%q want TX (State preferred over Region)", got.State)
 	}
+}
+
+func mustMapRingba(t *testing.T, raw []byte) models.RemoteCall {
+	t.Helper()
+	c, err := mapRingbaCallLogEntry(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
 }

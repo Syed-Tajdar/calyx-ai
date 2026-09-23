@@ -219,7 +219,11 @@ func mapFixtureCall(t *testing.T, platform string, raw json.RawMessage) models.R
 	case "retreaver":
 		return mapRetreaverCall(raw)
 	case "ringba":
-		return mapRingbaCallLogEntry(raw)
+		c, err := mapRingbaCallLogEntry(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
 	case "trackdrive":
 		return mapTrackDriveCall(raw)
 	case "callgrid":
