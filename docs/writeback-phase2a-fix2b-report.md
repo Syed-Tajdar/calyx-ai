@@ -112,9 +112,10 @@ Evidence: `docs/evidence/phase2a-fix2b-gates.txt` (and sibling ingestion/present
 
 **Side fix (gate unblock):** enrichment panicked on short `ani_hash` (`abc` from earlier lag-probe traffic) via `aniHash[:8]` in mock provider + consumer logs. Safe prefix logging/enrichment shipped; enrichment image rebuilt. `[PROVEN]`
 
-### D3 — Commit
+### D3 — Commit `[PROVEN]`
 
-See report footer after commit.
+- Hash: **`288f0ffc06b2950e3199af25c0916a6895ac3925`** (`288f0ff`)
+- `git status`: clean working tree; branch **ahead of `origin/main` by 1** (not pushed)
 
 ### D4 — Secret scan (since `8f4c8f7`) — **do not push**
 
