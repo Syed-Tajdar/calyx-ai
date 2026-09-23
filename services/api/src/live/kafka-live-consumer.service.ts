@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Consumer, EachMessagePayload } from 'kafkajs';
+import { EachMessagePayload } from 'kafkajs';
 import { loadEnv } from '../config/env';
 import { createKafkaClient } from '../kafka/kafka-client';
 import { startResilientConsumer } from '../kafka/resilient-consumer';
@@ -15,10 +15,12 @@ import {
 
 export const LIVE_FEED_GROUP_ID = 'calyx-api-live-feed';
 
+type Stoppable = { stop: () => Promise<void> };
+
 @Injectable()
 export class KafkaLiveConsumerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(KafkaLiveConsumerService.name);
-  private consumer: Consumer | null = null;
+  private managed: Stoppable | null = null;
   private kafkaLiveRequired = false;
 
   constructor(private readonly gateway: LiveGateway) {}
@@ -47,7 +49,7 @@ export class KafkaLiveConsumerService implements OnModuleInit, OnModuleDestroy {
     ];
 
     try {
-      this.consumer = await startResilientConsumer({
+      this.managed = await startResilientConsumer({
         kafka,
         groupId: LIVE_FEED_GROUP_ID,
         topics,
@@ -59,14 +61,14 @@ export class KafkaLiveConsumerService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`kafka live consumer started topics=${topics.join(',')}`);
     } catch (error: unknown) {
       this.logger.error(`kafka live consumer failed to start error=${String(error)}`);
-      // Leave kafkaLiveRequired true so /readyz stays not-ready; watchdog/exit handles recovery.
+      // Leave kafkaLiveRequired true so /live-status reports down; watchdog recreates.
     }
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (this.consumer) {
-      await this.consumer.disconnect();
-      this.consumer = null;
+    if (this.managed) {
+      await this.managed.stop();
+      this.managed = null;
     }
   }
 

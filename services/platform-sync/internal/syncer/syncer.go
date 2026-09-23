@@ -92,7 +92,7 @@ func (s *Service) TestAuth(ctx context.Context, tenantID, integrationID string) 
 // manual=true → ErrAlreadyRunning on lock miss (HTTP 409). manual=false → skip via same error for RunAll.
 func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manual bool) error {
 	if s.lock != nil {
-		ok, err := s.lock.TryAcquire(ctx, item.ID)
+		token, ok, err := s.lock.TryAcquire(ctx, item.ID)
 		if err != nil {
 			return fmt.Errorf("sync lock: %w", err)
 		}
@@ -100,7 +100,7 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 			return ErrAlreadyRunning
 		}
 		defer func() {
-			if relErr := s.lock.Release(context.Background(), item.ID); relErr != nil {
+			if relErr := s.lock.Release(context.Background(), item.ID, token); relErr != nil {
 				s.logger.Error("sync lock release failed",
 					"integration_id", item.ID, "error", redact.SanitizeErr(relErr))
 			}

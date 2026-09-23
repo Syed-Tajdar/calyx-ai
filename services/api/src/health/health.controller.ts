@@ -17,6 +17,11 @@ export class HealthController {
     return { status: 'ok' };
   }
 
+  /**
+   * Readiness for serving API requests (Postgres + ClickHouse only).
+   * Live Kafka consumer health is intentionally NOT here — a broker outage must not
+   * remove the pod from service (login/dashboards/reports still work).
+   */
   @Get('readyz')
   async readyz(): Promise<{ status: string }> {
     try {
@@ -25,17 +30,39 @@ export class HealthController {
     } catch {
       throw new ServiceUnavailableException('dependencies unavailable');
     }
-
-    const env = loadEnv();
-    const kafkaLiveRequired =
-      !(env.MOCK_MODE ?? true) || !(env.MOCK_EMITTER_ENABLED ?? true);
-    if (kafkaLiveRequired) {
-      const membership = getConsumerMembership(LIVE_FEED_GROUP_ID);
-      if (!membership?.isGroupMember) {
-        throw new ServiceUnavailableException('live kafka consumer not a group member');
-      }
-    }
-
     return { status: 'ok' };
+  }
+
+  /**
+   * Live-feed Kafka consumer membership. Used by verify-system; not a readiness probe.
+   */
+  @Get('live-status')
+  liveStatus(): {
+    status: string;
+    required: boolean;
+    group_id: string;
+    is_group_member: boolean;
+    last_event_at: string | null;
+    last_join_at: string | null;
+    last_error: string | null;
+    recreate_count: number;
+    lag: number | null;
+  } {
+    const env = loadEnv();
+    const required = !(env.MOCK_MODE ?? true) || !(env.MOCK_EMITTER_ENABLED ?? true);
+    const membership = getConsumerMembership(LIVE_FEED_GROUP_ID);
+    const isMember = Boolean(membership?.isGroupMember);
+    return {
+      status: !required || isMember ? 'ok' : 'down',
+      required,
+      group_id: LIVE_FEED_GROUP_ID,
+      is_group_member: isMember,
+      last_event_at: membership?.lastEventAt ?? null,
+      last_join_at: membership?.lastJoinAt ?? null,
+      last_error: membership?.lastError ?? null,
+      recreate_count: membership?.recreateCount ?? 0,
+      // Lag requires broker admin APIs; not available in-process without extra deps.
+      lag: null,
+    };
   }
 }

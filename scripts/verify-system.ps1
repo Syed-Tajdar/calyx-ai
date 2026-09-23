@@ -87,6 +87,23 @@ if (Test-HttpStatus ":3000/readyz" "http://localhost:3000/readyz") {
   $summary.HealthEndpoints.Pass++
 }
 
+Write-Section "Live feed status"
+$summary["LiveStatus"] = "FAIL"
+try {
+  $live = Invoke-RestMethod -Uri "$apiBase/live-status" -Method GET -TimeoutSec 15
+  $member = [bool]$live.is_group_member
+  $required = [bool]$live.required
+  Write-Host "  group=$($live.group_id) required=$required is_group_member=$member status=$($live.status) recreate_count=$($live.recreate_count)"
+  if (-not $required -or $member) {
+    Write-Host "  PASS /live-status"
+    $summary["LiveStatus"] = "PASS"
+  } else {
+    Write-Host "  FAIL /live-status (live consumer not a group member)"
+  }
+} catch {
+  Write-Host "  FAIL /live-status ($($_.Exception.Message))"
+}
+
 Write-Section "API presentation verification"
 $verifyScript = Join-Path $repoRoot "scripts\verify-presentation.ps1"
 & powershell -ExecutionPolicy Bypass -File $verifyScript
@@ -156,6 +173,7 @@ $summary.WebBuild = if ($buildExit -eq 0) { "PASS" } else { "FAIL" }
 Write-Section "SYSTEM VERIFICATION SUMMARY"
 Write-Host "  Docker:     $($summary.DockerContainers.Pass) / $($summary.DockerContainers.Total)"
 Write-Host "  Healthz:    $($summary.HealthEndpoints.Pass) / $($summary.HealthEndpoints.Total)"
+Write-Host "  LiveStatus: $($summary.LiveStatus)"
 Write-Host "  API:        $($summary.ApiPresentation)"
 Write-Host "  Web routes: $($summary.WebRoutes.Pass) / $($summary.WebRoutes.Total)"
 Write-Host "  WebSocket:  $($summary.WebSocket)"
@@ -166,6 +184,7 @@ Write-Host "  Pipeline:   $($summary.PipelineSmoke)"
 $hardFail = $false
 if ($summary.DockerContainers.Pass -lt $summary.DockerContainers.Total) { $hardFail = $true }
 if ($summary.HealthEndpoints.Pass -lt $summary.HealthEndpoints.Total) { $hardFail = $true }
+if ($summary.LiveStatus -ne "PASS") { $hardFail = $true }
 if ($apiExit -ne 0) { $hardFail = $true }
 if ($summary.WebRoutes.Pass -lt $summary.WebRoutes.Total) { $hardFail = $true }
 if ($wsExit -ne 0) { $hardFail = $true }

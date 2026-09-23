@@ -1,5 +1,4 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Consumer } from 'kafkajs';
 import { loadEnv } from '../config/env';
 import { createKafkaClient } from '../kafka/kafka-client';
 import { startResilientConsumer } from '../kafka/resilient-consumer';
@@ -14,10 +13,12 @@ interface CallScoredEvent {
 
 export const ALERT_ENGINE_GROUP_ID = 'callloom-alert-engine';
 
+type Stoppable = { stop: () => Promise<void> };
+
 @Injectable()
 export class AlertEngineService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AlertEngineService.name);
-  private consumer: Consumer | null = null;
+  private managed: Stoppable | null = null;
 
   constructor(
     private readonly alertsService: AlertsService,
@@ -28,7 +29,7 @@ export class AlertEngineService implements OnModuleInit, OnModuleDestroy {
     const env = loadEnv();
     const kafka = createKafkaClient([env.KAFKA_BROKER]);
 
-    this.consumer = await startResilientConsumer({
+    this.managed = await startResilientConsumer({
       kafka,
       groupId: ALERT_ENGINE_GROUP_ID,
       topics: ['callloom.calls.call_scored.v1'],
@@ -58,8 +59,9 @@ export class AlertEngineService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (this.consumer) {
-      await this.consumer.disconnect();
+    if (this.managed) {
+      await this.managed.stop();
+      this.managed = null;
     }
   }
 }
