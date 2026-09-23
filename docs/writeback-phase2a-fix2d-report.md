@@ -31,9 +31,9 @@ Event-loop lag during those fails: **`lag_ms` 0–1**, `max` stayed ~19 until br
 |---|---|---|
 | Event-loop blocking during KafkaJS reconnect | **Ruled out** | `/event-loop-lag` / `live-status.event_loop_*` stayed ~0–1 ms while `/readyz` returned 503 |
 | Probe timeout too tight (8s) as sole cause | **Ruled out as primary** | Failures reproduced as **HTTP 503 in ~2s** once pings were bounded - not an 8s client timeout |
-| Readyz DB dependency pings stalled / pool pinned during broker-stop network flaps | **Named cause** | 503 latency matches ping timeout; lag remains low (Node free, await on PG/CH stalls). An earlier `Promise.race` timeout **without cancelling** the query made consecutive fails worse by abandoning work on the `pg` pool |
+| Readyz DB dependency pings stalled / pool pinned during broker-stop network flaps | **Named cause (`[INFERRED]` mechanism)** | 503 latency matches ping timeout; lag remains low (Node free, await on PG/CH stalls). An earlier `Promise.race` timeout **without cancelling** the query made consecutive fails worse by abandoning work on the `pg` pool. **Note (fix2e):** the Docker-network / pool-pin story was not separately demonstrated (e.g. packet capture or pool metrics); it is the best fit for the timings. The **fix** (bounded cancelling timeouts + retries + dedicated ready pool in fix2e) and the **0-failure** long-outage proof are `[PROVEN]`. |
 
-**One sentence:** Stopping the broker container briefly stalls Docker-networked PG/CH pings; abandoned timed-out queries can pin the Postgres pool so `/readyz` keeps returning 503 even though the Nest event loop is idle.
+**One sentence:** `/readyz` returned 503 while the event loop stayed idle and dependency pings hit their timeout — consistent with stalled PG/CH connectivity (and worsened by abandoned timed-out queries pinning the shared pool). The Docker-network flap mechanism itself is `[INFERRED]`; the fix and 0-failure re-proof are `[PROVEN]`.
 
 ### 1.3 - Fix + proof `[PROVEN]`
 

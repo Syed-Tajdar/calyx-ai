@@ -1,0 +1,197 @@
+﻿
+{"time":"2026-09-23T22:43:46.097138399Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-0","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:43:49.974588839Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-1","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:43:53.875630111Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-2","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:43:57.801249404Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-3","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:43:57.801307847Z","level":"INFO","msg":"per-message flush 
+done","service":"consumer","written":0,"poison_skipped":0,"retry":4,"poison_total":2}
+{"time":"2026-09-23T22:43:57.801415022Z","level":"ERROR","msg":"batch flush 
+failed","service":"consumer","error":"consumer.flushOneByOne: 4 messages pending retry after transient errors"}
+{"time":"2026-09-23T22:44:05.564077912Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-0","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:09.420556014Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-1","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:13.26633649Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-2","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:17.105902042Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-3","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:17.106015935Z","level":"INFO","msg":"per-message flush 
+done","service":"consumer","written":0,"poison_skipped":0,"retry":4,"poison_total":2}
+{"time":"2026-09-23T22:44:17.106234419Z","level":"ERROR","msg":"batch flush 
+failed","service":"consumer","error":"consumer.flushOneByOne: 4 messages pending retry after transient errors"}
+{"time":"2026-09-23T22:44:24.812920221Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-0","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:28.659102975Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-1","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:32.521204222Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-2","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:36.362672442Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-3","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:40.229097422Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-4","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:40.229164946Z","level":"INFO","msg":"per-message flush 
+done","service":"consumer","written":0,"poison_skipped":0,"retry":5,"poison_total":2}
+{"time":"2026-09-23T22:44:40.229181572Z","level":"ERROR","msg":"batch flush 
+failed","service":"consumer","error":"consumer.flushOneByOne: 5 messages pending retry after transient errors"}
+{"time":"2026-09-23T22:44:47.917622311Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-0","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:51.770657386Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-1","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:55.621402351Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-2","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:44:59.49738427Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-3","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:45:03.345266478Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-4","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:45:03.345320746Z","level":"INFO","msg":"per-message flush 
+done","service":"consumer","written":0,"poison_skipped":0,"retry":5,"poison_total":2}
+{"time":"2026-09-23T22:45:03.345336557Z","level":"ERROR","msg":"batch flush 
+failed","service":"consumer","error":"consumer.flushOneByOne: 5 messages pending retry after transient errors"}
+{"time":"2026-09-23T22:45:11.064486758Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-0","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:45:14.912178288Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-1","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp: lookup clickhouse on 127.0.0.11:53: no such host"}
+{"time":"2026-09-23T22:45:14.913397526Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-2","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.914162167Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-3","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.915136073Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-4","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.915912308Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-5","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.916773039Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-6","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.917548393Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-7","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.917604846Z","level":"INFO","msg":"per-message flush 
+done","service":"consumer","written":0,"poison_skipped":0,"retry":8,"poison_total":2}
+{"time":"2026-09-23T22:45:14.917619986Z","level":"ERROR","msg":"batch flush 
+failed","service":"consumer","error":"consumer.flushOneByOne: 8 messages pending retry after transient errors"}
+{"time":"2026-09-23T22:45:14.919280115Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-0","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.920253937Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-1","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.920961578Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-2","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.921806303Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-3","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.922686533Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-4","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.923508904Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-5","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.924256475Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-6","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.925109413Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-7","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:14.925197125Z","level":"INFO","msg":"per-message flush 
+done","service":"consumer","written":0,"poison_skipped":0,"retry":8,"poison_total":2}
+{"time":"2026-09-23T22:45:14.925217318Z","level":"ERROR","msg":"batch flush 
+failed","service":"consumer","error":"consumer.flushOneByOne: 8 messages pending retry after transient errors"}
+{"time":"2026-09-23T22:45:17.227559994Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-0","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.228637844Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-1","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.229594468Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-2","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.230567102Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-3","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.231559461Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-4","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.232630986Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-5","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.233637954Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-6","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.234630864Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-7","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.235669335Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-8","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.236585484Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-9","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.237531515Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-10","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.238525998Z","level":"ERROR","msg":"per-message insert transient failure","service":"consum
+er","external_call_id":"RGB4B0E09D80C568722A3F89BA5747B34C0D30B0C10RGB7C02","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.239646298Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-11","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.240835444Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-12","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.241885673Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-13","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.242985127Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-14","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.243988616Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-15","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.24509677Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-16","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.245947896Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-17","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.247039688Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-18","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.248023424Z","level":"ERROR","msg":"per-message insert transient 
+failure","service":"consumer","external_call_id":"smoke-fix2e-chout-034324-19","error":"writer.InsertBatch: 
+clickhouse.InsertPings: prepare: dial tcp 172.18.0.5:9000: connect: connection refused"}
+{"time":"2026-09-23T22:45:17.248071391Z","level":"INFO","msg":"per-message flush 
+done","service":"consumer","written":0,"poison_skipped":0,"retry":21,"poison_total":2}
+{"time":"2026-09-23T22:45:17.248087388Z","level":"ERROR","msg":"batch flush 
+failed","service":"consumer","error":"consumer.flushOneByOne: 21 messages pending retry after transient errors"}
+{"time":"2026-09-23T22:45:22.517195578Z","level":"INFO","msg":"batch flushed","service":"consumer","count":21}
+
+

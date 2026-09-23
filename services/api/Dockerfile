@@ -22,6 +22,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/catalog.json ./catalog.json
 
 ENV PROVIDER_CATALOG_PATH=/app/catalog.json
+# KafkaJS reconnect DNS storms otherwise starve getaddrinfo for PG/CH readiness.
+ENV UV_THREADPOOL_SIZE=64
 
 EXPOSE 3000
 

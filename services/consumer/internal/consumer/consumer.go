@@ -200,6 +200,25 @@ func (s *Service) flushOneByOne(ctx context.Context, entries []pendingEntry) err
 	return nil
 }
 
+func (s *Service) recordPoison(entry pendingEntry, reason string) {
+	n := s.poisonCount.Add(1)
+	s.logger.Warn("poison ping skipped",
+		"service", "consumer",
+		"external_call_id", entry.ping.ExternalCallID,
+		"tenant_id", entry.ping.TenantID,
+		"platform", entry.ping.Platform,
+		"kafka_topic", entry.msg.Topic,
+		"kafka_partition", entry.msg.Partition,
+		"kafka_offset", entry.msg.Offset,
+		"reason", reason,
+		"poison_total", n,
+	)
+}
+
+// isPoisonInsertError reports whether an insert error is a deterministic row/schema
+// problem (safe to skip + commit) vs a transient infrastructure failure (must retry).
+// Only explicit data-shape needles match; connection/timeout/DNS errors fall through
+// as transient (proven under a real ClickHouse outage in Phase 2A-fix2e).
 func isPoisonInsertError(err error) bool {
 	if err == nil {
 		return false
@@ -233,17 +252,6 @@ func (s *Service) skipPoison(ctx context.Context, entry pendingEntry, reason str
 		s.logger.Error("poison commit failed", "service", "consumer", "error", err,
 			"external_call_id", entry.ping.ExternalCallID)
 	}
-}
-
-func (s *Service) recordPoison(entry pendingEntry, reason string) {
-	n := s.poisonCount.Add(1)
-	s.logger.Warn("poison ping skipped",
-		"service", "consumer",
-		"external_call_id", entry.ping.ExternalCallID,
-		"tenant_id", entry.ping.TenantID,
-		"reason", reason,
-		"poison_total", n,
-	)
 }
 
 // ValidatePingForInsert returns a non-empty reason when the row would poison a

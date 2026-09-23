@@ -212,6 +212,8 @@ services:
       - "3000:3000"
     environment:
       API_PORT: "3000"
+      # KafkaJS reconnect DNS storms otherwise starve getaddrinfo for PG/CH readiness.
+      UV_THREADPOOL_SIZE: "64"
       DATABASE_URL: postgres://callloom_api:api_dev@postgres:5432/callloom?sslmode=disable
       JWT_SECRET: callloom_dev_jwt_secret_min_32_chars_long
       CLICKHOUSE_URL: http://default:callloom_dev@clickhouse:8123

@@ -18,5 +18,16 @@ export function registerKafkaCompressionCodecs(): void {
 
 export function createKafkaClient(brokers: string[]): Kafka {
   registerKafkaCompressionCodecs();
-  return new Kafka({ brokers });
+  return new Kafka({
+    brokers,
+    // Keep reconnect attempts short so DNS failures do not monopolize the
+    // libuv threadpool that Postgres/ClickHouse readiness lookups also use.
+    connectionTimeout: 3_000,
+    requestTimeout: 10_000,
+    retry: {
+      retries: 3,
+      initialRetryTime: 300,
+      maxRetryTime: 5_000,
+    },
+  });
 }

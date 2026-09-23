@@ -35,6 +35,10 @@ Each was found during write-back and pre-Phase-2 work. Do not deploy with any un
 
 ## Data
 
+- [ ] **Data retention (TTL)** — `pings` rows expire at `received_at + 24 months`.
+      Decide the retention period with management (billing disputes, customer history),
+      and whether it should key on `occurred_at` (call time) instead of `received_at`
+      (last sync time — every republish resets it).
 - [ ] **Retreaver re-sync** — local ClickHouse currently has 0 real Retreaver calls (lost in
       the machine reset). Re-sync before relying on Retreaver data.
 - [ ] **Retreaver pagination** — the Retreaver adapter pages with `page`/`per_page`
