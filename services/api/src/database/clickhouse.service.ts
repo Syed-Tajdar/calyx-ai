@@ -19,7 +19,12 @@ export class ClickhouseService implements OnModuleDestroy {
   }
 
   async ping(): Promise<void> {
-    await this.client.ping();
+    // request_timeout bounds a stalled HTTP call during Docker network flaps.
+    await this.client.query({
+      query: 'SELECT 1',
+      clickhouse_settings: {},
+      abort_signal: AbortSignal.timeout(1_500),
+    });
   }
 
   async onModuleDestroy(): Promise<void> {

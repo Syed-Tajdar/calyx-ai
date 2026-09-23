@@ -27,6 +27,12 @@ Each was found during write-back and pre-Phase-2 work. Do not deploy with any un
       require a bearer token, but `/sync` and `/test-auth` are still **unauthenticated**.
       Internal network only.
 
+## Infrastructure
+
+- [ ] **Kubernetes probes** — readiness (`/readyz`) must depend only on what is needed
+      to serve requests (Postgres, ClickHouse). Kafka / live-feed health is monitored via
+      `/live-status`, never wired into readiness or liveness.
+
 ## Data
 
 - [ ] **Retreaver re-sync** — local ClickHouse currently has 0 real Retreaver calls (lost in

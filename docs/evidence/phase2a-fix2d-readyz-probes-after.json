@@ -1,0 +1,209 @@
+﻿[
+    {
+        "ts":  "2026-09-23T22:09:56.5625882Z",
+        "status":  200,
+        "ms":  122,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:01.7823510Z",
+        "status":  200,
+        "ms":  22,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:06.8156285Z",
+        "status":  200,
+        "ms":  29,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:11.8615989Z",
+        "status":  200,
+        "ms":  38,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:16.9114582Z",
+        "status":  200,
+        "ms":  20,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:21.9867444Z",
+        "status":  200,
+        "ms":  48,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:27.0440488Z",
+        "status":  200,
+        "ms":  24,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:32.0757725Z",
+        "status":  200,
+        "ms":  22,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:37.1157484Z",
+        "status":  200,
+        "ms":  22,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:42.1529705Z",
+        "status":  200,
+        "ms":  22,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:47.1864619Z",
+        "status":  200,
+        "ms":  17,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:52.2118715Z",
+        "status":  200,
+        "ms":  23,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:10:57.2517476Z",
+        "status":  200,
+        "ms":  24,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:11:02.2973264Z",
+        "status":  200,
+        "ms":  19,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:11:07.3354465Z",
+        "status":  200,
+        "ms":  50,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:11:12.4069241Z",
+        "status":  200,
+        "ms":  44,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:11:17.4801093Z",
+        "status":  200,
+        "ms":  43,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:11:22.5372613Z",
+        "status":  200,
+        "ms":  31,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:11:27.5859011Z",
+        "status":  200,
+        "ms":  28,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:11:32.6392349Z",
+        "status":  200,
+        "ms":  27,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:11:37.6762334Z",
+        "status":  200,
+        "ms":  40,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:11:42.7218849Z",
+        "status":  200,
+        "ms":  23,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    },
+    {
+        "ts":  "2026-09-23T22:11:47.8290310Z",
+        "status":  200,
+        "ms":  17,
+        "kind":  "ok",
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=6"
+    }
+]

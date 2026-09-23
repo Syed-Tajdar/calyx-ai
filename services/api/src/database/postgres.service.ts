@@ -8,7 +8,14 @@ export class PostgresService implements OnModuleDestroy {
 
   constructor() {
     const env = loadEnv();
-    this.pool = new Pool({ connectionString: env.DATABASE_URL });
+    this.pool = new Pool({
+      connectionString: env.DATABASE_URL,
+      connectionTimeoutMillis: 1_500,
+      // Cancels stalled queries so Docker network flaps cannot pin pool clients.
+      query_timeout: 1_500,
+      statement_timeout: 1_500,
+      max: 10,
+    });
   }
 
   getPool(): Pool {

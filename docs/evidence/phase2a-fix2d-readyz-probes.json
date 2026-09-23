@@ -1,0 +1,227 @@
+﻿[
+    {
+        "ts":  "2026-09-23T22:01:43.0552758Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  245,
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=1;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:01:48.5417415Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  57,
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:01:53.6227585Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2045,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=0;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:02:00.8645901Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  42,
+        "err":  null,
+        "live":  false,
+        "loop":  "lag=0;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:02:05.9300078Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2005,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=1;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:02:12.9525774Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2009,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=0;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:02:20.0673214Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  334,
+        "err":  null,
+        "live":  false,
+        "loop":  "lag=18;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:02:25.4544909Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2007,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=0;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:02:32.4947134Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2017,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=1;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:02:39.5310366Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2014,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=1;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:02:46.5832053Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2010,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=1;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:02:53.6083570Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2011,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=1;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:03:00.6377354Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2010,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=0;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:03:07.6718472Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2010,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=1;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:03:14.6929570Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2009,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=0;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:03:21.7142292Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2017,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=0;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:03:28.7530796Z",
+        "kind":  "http",
+        "status":  503,
+        "ms":  2010,
+        "err":  "HTTP 503",
+        "live":  false,
+        "loop":  "lag=1;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:03:36.3294946Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  85,
+        "err":  null,
+        "live":  false,
+        "loop":  "lag=1;max=19"
+    },
+    {
+        "ts":  "2026-09-23T22:03:41.4786484Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  1202,
+        "err":  null,
+        "live":  false,
+        "loop":  "lag=0;max=32"
+    },
+    {
+        "ts":  "2026-09-23T22:03:47.7138655Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  76,
+        "err":  null,
+        "live":  false,
+        "loop":  "lag=1;max=66"
+    },
+    {
+        "ts":  "2026-09-23T22:03:52.8125709Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  31,
+        "err":  null,
+        "live":  false,
+        "loop":  "lag=1;max=66"
+    },
+    {
+        "ts":  "2026-09-23T22:03:57.8581082Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  37,
+        "err":  null,
+        "live":  false,
+        "loop":  "lag=0;max=66"
+    },
+    {
+        "ts":  "2026-09-23T22:04:02.9110577Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  44,
+        "err":  null,
+        "live":  false,
+        "loop":  "lag=0;max=66"
+    },
+    {
+        "ts":  "2026-09-23T22:04:07.9767618Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  67,
+        "err":  null,
+        "live":  false,
+        "loop":  "lag=0;max=66"
+    },
+    {
+        "ts":  "2026-09-23T22:04:13.0515448Z",
+        "kind":  "",
+        "status":  200,
+        "ms":  40,
+        "err":  null,
+        "live":  true,
+        "loop":  "lag=0;max=66"
+    }
+]

@@ -149,7 +149,14 @@ export async function startResilientConsumer(opts: ResilientConsumerOptions): Pr
     try {
       if (current) {
         try {
-          await current.disconnect();
+          // Bound disconnect so a dead broker cannot stall the Nest event loop
+          // long enough for /readyz probes to time out.
+          await Promise.race([
+            current.disconnect(),
+            new Promise<void>((_, reject) => {
+              setTimeout(() => reject(new Error('disconnect timed out after 3000ms')), 3_000);
+            }),
+          ]);
         } catch (err: unknown) {
           opts.logger.warn(
             `kafka consumer disconnect during recreate groupId=${opts.groupId} error=${String(err)}`,
