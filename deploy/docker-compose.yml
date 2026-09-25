@@ -1,5 +1,6 @@
-services:
+﻿services:
   postgres:
+    restart: unless-stopped
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: callloom
@@ -16,6 +17,7 @@ services:
       retries: 10
 
   migrate:
+    restart: "no"
     image: migrate/migrate:v4.17.1
     volumes:
       - ../db/postgres/migrations:/migrations
@@ -28,6 +30,7 @@ services:
         condition: service_healthy
 
   redis:
+    restart: unless-stopped
     image: redis:7-alpine
     command:
       - redis-server
@@ -38,8 +41,8 @@ services:
       - --maxmemory
       - 1gb
       # Evict only keys with TTL (dedup hashes), nearest-expiry first.
-      # Do NOT use allkeys-lru (could drop live dedup → needless republish)
-      # or noeviction (writes fail at ceiling → duplicate balloon).
+      # Do NOT use allkeys-lru (could drop live dedup â†’ needless republish)
+      # or noeviction (writes fail at ceiling â†’ duplicate balloon).
       - --maxmemory-policy
       - volatile-ttl
     ports:
@@ -53,6 +56,7 @@ services:
       retries: 10
 
   redpanda:
+    restart: unless-stopped
     image: redpandadata/redpanda:v24.2.4
     command:
       - redpanda
@@ -79,11 +83,13 @@ services:
       retries: 10
 
   kafka-init:
+    restart: "no"
     image: redpandadata/redpanda:v24.2.4
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         rpk topic create callloom.pings.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
+        rpk topic create callloom.pings.v1.dlq --brokers redpanda:9092 --partitions 3 --replicas 1 -c cleanup.policy=delete -c retention.ms=2592000000 || true
         rpk topic create callloom.calls.call_recording_ready.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
         rpk topic create callloom.calls.call_transcript_ready.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
         rpk topic create callloom.calls.call_scored.v1 --brokers redpanda:9092 --partitions 3 --replicas 1 || true
@@ -100,6 +106,7 @@ services:
         condition: service_healthy
 
   clickhouse-init:
+    restart: "no"
     image: clickhouse/clickhouse-server:24.8
     volumes:
       - ../db/clickhouse/migrations/000002_phase2_analytics.up.sql:/init-phase2.sql:ro
@@ -139,6 +146,7 @@ services:
         condition: service_healthy
 
   clickhouse:
+    restart: unless-stopped
     image: clickhouse/clickhouse-server:24.8
     environment:
       CLICKHOUSE_USER: default
@@ -157,6 +165,7 @@ services:
       retries: 10
 
   ingestion:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: services/ingestion/Dockerfile
@@ -181,6 +190,7 @@ services:
         condition: service_completed_successfully
 
   consumer:
+    restart: unless-stopped
     build:
       context: ../services/consumer
     ports:
@@ -189,6 +199,7 @@ services:
       CONSUMER_PORT: "8081"
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
+      KAFKA_TOPIC_PINGS_DLQ: callloom.pings.v1.dlq
       KAFKA_CONSUMER_GROUP: callloom-consumer
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_DB: default
@@ -392,6 +403,7 @@ services:
         condition: service_started
 
   platform-sync:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: services/platform-sync/Dockerfile
@@ -492,6 +504,7 @@ services:
         condition: service_completed_successfully
 
   web:
+    restart: unless-stopped
     build:
       context: ../web
       args:

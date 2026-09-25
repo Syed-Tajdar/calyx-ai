@@ -147,30 +147,85 @@ func (s *Service) TestAuth(ctx context.Context, tenantID, integrationID string) 
 	return s.adapter.TestAuth(ctx, item.Platform, item.SyncMode, creds)
 }
 
+// withLock acquires the per-integration lock, starts a renew heartbeat, and returns a
+// child context cancelled when ownership is lost (or parent cancelled). Caller must
+// defer release(). Two runners must never publish at once — lost ownership cancels runCtx.
+func (s *Service) withLock(ctx context.Context, integrationID, reason string) (runCtx context.Context, release func(), err error) {
+	if s.lock == nil {
+		return ctx, func() {}, nil
+	}
+	token, ok, err := s.lock.TryAcquire(ctx, integrationID, reason)
+	if err != nil {
+		return nil, nil, fmt.Errorf("sync lock: %w", err)
+	}
+	if !ok {
+		return nil, nil, ErrAlreadyRunning
+	}
+	runCtx, cancel := context.WithCancel(ctx)
+	stopHB := make(chan struct{})
+	go s.lockHeartbeat(runCtx, stopHB, integrationID, token, cancel)
+
+	released := false
+	release = func() {
+		if released {
+			return
+		}
+		released = true
+		close(stopHB)
+		cancel()
+		if relErr := s.lock.Release(context.Background(), integrationID, token); relErr != nil {
+			s.logger.Error("sync lock release failed",
+				"integration_id", integrationID, "error", redact.SanitizeErr(relErr))
+		} else {
+			s.logger.Info("sync lock released",
+				"integration_id", integrationID, "reason", reason)
+		}
+	}
+	return runCtx, release, nil
+}
+
+func (s *Service) lockHeartbeat(runCtx context.Context, stop <-chan struct{}, integrationID, token string, cancel context.CancelFunc) {
+	ticker := time.NewTicker(syncLockRenewInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-runCtx.Done():
+			return
+		case <-ticker.C:
+			// Renew uses Background so a parent cancel mid-Eval still clears ownership check.
+			ok, err := s.lock.Renew(context.Background(), integrationID, token)
+			if err != nil {
+				s.logger.Error("sync lock renew failed — cancelling run",
+					"integration_id", integrationID, "error", redact.SanitizeErr(err))
+				cancel()
+				return
+			}
+			if !ok {
+				s.logger.Error("sync lock ownership lost — cancelling run",
+					"integration_id", integrationID)
+				cancel()
+				return
+			}
+		}
+	}
+}
+
 // manual=true → ErrAlreadyRunning on lock miss (HTTP 409). manual=false → skip via same error for RunAll.
 func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manual bool) error {
-	if s.lock != nil {
-		token, ok, err := s.lock.TryAcquire(ctx, item.ID, "tick")
-		if err != nil {
-			return fmt.Errorf("sync lock: %w", err)
-		}
-		if !ok {
-			return ErrAlreadyRunning
-		}
-		defer func() {
-			if relErr := s.lock.Release(context.Background(), item.ID, token); relErr != nil {
-				s.logger.Error("sync lock release failed",
-					"integration_id", item.ID, "error", redact.SanitizeErr(relErr))
-			}
-		}()
+	runCtx, release, err := s.withLock(ctx, item.ID, "tick")
+	if err != nil {
+		return err
 	}
+	defer release()
 
 	// Status-only: do not advance last_sync_at on start (S1A A1).
-	_ = s.store.UpdateSyncStatus(ctx, item.ID, "syncing", nil)
+	_ = s.store.UpdateSyncStatus(runCtx, item.ID, "syncing", nil)
 
 	creds, err := s.decryptor.DecryptMap(item.APICredentialsBlob)
 	if err != nil {
-		s.markError(ctx, item.ID, "decrypt credentials failed")
+		s.markError(runCtx, item.ID, "decrypt credentials failed")
 		return fmt.Errorf("decrypt credentials: %w", err)
 	}
 	creds["platform"] = item.Platform
@@ -184,9 +239,9 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 	if lookbackDays < 1 {
 		lookbackDays = 30
 	}
-	result, err := s.adapter.FetchAllPages(ctx, item.Platform, item.SyncMode, creds, item.SyncCursor, lastSync, lookbackDays)
+	result, err := s.adapter.FetchAllPages(runCtx, item.Platform, item.SyncMode, creds, item.SyncCursor, lastSync, lookbackDays)
 	if err != nil {
-		s.markError(ctx, item.ID, redact.ClassifySyncError(err))
+		s.markError(runCtx, item.ID, redact.ClassifySyncError(err))
 		return err
 	}
 
@@ -200,16 +255,23 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 	}
 
 	receivedAt := time.Now().UTC().UnixMilli()
-	skippedEmptyID, published, unchanged, publishErr := publishSyncCalls(ctx, item.TenantID, item.Platform, result.Calls, s.dedup, s.producer, receivedAt)
+	skippedEmptyID, published, unchanged, publishErr := publishSyncCalls(runCtx, item.TenantID, item.Platform, result.Calls, s.dedup, s.producer, receivedAt)
 	if publishErr != nil {
-		s.markError(ctx, item.ID, redact.SanitizeErr(publishErr))
+		s.markError(runCtx, item.ID, redact.SanitizeErr(publishErr))
 		return publishErr
 	}
 
 	if skippedEmptyID > 0 {
 		errMsg := fmt.Sprintf("%d calls skipped: missing external id", skippedEmptyID)
-		s.markError(ctx, item.ID, redact.ClassifySyncError(fmt.Errorf(errMsg)))
+		s.markError(runCtx, item.ID, redact.ClassifySyncError(fmt.Errorf(errMsg)))
 		return fmt.Errorf(errMsg)
+	}
+
+	// Cancelled/lost-lock runs must not advance last_sync_at (S1A).
+	if runCtx.Err() != nil {
+		s.logger.Info("api sync aborted before cursor advance",
+			"integration_id", item.ID, "error", runCtx.Err())
+		return runCtx.Err()
 	}
 
 	nextCursor := result.NextCursor
@@ -221,7 +283,7 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 	if syncAt.IsZero() {
 		syncAt = time.Now().UTC()
 	}
-	if err := s.store.UpdateSyncState(ctx, item.ID, nextCursor, syncAt, "ok", nil); err != nil {
+	if err := s.store.UpdateSyncState(runCtx, item.ID, nextCursor, syncAt, "ok", nil); err != nil {
 		return err
 	}
 	s.logger.Info("api sync completed",
@@ -245,21 +307,11 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 	if lockReason == "" {
 		lockReason = "window"
 	}
-	if s.lock != nil {
-		token, ok, err := s.lock.TryAcquire(ctx, item.ID, lockReason)
-		if err != nil {
-			return fmt.Errorf("sync lock: %w", err)
-		}
-		if !ok {
-			return ErrAlreadyRunning
-		}
-		defer func() {
-			if relErr := s.lock.Release(context.Background(), item.ID, token); relErr != nil {
-				s.logger.Error("sync lock release failed",
-					"integration_id", item.ID, "error", redact.SanitizeErr(relErr))
-			}
-		}()
+	runCtx, release, err := s.withLock(ctx, item.ID, lockReason)
+	if err != nil {
+		return err
 	}
+	defer release()
 
 	began := time.Now().UTC()
 	creds, err := s.decryptor.DecryptMap(item.APICredentialsBlob)
@@ -268,13 +320,13 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 	}
 	creds["platform"] = item.Platform
 
-	result, err := s.adapter.FetchRange(ctx, item.Platform, item.SyncMode, creds, start, end)
+	result, err := s.adapter.FetchRange(runCtx, item.Platform, item.SyncMode, creds, start, end)
 	if err != nil {
 		return err
 	}
 
 	receivedAt := time.Now().UTC().UnixMilli()
-	skippedEmptyID, published, unchanged, publishErr := publishSyncCalls(ctx, item.TenantID, item.Platform, result.Calls, s.dedup, s.producer, receivedAt)
+	skippedEmptyID, published, unchanged, publishErr := publishSyncCalls(runCtx, item.TenantID, item.Platform, result.Calls, s.dedup, s.producer, receivedAt)
 	if publishErr != nil {
 		return publishErr
 	}
@@ -293,7 +345,8 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 		"published", published,
 		"unchanged", unchanged,
 		"duration_ms", time.Since(began).Milliseconds(),
-		"last_sync_at_unchanged", true)
+		"last_sync_at_unchanged", true,
+		"cancelled", runCtx.Err() != nil)
 	return nil
 }
 

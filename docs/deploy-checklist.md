@@ -32,6 +32,14 @@ Each was found during write-back and pre-Phase-2 work. Do not deploy with any un
 - [ ] **Kubernetes probes** — readiness (`/readyz`) must depend only on what is needed
       to serve requests (Postgres, ClickHouse). Kafka / live-feed health is monitored via
       `/live-status`, never wired into readiness or liveness.
+- [ ] **Kubernetes `terminationGracePeriodSeconds` ≥ 30s for api, consumer, platform-sync —
+      shutdown handlers are bounded to 25s.**
+- [ ] **DLQ replay (procedure only)** — poison pings land on `callloom.pings.v1.dlq`
+      (retention ≥ 30d). To replay one message: (1) `rpk topic consume callloom.pings.v1.dlq`
+      and identify the record; (2) fix the root cause (schema / producer); (3) re-produce the
+      original value to `callloom.pings.v1` with the original key (headers
+      `x-source-*` / `x-poison-reason` are metadata only). Do not commit past DLQ until the
+      produce to the primary topic succeeds. A dedicated replay tool is out of scope (S1B).
 
 ## Data
 

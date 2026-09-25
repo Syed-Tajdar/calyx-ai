@@ -26,22 +26,30 @@ export class AlertEngineService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    // Background: never block Nest bootstrap on Kafka (S1B B2).
+    void this.startInBackground();
+  }
+
+  private async startInBackground(): Promise<void> {
     const env = loadEnv();
     const kafka = createKafkaClient([env.KAFKA_BROKER]);
-
-    this.managed = await startResilientConsumer({
-      kafka,
-      groupId: ALERT_ENGINE_GROUP_ID,
-      topics: ['callloom.calls.call_scored.v1'],
-      logger: this.logger,
-      eachMessage: async ({ message }) => {
-        if (!message.value) {
-          return;
-        }
-        const evt = JSON.parse(message.value.toString()) as CallScoredEvent;
-        await this.evaluate(evt);
-      },
-    });
+    try {
+      this.managed = await startResilientConsumer({
+        kafka,
+        groupId: ALERT_ENGINE_GROUP_ID,
+        topics: ['callloom.calls.call_scored.v1'],
+        logger: this.logger,
+        eachMessage: async ({ message }) => {
+          if (!message.value) {
+            return;
+          }
+          const evt = JSON.parse(message.value.toString()) as CallScoredEvent;
+          await this.evaluate(evt);
+        },
+      });
+    } catch (error: unknown) {
+      this.logger.error(`alert-engine consumer failed to start error=${String(error)}`);
+    }
   }
 
   private async evaluate(evt: CallScoredEvent): Promise<void> {

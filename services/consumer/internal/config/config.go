@@ -12,6 +12,7 @@ type Config struct {
 	Port             string
 	KafkaBrokers     []string
 	KafkaTopic       string
+	KafkaDLQTopic    string
 	ConsumerGroup    string
 	ClickHouseAddr   string
 	ClickHouseDB     string
@@ -50,6 +51,7 @@ func Load() (Config, error) {
 		Port:             envOrDefault("CONSUMER_PORT", "8081"),
 		KafkaBrokers:     []string{envOrDefault("KAFKA_BROKER", "localhost:9092")},
 		KafkaTopic:       envOrDefault("KAFKA_TOPIC_PINGS", "callloom.pings.v1"),
+		KafkaDLQTopic:    envOrDefault("KAFKA_TOPIC_PINGS_DLQ", "callloom.pings.v1.dlq"),
 		ConsumerGroup:    envOrDefault("KAFKA_CONSUMER_GROUP", "callloom-consumer"),
 		ClickHouseAddr:   chAddr,
 		ClickHouseDB:     chDB,

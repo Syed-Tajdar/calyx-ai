@@ -63,3 +63,35 @@ func (r *Reader) Ping(ctx context.Context) error {
 func (r *Reader) Close() error {
 	return r.reader.Close()
 }
+
+// Writer publishes messages (DLQ).
+type Writer struct {
+	w *kafka.Writer
+}
+
+// NewWriter creates a kafka writer for the given topic.
+func NewWriter(brokers []string, topic string) *Writer {
+	return &Writer{
+		w: &kafka.Writer{
+			Addr:         kafka.TCP(brokers...),
+			Topic:        topic,
+			Balancer:     &kafka.LeastBytes{},
+			RequiredAcks: kafka.RequireOne,
+			Async:        false,
+		},
+	}
+}
+
+// Publish writes one message with key, value, and headers.
+func (w *Writer) Publish(ctx context.Context, key, value []byte, headers []kafka.Header) error {
+	msg := kafka.Message{Key: key, Value: value, Headers: headers}
+	if err := w.w.WriteMessages(ctx, msg); err != nil {
+		return fmt.Errorf("kafka.Publish: %w", err)
+	}
+	return nil
+}
+
+// Close shuts down the writer.
+func (w *Writer) Close() error {
+	return w.w.Close()
+}

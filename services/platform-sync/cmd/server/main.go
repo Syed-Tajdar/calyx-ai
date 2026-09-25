@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,6 +28,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
+
+const shutdownBudget = 25 * time.Second
 
 type integrationRequest struct {
 	IntegrationID string `json:"integration_id"`
@@ -54,6 +59,19 @@ func main() {
 	}
 	redisClient := redis.NewClient(redisOpts)
 
+	readyPG, err := newReadyPostgres(cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("readyz postgres pool failed", "error", err)
+		os.Exit(1)
+	}
+	defer readyPG.Close()
+	readyRedis, err := newReadyRedis(cfg.RedisURL)
+	if err != nil {
+		logger.Error("readyz redis client failed", "error", err)
+		os.Exit(1)
+	}
+	defer readyRedis.Close()
+
 	decryptor, err := crypto.NewCredentialDecryptor(cfg.CredentialEncryptionKey)
 	if err != nil {
 		logger.Error("decryptor failed", "error", err)
@@ -69,15 +87,53 @@ func main() {
 	dedupChecker := dedup.NewChecker(redisClient, cfg.DedupTTL)
 	syncLock := syncer.NewRedisSyncLocker(redisClient)
 	svc := syncer.NewService(st, ad, prod, dedupChecker, decryptor, logger, syncLock)
-	logger.Info("platform-sync init", "dedup_mode", "content_hash", "mock_mode", cfg.MockMode, "writeback_enabled", cfg.WritebackEnabled, "sync_lock", "redis_setnx")
+	logger.Info("platform-sync init",
+		"dedup_mode", "content_hash",
+		"mock_mode", cfg.MockMode,
+		"writeback_enabled", cfg.WritebackEnabled,
+		"sync_lock", "redis_setnx_heartbeat",
+		"lock_ttl", syncer.SyncLockTTL().String(),
+		"lock_renew", syncer.SyncLockRenewInterval().String())
+
+	// rootCtx cancelled on SIGTERM — tickers and HTTP sync/window share it (B6).
+	rootCtx, rootCancel := context.WithCancel(context.Background())
+	var inflight sync.WaitGroup
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
+		probeCtx, cancel := context.WithTimeout(r.Context(), 1500*time.Millisecond)
+		defer cancel()
+		if err := readyPG.Ping(probeCtx); err != nil {
+			http.Error(w, "postgres unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		if err := readyRedis.Ping(probeCtx).Err(); err != nil {
+			http.Error(w, "redis unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("GET /kafka-status", func(w http.ResponseWriter, r *http.Request) {
+		probeCtx, cancel := context.WithTimeout(r.Context(), 1500*time.Millisecond)
+		defer cancel()
+		err := kafkaClient.Ping(probeCtx)
+		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	})
 	mux.HandleFunc("POST /sync", func(w http.ResponseWriter, r *http.Request) {
-		handleIntegrationAction(w, r, logger, svc.RunOne)
+		inflight.Add(1)
+		defer inflight.Done()
+		handleIntegrationAction(w, r, logger, svc.RunOne, rootCtx)
 	})
 	mux.HandleFunc("POST /test-auth", func(w http.ResponseWriter, r *http.Request) {
 		handleTestAuth(w, r, logger, svc)
@@ -85,7 +141,9 @@ func main() {
 
 	if cfg.WritebackAuthToken != "" {
 		mux.HandleFunc("POST /sync/window", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
-			handleSyncWindow(w, r, logger, svc)
+			inflight.Add(1)
+			defer inflight.Done()
+			handleSyncWindow(w, r, logger, svc, rootCtx)
 		}))
 	} else {
 		logger.Error("WRITEBACK_INTERNAL_TOKEN empty — POST /sync/window not registered")
@@ -115,47 +173,131 @@ func main() {
 	}()
 
 	ticker := time.NewTicker(cfg.SyncInterval)
-	defer ticker.Stop()
-	go func() {
-		for range ticker.C {
-			runCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-			if err := svc.RunAll(runCtx); err != nil {
-				logger.Error("scheduled sync failed", "error", redact.SanitizeErr(err))
-			}
-			cancel()
-		}
-	}()
-
 	sweepTicker := time.NewTicker(adapter.RingbaSweepInterval())
-	defer sweepTicker.Stop()
+	deepSweepTicker := time.NewTicker(adapter.RingbaDeepSweepInterval())
+	var tickersWG sync.WaitGroup
+
+	tickersWG.Add(1)
 	go func() {
-		for range sweepTicker.C {
-			runCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-			if err := svc.RunAllSweeps(runCtx); err != nil {
-				logger.Error("scheduled ringba sweep failed", "error", redact.SanitizeErr(err))
+		defer tickersWG.Done()
+		defer ticker.Stop()
+		for {
+			select {
+			case <-rootCtx.Done():
+				return
+			case <-ticker.C:
+				inflight.Add(1)
+				runCtx, cancel := context.WithTimeout(rootCtx, 10*time.Minute)
+				if err := svc.RunAll(runCtx); err != nil && !errors.Is(err, context.Canceled) {
+					logger.Error("scheduled sync failed", "error", redact.SanitizeErr(err))
+				}
+				cancel()
+				inflight.Done()
 			}
-			cancel()
 		}
 	}()
 
-	deepSweepTicker := time.NewTicker(adapter.RingbaDeepSweepInterval())
-	defer deepSweepTicker.Stop()
+	tickersWG.Add(1)
 	go func() {
-		for range deepSweepTicker.C {
-			runCtx, cancel := context.WithTimeout(context.Background(), 40*time.Minute)
-			if err := svc.RunAllDeepSweeps(runCtx); err != nil {
-				logger.Error("scheduled ringba deep sweep failed", "error", redact.SanitizeErr(err))
+		defer tickersWG.Done()
+		defer sweepTicker.Stop()
+		for {
+			select {
+			case <-rootCtx.Done():
+				return
+			case <-sweepTicker.C:
+				inflight.Add(1)
+				runCtx, cancel := context.WithTimeout(rootCtx, 30*time.Minute)
+				if err := svc.RunAllSweeps(runCtx); err != nil && !errors.Is(err, context.Canceled) {
+					logger.Error("scheduled ringba sweep failed", "error", redact.SanitizeErr(err))
+				}
+				cancel()
+				inflight.Done()
 			}
-			cancel()
+		}
+	}()
+
+	tickersWG.Add(1)
+	go func() {
+		defer tickersWG.Done()
+		defer deepSweepTicker.Stop()
+		for {
+			select {
+			case <-rootCtx.Done():
+				return
+			case <-deepSweepTicker.C:
+				inflight.Add(1)
+				runCtx, cancel := context.WithTimeout(rootCtx, 40*time.Minute)
+				if err := svc.RunAllDeepSweeps(runCtx); err != nil && !errors.Is(err, context.Canceled) {
+					logger.Error("scheduled ringba deep sweep failed", "error", redact.SanitizeErr(err))
+				}
+				cancel()
+				inflight.Done()
+			}
 		}
 	}()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	started := time.Now()
+	logger.Info("shutdown signal received — cancelling in-flight runs")
+	rootCancel()
+
+	done := make(chan struct{})
+	go func() {
+		inflight.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		logger.Info("in-flight runs stopped; locks released via owner defer")
+	case <-time.After(shutdownBudget - 2*time.Second):
+		logger.Warn("shutdown wait timed out waiting for runs")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_ = server.Shutdown(shutdownCtx)
+	logger.Info("shutdown complete", "shutdown_ms", time.Since(started).Milliseconds())
+}
+
+func newReadyPostgres(databaseURL string) (*pgxpool.Pool, error) {
+	cfg, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return nil, err
+	}
+	cfg.MaxConns = 2
+	cfg.MinConns = 0
+	cfg.MaxConnLifetime = 5 * time.Second
+	cfg.HealthCheckPeriod = 30 * time.Second
+	cfg.ConnConfig.ConnectTimeout = 1500 * time.Millisecond
+	return pgxpool.NewWithConfig(context.Background(), cfg)
+}
+
+func newReadyRedis(redisURL string) (*redis.Client, error) {
+	opts, err := redis.ParseURL(redisURL)
+	if err != nil {
+		return nil, err
+	}
+	opts.DialTimeout = 1500 * time.Millisecond
+	opts.ReadTimeout = 1500 * time.Millisecond
+	opts.WriteTimeout = 1500 * time.Millisecond
+	opts.MaxRetries = 1
+	if u, err := url.Parse(redisURL); err == nil && u.Hostname() != "" {
+		host := u.Hostname()
+		if net.ParseIP(host) == nil {
+			opts.Addr = net.JoinHostPort(host, portOrDefault(u.Port(), "6379"))
+		}
+	}
+	return redis.NewClient(opts), nil
+}
+
+func portOrDefault(p, d string) string {
+	if p == "" {
+		return d
+	}
+	return p
 }
 
 type syncWindowRequest struct {
@@ -166,7 +308,7 @@ type syncWindowRequest struct {
 	Reason        string `json:"reason"`
 }
 
-func handleSyncWindow(w http.ResponseWriter, r *http.Request, logger *slog.Logger, svc *syncer.Service) {
+func handleSyncWindow(w http.ResponseWriter, r *http.Request, logger *slog.Logger, svc *syncer.Service, shutdownCtx context.Context) {
 	var req syncWindowRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -190,13 +332,19 @@ func handleSyncWindow(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 	if reason == "" {
 		reason = "manual"
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(shutdownCtx, 30*time.Minute)
 	defer cancel()
 	if err := svc.RunWindow(ctx, req.TenantID, req.IntegrationID, start.UTC(), end.UTC(), reason); err != nil {
 		if errors.Is(err, syncer.ErrAlreadyRunning) {
 			logger.Info("window sync rejected — already running",
 				"integration_id", req.IntegrationID, "tenant_id", req.TenantID)
 			http.Error(w, `{"status":"already_running"}`, http.StatusConflict)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			logger.Info("window sync cancelled by shutdown",
+				"integration_id", req.IntegrationID)
+			http.Error(w, `{"status":"cancelled"}`, http.StatusServiceUnavailable)
 			return
 		}
 		logger.Error("window sync failed", "error", redact.SanitizeErr(err))
@@ -212,6 +360,7 @@ func handleIntegrationAction(
 	r *http.Request,
 	logger *slog.Logger,
 	fn func(context.Context, string, string) error,
+	shutdownCtx context.Context,
 ) {
 	var req integrationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -222,7 +371,7 @@ func handleIntegrationAction(
 		http.Error(w, "integration_id and tenant_id required", http.StatusBadRequest)
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(shutdownCtx, 10*time.Minute)
 	defer cancel()
 	if err := fn(ctx, req.TenantID, req.IntegrationID); err != nil {
 		if errors.Is(err, syncer.ErrAlreadyRunning) {

@@ -18,6 +18,8 @@ import (
 	"github.com/Syed-Tajdar/calyx-ai/services/consumer/pkg/kafka"
 )
 
+const shutdownBudget = 25 * time.Second
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
@@ -37,7 +39,9 @@ func main() {
 
 	batchWriter := writer.NewBatchWriter(chClient)
 	kafkaReader := kafka.NewReader(cfg.KafkaBrokers, cfg.KafkaTopic, cfg.ConsumerGroup)
-	consumerSvc := consumer.NewService(cfg, kafkaReader, batchWriter, logger)
+	dlqWriter := kafka.NewWriter(cfg.KafkaBrokers, cfg.KafkaDLQTopic)
+	defer dlqWriter.Close()
+	consumerSvc := consumer.NewService(cfg, kafkaReader, batchWriter, logger, dlqWriter)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -58,6 +62,7 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	mux.HandleFunc("GET /metrics", consumerSvc.GetMetrics().Handler())
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	srv := &http.Server{
@@ -92,15 +97,17 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
+	started := time.Now()
 	logger.Info("shutdown signal received", "service", "consumer")
 	runCancel()
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownBudget)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logger.Error("http shutdown failed", "service", "consumer", "error", err)
 	}
 
 	wg.Wait()
-	logger.Info("shutdown complete", "service", "consumer")
+	logger.Info("shutdown complete", "service", "consumer",
+		"shutdown_ms", time.Since(started).Milliseconds())
 }

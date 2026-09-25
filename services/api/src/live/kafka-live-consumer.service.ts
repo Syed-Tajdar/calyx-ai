@@ -48,6 +48,14 @@ export class KafkaLiveConsumerService implements OnModuleInit, OnModuleDestroy {
       env.KAFKA_TOPIC_COMPLIANCE_VIOLATION,
     ];
 
+    // Background: Nest bootstrap must not await Kafka (S1B B2).
+    void this.startInBackground(kafka, topics);
+  }
+
+  private async startInBackground(
+    kafka: ReturnType<typeof createKafkaClient>,
+    topics: string[],
+  ): Promise<void> {
     try {
       this.managed = await startResilientConsumer({
         kafka,

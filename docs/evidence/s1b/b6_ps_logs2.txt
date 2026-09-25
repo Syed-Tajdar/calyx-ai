@@ -1,0 +1,9 @@
+﻿
+{"time":"2026-09-25T04:40:47.6539876Z","level":"INFO","msg":"shutdown signal received ΓÇö cancelling in-flight runs"}
+{"time":"2026-09-25T04:40:47.66323359Z","level":"INFO","msg":"sync lock 
+released","integration_id":"ce6fd338-af48-47d8-850a-bd10b855e2f4","reason":"deep_sweep"}
+{"time":"2026-09-25T04:40:47.663542684Z","level":"ERROR","msg":"window sync failed","error":"Post 
+\"https://api.ringba.com/v2/RAa[REDACTED]/calllogs\": context canceled"}
+{"time":"2026-09-25T04:40:47.666196413Z","level":"INFO","msg":"shutdown complete","shutdown_ms":12}
+
+

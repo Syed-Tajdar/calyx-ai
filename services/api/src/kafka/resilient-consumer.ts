@@ -183,7 +183,17 @@ export async function startResilientConsumer(opts: ResilientConsumerOptions): Pr
     }
   };
 
-  current = await startOne();
+  // Initial connect must not throw out of startResilientConsumer — API boot
+  // continues while the watchdog retries (S1B B2).
+  try {
+    current = await startOne();
+  } catch (err: unknown) {
+    opts.logger.error(
+      `kafka consumer initial start failed groupId=${opts.groupId} error=${String(err)}`,
+    );
+    setMembership(opts.groupId, { isGroupMember: false, lastError: String(err) });
+    notMemberSince = Date.now();
+  }
 
   const watchdog = setInterval(() => {
     if (stopped) {

@@ -18,6 +18,8 @@ async function bootstrap(): Promise<void> {
     }),
   );
   app.enableCors({ origin: true, credentials: true });
+  // Drain HTTP + OnModuleDestroy (Kafka disconnect) within K8s grace (S1B B6).
+  app.enableShutdownHooks();
 
   await app.listen(env.API_PORT);
   logger.info({ port: env.API_PORT }, 'api server started');
