@@ -203,8 +203,8 @@ Already under **Infrastructure** in `docs/deploy-checklist.md`:
 
 ## 6. Commit / secret scan
 
-Local commit: *(filled after commit)*  
+Local commits: `ee9451f` (S2 implementation) · `967d55e` (report/scan note).  
 
-Secret scan of unpushed commits: *(filled after scan)*  
+Secret scan of `origin/main..HEAD`: no JWT / AKIA / ghp / sk_live / private-key shapes; known dev placeholders only. **Not pushed.**
 
-**Not pushed.** STOP. Do not start S3.
+STOP. Do not start S3.
