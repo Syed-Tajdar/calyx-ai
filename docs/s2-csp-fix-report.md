@@ -133,7 +133,7 @@ Sample live events: `csp-live-f7c50fde-…` (dev), `csp-live-04d33ce0-…` (prod
 | `scripts/verify-ingestion-slice.ps1` | **0** | `docs/evidence/s2-csp-fix/verify_ingestion.txt` |
 | `scripts/verify-presentation.ps1` | **0** | `docs/evidence/s2-csp-fix/verify_presentation.txt` |
 
-Commit: local only — **do not push**. Secret scan of the unpushed commit: CLEAN (no live secrets; known dev placeholders only).
+Commit: `7cbc5e5` (local only — **do not push**). Secret scan of the staged/unpushed commit: **CLEAN** (no JWT / AKIA / ghp / sk_live / private-key shapes; known dev placeholders only).
 
 ---
 
