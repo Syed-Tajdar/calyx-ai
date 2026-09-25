@@ -1,0 +1,16 @@
+---
+pid: 10072
+cwd: "C:\\Users\\DELL\\calyx-AI"
+command: "taskkill /F /IM go.exe /T 2>$null; taskkill /F /PID 7048 /T 2>$null; taskkill /F /PID 13752 /T 2>$null; echo DONE_KILL\ndocker run --rm -v \"C:/Users/DELL/calyx-AI:/src\" -v calyx-go-mod:/go/pkg/mod -v calyx-go-cache:/go/cache -e GOPATH=/go -e GOCACHE=/go/cache -e CGO_ENABLED=0 -w /src/services/consumer golang:1.22-bookworm go test ./internal/consumer/ -count=1 -timeout 90s -run \"TestTransientCHErrorDoesNotCountTowardPoison|TestUnknownAttemptBackoffRequiresMinInterval|TestIsTransientClickHouseErrorByCode\""
+title: "Kill hung go; run tests in Docker"
+status: running  
+started_at: 2026-09-25T06:39:33.974Z
+running_for_ms: 161979   
+---
+SUCCESS: The process with PID 8024 (child process of PID 7048) has been terminated.
+SUCCESS: The process with PID 20664 (child process of PID 7048) has been terminated.
+SUCCESS: The process with PID 7048 (child process of PID 4572) has been terminated.
+SUCCESS: The process with PID 21420 (child process of PID 13752) has been terminated.
+SUCCESS: The process with PID 13752 (child process of PID 4572) has been terminated.
+DONE_KILL
+ok  	github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/consumer	1.544s

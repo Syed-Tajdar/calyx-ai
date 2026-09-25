@@ -1,0 +1,22 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260925125533
+Username: DESKTOP-TM1VJ74\DELL
+RunAs User: DESKTOP-TM1VJ74\DELL
+Configuration Name: 
+Machine: DESKTOP-TM1VJ74 (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NonInteractive -File C:\Users\DELL\AppData\Local\Temp\ps-script-55e94043-7deb-402e-90a4-669cb45340e3.ps1
+Process ID: 12084
+PSVersion: 5.1.26100.9549
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9549
+BuildVersion: 10.0.26100.9549
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+**********************
+Windows PowerShell transcript end
+End time: 20260925125536
+**********************

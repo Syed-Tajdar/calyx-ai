@@ -208,6 +208,18 @@ func (s *Service) lockHeartbeat(runCtx context.Context, stop <-chan struct{}, in
 				cancel()
 				return
 			}
+			pttlMs := int64(-1)
+			if peeker, ok := s.lock.(interface {
+				PTTL(ctx context.Context, integrationID string) (time.Duration, error)
+			}); ok {
+				if d, err := peeker.PTTL(context.Background(), integrationID); err == nil {
+					pttlMs = d.Milliseconds()
+				}
+			}
+			s.logger.Info("sync lock renewed",
+				"integration_id", integrationID,
+				"pttl_ms", pttlMs,
+				"ttl", syncLockTTL.String())
 		}
 	}
 }

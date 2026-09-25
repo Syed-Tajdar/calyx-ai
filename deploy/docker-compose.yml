@@ -77,10 +77,12 @@
     ports:
       - "9092:9092"
     healthcheck:
+      # rpk can exceed 5s under load; false "unhealthy" fails verify-system Docker 15/15.
       test: ["CMD", "rpk", "cluster", "health"]
       interval: 10s
-      timeout: 5s
+      timeout: 15s
       retries: 10
+      start_period: 20s
 
   kafka-init:
     restart: "no"

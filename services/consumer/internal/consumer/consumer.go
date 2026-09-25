@@ -15,10 +15,6 @@ import (
 	kafkago "github.com/segmentio/kafka-go"
 )
 
-// MaxUnknownAttempts before treating a healthy-CH unknown insert error as poison.
-// Justified: 5 covers brief CH blips where Ping still succeeds; avoids infinite stall (F013).
-const MaxUnknownAttempts = 5
-
 type pendingEntry struct {
 	ping models.PingMessage
 	msg  kafkago.Message
@@ -51,8 +47,9 @@ type Service struct {
 	metrics *Metrics
 	paused  atomic.Bool
 	// attempt key = topic|partition|offset
-	attempts   map[string]int
+	attempts   map[string]*attemptState
 	attemptsMu sync.Mutex
+	now        func() time.Time
 }
 
 // NewService creates a Kafka consumer service.
@@ -65,7 +62,8 @@ func NewService(cfg config.Config, reader kafkaReader, batchWriter batchWriter, 
 		logger:   logger,
 		batch:    make([]pendingEntry, 0, cfg.BatchSize),
 		metrics:  &Metrics{},
-		attempts: map[string]int{},
+		attempts: map[string]*attemptState{},
+		now:      time.Now,
 	}
 }
 
@@ -270,18 +268,19 @@ func (s *Service) flushOneByOne(ctx context.Context, entries []pendingEntry) err
 				poisoned++
 				continue
 			}
-			// Unknown error: outage vs poison (F013 / fix2e).
-			if !chHealthy {
+			// Server-side / network transient — never count toward N (even if Ping ok).
+			if isTransientClickHouseError(err) || !chHealthy {
 				retry = append(retry, entry)
 				s.metrics.IncRetries(1)
-				s.logger.Error("per-message insert during CH outage; retry forever",
-					"service", "consumer", "external_call_id", entry.ping.ExternalCallID, "error", err)
+				s.logger.Error("per-message insert transient; retry without poison budget",
+					"service", "consumer", "external_call_id", entry.ping.ExternalCallID,
+					"ch_healthy", chHealthy, "error", err)
 				continue
 			}
-			n := s.bumpAttempts(entry.msg)
+			n, span, counted := s.bumpAttempts(entry.msg)
 			s.metrics.IncRetries(1)
-			if n >= MaxUnknownAttempts {
-				reason := fmt.Sprintf("unknown_insert_after_%d_attempts: %v", n, err)
+			if counted && n >= MaxUnknownAttempts {
+				reason := fmt.Sprintf("unknown_insert_after_%d_attempts_span_%s: %v", n, span.Round(time.Second), err)
 				if dlqErr := s.deadLetter(ctx, entry, reason); dlqErr != nil {
 					retry = append(retry, entry)
 					s.logger.Error("dlq failed after bounded retries; keeping", "service", "consumer", "error", dlqErr)
@@ -293,9 +292,10 @@ func (s *Service) flushOneByOne(ctx context.Context, entries []pendingEntry) err
 				continue
 			}
 			retry = append(retry, entry)
-			s.logger.Error("per-message insert transient failure",
+			s.logger.Error("per-message insert unknown failure; waiting min interval before next poison count",
 				"service", "consumer", "external_call_id", entry.ping.ExternalCallID,
-				"attempt", n, "error", err)
+				"attempt", n, "counted", counted, "min_interval", UnknownAttemptMinInterval.String(),
+				"error", err)
 			continue
 		}
 		toCommit = append(toCommit, entry.msg)
@@ -323,12 +323,25 @@ func msgKey(msg kafkago.Message) string {
 	return fmt.Sprintf("%s|%d|%d", msg.Topic, msg.Partition, msg.Offset)
 }
 
-func (s *Service) bumpAttempts(msg kafkago.Message) int {
+// bumpAttempts increments the poison budget only when UnknownAttemptMinInterval has elapsed
+// since the last counted attempt. Returns (count, spanSinceFirst, countedThisCall).
+func (s *Service) bumpAttempts(msg kafkago.Message) (count int, span time.Duration, counted bool) {
 	s.attemptsMu.Lock()
 	defer s.attemptsMu.Unlock()
 	k := msgKey(msg)
-	s.attempts[k]++
-	return s.attempts[k]
+	now := s.now()
+	st := s.attempts[k]
+	if st == nil {
+		st = &attemptState{count: 1, lastAt: now, first: now}
+		s.attempts[k] = st
+		return 1, 0, true
+	}
+	if now.Sub(st.lastAt) < UnknownAttemptMinInterval {
+		return st.count, now.Sub(st.first), false
+	}
+	st.count++
+	st.lastAt = now
+	return st.count, now.Sub(st.first), true
 }
 
 func (s *Service) clearAttempts(msg kafkago.Message) {
@@ -388,6 +401,9 @@ func (s *Service) recordPoison(entry pendingEntry, reason string) {
 // as transient (proven under a real ClickHouse outage in Phase 2A-fix2e).
 func isPoisonInsertError(err error) bool {
 	if err == nil {
+		return false
+	}
+	if isTransientClickHouseError(err) {
 		return false
 	}
 	msg := err.Error()

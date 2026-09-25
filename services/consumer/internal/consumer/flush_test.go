@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	ch "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/config"
 	"github.com/Syed-Tajdar/calyx-ai/services/consumer/internal/models"
 	kafkago "github.com/segmentio/kafka-go"
@@ -181,8 +182,11 @@ func TestUnknownErrorPoisonsAfterNWhenCHHealthy(t *testing.T) {
 	w := &fakeWriter{failUntil: 1000, pingOK: true, failMsg: errors.New("weird unknown row error")}
 	r := &fakeReader{}
 	d := &fakeDLQ{}
-	cfg := config.Config{BatchSize: 1, BatchFlushMillis: 60_000}
+	cfg := config.Config{BatchSize: 1, BatchFlushMillis: 50}
 	svc := NewService(cfg, r, w, slog.New(slog.NewTextHandler(io.Discard, nil)), d)
+	base := time.Now()
+	clock := base
+	svc.now = func() time.Time { return clock }
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -195,7 +199,8 @@ func TestUnknownErrorPoisonsAfterNWhenCHHealthy(t *testing.T) {
 	})
 	r.mu.Unlock()
 
-	deadline := time.Now().Add(10 * time.Second)
+	// Advance fake clock past min interval between each counted attempt (5 total → span ≥ 3m).
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		d.mu.Lock()
 		n := d.count
@@ -203,15 +208,20 @@ func TestUnknownErrorPoisonsAfterNWhenCHHealthy(t *testing.T) {
 		if n >= 1 {
 			break
 		}
-		time.Sleep(50 * time.Millisecond)
+		clock = clock.Add(UnknownAttemptMinInterval)
+		time.Sleep(80 * time.Millisecond)
 	}
 	d.mu.Lock()
 	if d.count < 1 {
 		d.mu.Unlock()
 		cancel()
-		t.Fatal("expected DLQ publish after N attempts")
+		t.Fatal("expected DLQ publish after N spaced attempts")
 	}
 	d.mu.Unlock()
+	span := clock.Sub(base)
+	if span < UnknownAttemptMinSpan() {
+		t.Fatalf("poison span=%v want >= %v (few minutes)", span, UnknownAttemptMinSpan())
+	}
 	r.mu.Lock()
 	if len(r.commits) < 1 {
 		r.mu.Unlock()
@@ -220,6 +230,100 @@ func TestUnknownErrorPoisonsAfterNWhenCHHealthy(t *testing.T) {
 	}
 	r.mu.Unlock()
 	cancel()
+}
+
+func TestTransientCHErrorDoesNotCountTowardPoison(t *testing.T) {
+	ex := &ch.Exception{Code: chCodeTooManyParts, Name: "TOO_MANY_PARTS", Message: "parts"}
+	w := &fakeWriter{failUntil: 1000, pingOK: true, failMsg: ex}
+	r := &fakeReader{}
+	d := &fakeDLQ{}
+	cfg := config.Config{BatchSize: 1, BatchFlushMillis: 50}
+	svc := NewService(cfg, r, w, slog.New(slog.NewTextHandler(io.Discard, nil)), d)
+	base := time.Now()
+	clock := base
+	svc.now = func() time.Time { return clock }
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = svc.Run(ctx) }()
+
+	p := testPing("smoke-too-many-parts")
+	r.mu.Lock()
+	r.queue = append(r.queue, kafkago.Message{
+		Topic: "t", Partition: 0, Offset: 99, Value: mustJSON(t, p),
+	})
+	r.mu.Unlock()
+
+	for i := 0; i < 20; i++ {
+		clock = clock.Add(UnknownAttemptMinInterval)
+		time.Sleep(60 * time.Millisecond)
+	}
+	d.mu.Lock()
+	if d.count != 0 {
+		d.mu.Unlock()
+		cancel()
+		t.Fatal("TOO_MANY_PARTS must not DLQ even with healthy ping")
+	}
+	d.mu.Unlock()
+	cancel()
+}
+
+func TestUnknownAttemptBackoffRequiresMinInterval(t *testing.T) {
+	svc := NewService(config.Config{BatchSize: 1}, &fakeReader{}, &fakeWriter{pingOK: true},
+		slog.New(slog.NewTextHandler(io.Discard, nil)), &fakeDLQ{})
+	base := time.Now()
+	clock := base
+	svc.now = func() time.Time { return clock }
+	msg := kafkago.Message{Topic: "t", Partition: 0, Offset: 1}
+
+	n, _, counted := svc.bumpAttempts(msg)
+	if n != 1 || !counted {
+		t.Fatalf("first: n=%d counted=%v", n, counted)
+	}
+	n, _, counted = svc.bumpAttempts(msg)
+	if counted || n != 1 {
+		t.Fatalf("immediate second must not count: n=%d counted=%v", n, counted)
+	}
+	clock = base.Add(UnknownAttemptMinInterval)
+	n, span, counted := svc.bumpAttempts(msg)
+	if !counted || n != 2 {
+		t.Fatalf("after interval: n=%d counted=%v", n, counted)
+	}
+	if span < UnknownAttemptMinInterval {
+		t.Fatalf("span=%v", span)
+	}
+	// Advance to attempt 5
+	for i := 0; i < 3; i++ {
+		clock = clock.Add(UnknownAttemptMinInterval)
+		n, span, counted = svc.bumpAttempts(msg)
+	}
+	if n != 5 || !counted {
+		t.Fatalf("fifth: n=%d counted=%v", n, counted)
+	}
+	if span < UnknownAttemptMinSpan() {
+		t.Fatalf("span to poison=%v want >= %v", span, UnknownAttemptMinSpan())
+	}
+}
+
+func TestIsTransientClickHouseErrorByCode(t *testing.T) {
+	cases := []struct {
+		err  error
+		want bool
+	}{
+		{&ch.Exception{Code: chCodeTooManyParts, Name: "TOO_MANY_PARTS"}, true},
+		{&ch.Exception{Code: chCodeMemoryLimitExceeded, Name: "MEMORY_LIMIT_EXCEEDED"}, true},
+		{&ch.Exception{Code: chCodeTimeoutExceeded, Name: "TIMEOUT_EXCEEDED"}, true},
+		{&ch.Exception{Code: chCodeNetworkError, Name: "NETWORK_ERROR"}, true},
+		{&ch.Exception{Code: 60, Name: "UNKNOWN_TABLE"}, false},
+		{errors.New("connection refused"), true},
+		{errors.New("i/o timeout"), true},
+		{errors.New("weird unknown row error"), false},
+	}
+	for _, tc := range cases {
+		if got := isTransientClickHouseError(tc.err); got != tc.want {
+			t.Fatalf("err=%v got=%v want=%v", tc.err, got, tc.want)
+		}
+	}
 }
 
 func TestUnknownErrorRetriesForeverWhenCHUnhealthy(t *testing.T) {

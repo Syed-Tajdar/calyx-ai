@@ -155,6 +155,19 @@ func (l *RedisSyncLocker) Peek(ctx context.Context, integrationID string) (strin
 	return reason, true, nil
 }
 
+// PTTL returns remaining lock TTL (for renew logging / ops).
+// go-redis PTTL already returns a time.Duration (not raw milliseconds).
+func (l *RedisSyncLocker) PTTL(ctx context.Context, integrationID string) (time.Duration, error) {
+	d, err := l.rdb.PTTL(ctx, syncLockKey(integrationID)).Result()
+	if err != nil {
+		return 0, err
+	}
+	if d < 0 {
+		return 0, nil
+	}
+	return d, nil
+}
+
 // TTLForTest exposes the configured TTL (tests / ops).
 func (l *RedisSyncLocker) TTLForTest() time.Duration { return l.ttl }
 

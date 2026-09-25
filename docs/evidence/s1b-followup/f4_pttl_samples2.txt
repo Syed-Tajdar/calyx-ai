@@ -1,0 +1,7 @@
+﻿t=28s pttl=84049
+t=38s pttl=74224
+t=55s pttl=86631
+t=63s pttl=78576
+t=71s pttl=70607
+t=79s pttl=62659
+t=87s pttl=85276
