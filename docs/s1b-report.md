@@ -128,6 +128,8 @@ Evidence: `docs/evidence/s1b/gate_system.txt`, `gate_ingestion.txt`, `gate_prese
 
 ## 6. Commit / secret scan
 
-Local commit only. Secret scan of `origin/main..HEAD` with prior patterns. **Do not push.**
+Local commit: `7012632` — `fix(s1b): core resilience — lock heartbeat, Kafka-free API boot, consumer DLQ/metrics, shutdown.`
+
+Secret scan of `origin/main..HEAD`: no real JWT/AKIA/ghp/sk_live/private-key shapes; RA account ids redacted in evidence. Dev placeholders only. **Not pushed.**
 
 STOP. S2 not started.
