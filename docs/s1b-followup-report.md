@@ -121,6 +121,13 @@ Evidence: `gate_system.txt`, `gate_ingestion.txt`, `gate_presentation.txt`, `gat
 
 ## 6. Commit / scan / push
 
-*(filled after commit)*
+**Unpushed (`origin/main..HEAD`):**
+1. `7012632` — fix(s1b): core resilience — lock heartbeat, Kafka-free API boot, consumer DLQ/metrics, shutdown.
+2. `7fe5011` — docs: record the s1b commit hash in the report.
+3. `14462e1` — fix(s1b): poison backoff + CH transient codes, lock renew live, BATCH_SIZE restore.
+
+**Secret scan (diff `origin/main..HEAD`):** CLEAN — no JWT/AKIA/ghp/sk_live/private-key shapes; no new `RAa…` account ids in the delta. Tree-wide hits are pattern docs + pre-existing sandbox evidence already on main. Dev placeholders only.
+
+**Gates:** 0 / 0 / 0. **Pushed** after clean scan. Local = remote confirmed below.
 
 S2 not started.
