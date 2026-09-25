@@ -59,8 +59,10 @@ func (s *Service) RunAll(ctx context.Context) error {
 	for _, item := range items {
 		if err := s.syncOne(ctx, item, false); err != nil {
 			if errors.Is(err, ErrAlreadyRunning) {
+				holder, _, _ := s.peekHolder(ctx, item.ID)
 				s.logger.Info("api sync skipped — already running",
-					"integration_id", item.ID, "platform", item.Platform)
+					"integration_id", item.ID, "platform", item.Platform,
+					"lock_holder", holder)
 				continue
 			}
 			s.logger.Error("sync failed",
@@ -70,30 +72,46 @@ func (s *Service) RunAll(ctx context.Context) error {
 	return nil
 }
 
-// RunAllSweeps re-fetches the configured sweep window for every Ringba API-sync integration.
+// RunAllSweeps re-fetches the hourly sweep window for every Ringba API-sync integration.
 func (s *Service) RunAllSweeps(ctx context.Context) error {
+	return s.runRingbaSweeps(ctx, adapter.RingbaSweepDays(), "sweep")
+}
+
+// RunAllDeepSweeps re-fetches the deep (dispute-window) sweep for every Ringba API-sync integration.
+func (s *Service) RunAllDeepSweeps(ctx context.Context) error {
+	return s.runRingbaSweeps(ctx, adapter.RingbaDeepSweepDays(), "deep_sweep")
+}
+
+func (s *Service) runRingbaSweeps(ctx context.Context, days int, reason string) error {
 	items, err := s.store.ListAPISync(ctx)
 	if err != nil {
 		return err
 	}
-	days := adapter.RingbaSweepDays()
 	now := time.Now().UTC()
 	start, end := adapter.BuildRingbaSweepWindow(now, days)
 	for _, item := range items {
 		if !strings.EqualFold(item.Platform, "ringba") {
 			continue
 		}
-		if err := s.RunWindow(ctx, item.TenantID, item.ID, start, end, "sweep"); err != nil {
+		if err := s.RunWindow(ctx, item.TenantID, item.ID, start, end, reason); err != nil {
 			if errors.Is(err, ErrAlreadyRunning) {
+				holder, _, _ := s.peekHolder(ctx, item.ID)
 				s.logger.Info("ringba sweep skipped — already running",
-					"integration_id", item.ID)
+					"integration_id", item.ID, "reason", reason, "lock_holder", holder)
 				continue
 			}
 			s.logger.Error("ringba sweep failed",
-				"integration_id", item.ID, "error", redact.SanitizeErr(err))
+				"integration_id", item.ID, "reason", reason, "error", redact.SanitizeErr(err))
 		}
 	}
 	return nil
+}
+
+func (s *Service) peekHolder(ctx context.Context, integrationID string) (string, bool, error) {
+	if s.lock == nil {
+		return "", false, nil
+	}
+	return s.lock.Peek(ctx, integrationID)
 }
 
 func (s *Service) RunOne(ctx context.Context, tenantID, integrationID string) error {
@@ -132,7 +150,7 @@ func (s *Service) TestAuth(ctx context.Context, tenantID, integrationID string) 
 // manual=true → ErrAlreadyRunning on lock miss (HTTP 409). manual=false → skip via same error for RunAll.
 func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manual bool) error {
 	if s.lock != nil {
-		token, ok, err := s.lock.TryAcquire(ctx, item.ID)
+		token, ok, err := s.lock.TryAcquire(ctx, item.ID, "tick")
 		if err != nil {
 			return fmt.Errorf("sync lock: %w", err)
 		}
@@ -223,8 +241,12 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 }
 
 func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegration, start, end time.Time, reason string) error {
+	lockReason := reason
+	if lockReason == "" {
+		lockReason = "window"
+	}
 	if s.lock != nil {
-		token, ok, err := s.lock.TryAcquire(ctx, item.ID)
+		token, ok, err := s.lock.TryAcquire(ctx, item.ID, lockReason)
 		if err != nil {
 			return fmt.Errorf("sync lock: %w", err)
 		}
@@ -260,6 +282,7 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 		return fmt.Errorf("%d calls skipped: missing external id", skippedEmptyID)
 	}
 
+	// Sweeps/backfills must not touch last_sync_at (incremental ticks only).
 	s.logger.Info("ringba window fetch completed",
 		"integration_id", item.ID,
 		"reason", reason,
@@ -269,7 +292,8 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 		"calls", len(result.Calls),
 		"published", published,
 		"unchanged", unchanged,
-		"duration_ms", time.Since(began).Milliseconds())
+		"duration_ms", time.Since(began).Milliseconds(),
+		"last_sync_at_unchanged", true)
 	return nil
 }
 

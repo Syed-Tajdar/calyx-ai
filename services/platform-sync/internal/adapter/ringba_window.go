@@ -34,7 +34,7 @@ func RingbaSweepInterval() time.Duration {
 	return 60 * time.Minute
 }
 
-// RingbaSweepDays default 7.
+// RingbaSweepDays default 7 (hourly sweep).
 func RingbaSweepDays() int {
 	if v := os.Getenv("RINGBA_SWEEP_DAYS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
@@ -42,6 +42,26 @@ func RingbaSweepDays() int {
 		}
 	}
 	return 7
+}
+
+// RingbaDeepSweepDays default 30 (daily deep sweep for dispute-window late updates).
+func RingbaDeepSweepDays() int {
+	if v := os.Getenv("RINGBA_DEEP_SWEEP_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
+			return n
+		}
+	}
+	return 30
+}
+
+// RingbaDeepSweepInterval default 24h.
+func RingbaDeepSweepInterval() time.Duration {
+	if v := os.Getenv("RINGBA_DEEP_SWEEP_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return 24 * time.Hour
 }
 
 // WindowCappedTotal returns how many times an incremental window was capped.

@@ -21,7 +21,7 @@ func TestSingleFlightTwoConcurrentRunsOneExecutes(t *testing.T) {
 	release := make(chan struct{})
 
 	run := func() {
-		token, ok, err := lock.TryAcquire(context.Background(), id)
+		token, ok, err := lock.TryAcquire(context.Background(), id, "tick")
 		if err != nil {
 			t.Errorf("acquire: %v", err)
 			return
@@ -57,7 +57,7 @@ func TestSingleFlightTwoConcurrentRunsOneExecutes(t *testing.T) {
 
 func TestSyncOneReturnsErrAlreadyRunningWhenLockHeld(t *testing.T) {
 	lock := NewMemorySyncLocker()
-	token, ok, err := lock.TryAcquire(context.Background(), "int-1")
+	token, ok, err := lock.TryAcquire(context.Background(), "int-1", "tick")
 	if err != nil || !ok {
 		t.Fatalf("setup acquire: ok=%v err=%v", ok, err)
 	}
@@ -72,13 +72,13 @@ func TestSyncOneReturnsErrAlreadyRunningWhenLockHeld(t *testing.T) {
 
 func TestReleaseOnlyDeletesOwnToken(t *testing.T) {
 	lock := NewMemorySyncLocker()
-	tokenA, ok, err := lock.TryAcquire(context.Background(), "int-1")
+	tokenA, ok, err := lock.TryAcquire(context.Background(), "int-1", "tick")
 	if err != nil || !ok {
 		t.Fatalf("acquire A: ok=%v err=%v", ok, err)
 	}
 	// Simulate TTL expiry: clear then let B acquire.
 	_ = lock.Release(context.Background(), "int-1", tokenA)
-	tokenB, ok, err := lock.TryAcquire(context.Background(), "int-1")
+	tokenB, ok, err := lock.TryAcquire(context.Background(), "int-1", "sweep")
 	if err != nil || !ok {
 		t.Fatalf("acquire B: ok=%v err=%v", ok, err)
 	}

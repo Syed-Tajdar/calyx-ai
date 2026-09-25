@@ -138,6 +138,18 @@ func main() {
 		}
 	}()
 
+	deepSweepTicker := time.NewTicker(adapter.RingbaDeepSweepInterval())
+	defer deepSweepTicker.Stop()
+	go func() {
+		for range deepSweepTicker.C {
+			runCtx, cancel := context.WithTimeout(context.Background(), 40*time.Minute)
+			if err := svc.RunAllDeepSweeps(runCtx); err != nil {
+				logger.Error("scheduled ringba deep sweep failed", "error", redact.SanitizeErr(err))
+			}
+			cancel()
+		}
+	}()
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop

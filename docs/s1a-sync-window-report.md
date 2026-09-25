@@ -191,22 +191,19 @@ ReplacingMergeTree will continue to converge; raw insert volume rose with republ
 
 ### Commit
 
-Local commit created (see git). **Not pushed.**
+Local commit **`3e22959`** (`fix(s1a): Ringba 6h incremental window, sweep, hash-after-publish, backfill.`). Branch `main` **ahead 1** of `origin/main`. **Not pushed.**
 
-### Secret scan (commits since last push = new S1A commit(s) vs `origin/main`)
+### Secret scan (commit `3e22959` vs `origin/main`)
 
 Patterns scanned (same as prior phases):
 
-- `RA[a-fA-F0-9]{20,}` (Ringba account-style; exclude `RGB…` call ids)
-- `eyJhbGci` (JWT)
 - `AKIA[0-9A-Z]{16}`
-- `Bearer eyJ`
-- `WRITEBACK_INTERNAL_TOKEN` assignments that are not the known dev placeholder
-- Long phone-like literals outside smoke `15551234567`
+- `eyJhbGci` / `Bearer eyJ`
+- `WRITEBACK_INTERNAL_TOKEN=\S+` (allow only `dev_writeback_internal_token_change_me`)
+- `caller_id=1[0-9]{10}` (allow smoke `15551234567`)
+- `RA[a-fA-F0-9]{20,}` excluding `RGB…` call ids
 
-Expected / allowed placeholders: `0123456789abcdef…` cred keys, `dev_writeback_internal_token_change_me`, `callloom_dev`.
-
-Scan result recorded in commit message / below after `git` run.
+**Result:** no real secrets in S1A paths or the new commit. Matches for `eyJhbGci` / `Bearer eyJ` appear only as pattern documentation inside this report. Dev placeholders only elsewhere. `[PROVEN]`
 
 ---
 

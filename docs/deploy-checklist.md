@@ -44,6 +44,8 @@ Each was found during write-back and pre-Phase-2 work. Do not deploy with any un
 - [ ] **Retreaver pagination** — the Retreaver adapter pages with `page`/`per_page`
       over a changing `updated_at` window: the same pattern that silently skipped 431
       Ringba calls. Apply the windowed approach before re-enabling Retreaver sync.
+- [ ] **Ringba deep-sweep range (default 30 days)** — confirm against the dispute window
+      in buyer contracts; raise `RINGBA_DEEP_SWEEP_DAYS` if contracts allow longer.
 - [ ] Confirm headline KPIs exclude test data (`apisync-`, `demo-`, `smoke-`) on the
       production database.
 
