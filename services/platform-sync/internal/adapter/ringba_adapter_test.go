@@ -68,6 +68,11 @@ func TestParseRingbaCallLogResponseModern(t *testing.T) {
 }
 
 func TestRingbaDefaultCursorOverlap(t *testing.T) {
+	prev := ringbaNow
+	t.Cleanup(func() { ringbaNow = prev })
+	fixed := time.Date(2026, 7, 10, 12, 2, 0, 0, time.UTC)
+	ringbaNow = func() time.Time { return fixed }
+
 	last := "2026-07-10T12:00:00Z"
 	cs := ringbaDefaultCursor(last, 30)
 	start, err := time.Parse(time.RFC3339, cs.ReportStart)
@@ -75,7 +80,7 @@ func TestRingbaDefaultCursorOverlap(t *testing.T) {
 		t.Fatal(err)
 	}
 	anchor, _ := time.Parse(time.RFC3339, last)
-	if !start.Equal(anchor.Add(-ringbaOverlap)) {
+	if !start.Equal(anchor.Add(-RingbaIncrementalOverlap())) {
 		t.Fatalf("start=%v want overlap from last_sync", start)
 	}
 	if cs.Offset != 0 || cs.Size != ringbaMaxPageSize {

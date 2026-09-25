@@ -33,6 +33,9 @@ func TestEvaluateIdenticalTwiceUnchanged(t *testing.T) {
 	if d1 != PublishNew || !d1.ShouldPublish() {
 		t.Fatalf("first=%v want PublishNew", d1)
 	}
+	if err := c.Commit(ctx, "t1", "retreaver", content); err != nil {
+		t.Fatal(err)
+	}
 
 	d2, err := c.Evaluate(ctx, "t1", "retreaver", content)
 	if err != nil {
@@ -48,6 +51,9 @@ func TestEvaluateRevenueChangePublishes(t *testing.T) {
 	ctx := context.Background()
 	base := Content{ExternalCallID: "call-2", Revenue: 10, EventType: "incoming"}
 	if _, err := c.Evaluate(ctx, "t1", "ringba", base); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Commit(ctx, "t1", "ringba", base); err != nil {
 		t.Fatal(err)
 	}
 	changed := base
@@ -80,6 +86,9 @@ func TestEvaluateOverlapSim(t *testing.T) {
 			}
 			if d.ShouldPublish() {
 				published++
+				if err := c.Commit(ctx, "tenant", "retreaver", content); err != nil {
+					t.Fatal(err)
+				}
 			}
 		}
 	}
@@ -89,7 +98,6 @@ func TestEvaluateOverlapSim(t *testing.T) {
 }
 
 func TestEvaluateFailOpenOnRedisUnreachable(t *testing.T) {
-	// Nothing listening — Get/Set must fail; Evaluate must still publish (nil err + ShouldPublish).
 	client := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1", DialTimeout: 50 * time.Millisecond})
 	t.Cleanup(func() { _ = client.Close() })
 	c := NewChecker(client, time.Hour)
@@ -99,29 +107,67 @@ func TestEvaluateFailOpenOnRedisUnreachable(t *testing.T) {
 		EventType:      "incoming",
 	})
 	if err != nil {
-		t.Fatalf("fail-OPEN must return nil error, got %v", err)
+		t.Fatalf("err=%v", err)
 	}
 	if !d.ShouldPublish() {
-		t.Fatalf("fail-OPEN must publish, got %v", d)
+		t.Fatalf("want publish on fail-OPEN, got %v", d)
 	}
 }
 
-func TestEvaluateFailOpenOnSetAfterClose(t *testing.T) {
+func TestF029PublishFailHashAbsentThenRetry(t *testing.T) {
 	c, mr := testChecker(t)
 	ctx := context.Background()
-	content := Content{ExternalCallID: "x", Revenue: 1, EventType: "incoming"}
-	if _, err := c.Evaluate(ctx, "t1", "ringba", content); err != nil {
+	content := Content{ExternalCallID: "f029", Revenue: 5, EventType: "incoming"}
+
+	d1, err := c.Evaluate(ctx, "t1", "ringba", content)
+	if err != nil || d1 != PublishNew {
+		t.Fatalf("first evaluate: d=%v err=%v", d1, err)
+	}
+	// Simulate Kafka publish failure: do NOT Commit.
+	key := Key("t1", "ringba", "f029")
+	if mr.Exists(key) {
+		t.Fatal("hash must be absent when publish fails")
+	}
+
+	d2, err := c.Evaluate(ctx, "t1", "ringba", content)
+	if err != nil || d2 != PublishNew {
+		t.Fatalf("retry evaluate: d=%v err=%v want PublishNew", d2, err)
+	}
+	if err := c.Commit(ctx, "t1", "ringba", content); err != nil {
 		t.Fatal(err)
 	}
-	mr.Close() // subsequent Get/Set fail
-	changed := content
-	changed.Revenue = 9
-	d, err := c.Evaluate(ctx, "t1", "ringba", changed)
-	if err != nil {
-		t.Fatalf("fail-OPEN must return nil error after redis close, got %v", err)
+	d3, err := c.Evaluate(ctx, "t1", "ringba", content)
+	if err != nil || d3 != Unchanged {
+		t.Fatalf("after commit: d=%v err=%v want Unchanged", d3, err)
 	}
-	if !d.ShouldPublish() {
-		t.Fatalf("fail-OPEN must publish after redis close, got %v", d)
+}
+
+func TestUnchangedRefreshesTTL(t *testing.T) {
+	c, mr := testChecker(t)
+	ctx := context.Background()
+	content := Content{ExternalCallID: "ttl-1", Revenue: 1, EventType: "incoming"}
+	if err := c.Commit(ctx, "t1", "ringba", content); err != nil {
+		t.Fatal(err)
+	}
+	key := Key("t1", "ringba", "ttl-1")
+	mr.FastForward(30 * time.Minute)
+	d, err := c.Evaluate(ctx, "t1", "ringba", content)
+	if err != nil || d != Unchanged {
+		t.Fatalf("d=%v err=%v", d, err)
+	}
+	// After refresh, FastForward almost a full TTL should still leave the key.
+	mr.FastForward(c.ttl - time.Minute)
+	if !mr.Exists(key) {
+		t.Fatal("TTL must be refreshed on Unchanged so sweep edge does not expire early")
+	}
+}
+
+func TestWasPayoutAdjustedChangesHash(t *testing.T) {
+	base := Content{ExternalCallID: "p1", EventType: "incoming"}
+	adj := base
+	adj.WasPayoutAdjusted = true
+	if Hash(base) == Hash(adj) {
+		t.Fatal("WasPayoutAdjusted must change hash")
 	}
 }
 
@@ -129,12 +175,12 @@ func itoa(i int) string {
 	if i == 0 {
 		return "0"
 	}
-	var b [12]byte
-	pos := len(b)
+	var b [16]byte
+	n := len(b)
 	for i > 0 {
-		pos--
-		b[pos] = byte('0' + i%10)
+		n--
+		b[n] = byte('0' + i%10)
 		i /= 10
 	}
-	return string(b[pos:])
+	return string(b[n:])
 }

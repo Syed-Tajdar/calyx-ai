@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
+	"log/slog"
 	"math"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -28,9 +29,13 @@ import (
 const defaultRingbaAPIBase = "https://api.ringba.com/v2"
 
 // Ringba has no last-mod cursor (Phase 2.A A3=NO): use call-time window + overlap + content-hash.
-const ringbaOverlap = 2 * time.Hour
+// Overlap default is RingbaIncrementalOverlap() (6h) — see ringba_window.go.
 const ringbaDefaultLookbackDays = 30
 const ringbaMaxPageSize = 1000 // official Get Call Log max; 1001 → 400
+
+// Deprecated: use RingbaIncrementalOverlap(). Kept so older tests that referenced
+// ringbaOverlap compile until updated — value matches the pre-S1A constant for docs only.
+const ringbaOverlap = 2 * time.Hour
 
 func ringbaAPIBase() string {
 	if v := os.Getenv("RINGBA_BASE_URL"); v != "" {
@@ -62,27 +67,30 @@ func (a *RingbaAdapter) TestAuth(ctx context.Context, creds map[string]string) e
 }
 
 func (a *RingbaAdapter) FetchPage(ctx context.Context, creds map[string]string, cursor string, lastSyncAt string, lookbackDays int) (PageResult, error) {
-	cs := ringbaDefaultCursor(lastSyncAt, lookbackDays)
-	if cursor != "" {
-		_ = DecodeCursor(cursor, &cs)
+	now := ringbaNow()
+	start, end, capped := buildRingbaIncrementalWindow(lastSyncAt, lookbackDays, now)
+	if capped {
+		windowCappedTotal.Add(1)
+		slog.Warn("ringba incremental window_capped",
+			"window_start", start.UTC().Format(time.RFC3339),
+			"window_end", end.UTC().Format(time.RFC3339),
+			"lookback_days", ringbaLookbackDays(lookbackDays),
+			"window_capped_total", windowCappedTotal.Load())
 	}
-	start, err := time.Parse(time.RFC3339, cs.ReportStart)
-	if err != nil {
-		return PageResult{}, fmt.Errorf("ringba: report_start: %w", err)
-	}
-	end, err := time.Parse(time.RFC3339, cs.ReportEnd)
-	if err != nil {
-		return PageResult{}, fmt.Errorf("ringba: report_end: %w", err)
-	}
-	// Offset on a stored cursor is not resumed. The whole time range is walked
-	// as single-page windows. page1_refresh in the registry runs only when a
-	// fetch returns HasMore and more than one page was taken; this path does
-	// not, because there is no deep offset page whose head can move mid-walk.
+	// Stored sync_cursor window no longer overrides bounds (S0 F003b). Cursor may
+	// still be present for state visibility but ReportStart/ReportEnd are ignored.
+	_ = cursor
+
 	calls, stats, err := a.fetchWindowed(ctx, creds, start, end)
 	if err != nil {
 		return PageResult{}, err
 	}
-	next := ringbaDefaultCursor(time.Now().UTC().Format(time.RFC3339), lookbackDays)
+	next := ringbaCursor{
+		ReportStart: start.Format(time.RFC3339),
+		ReportEnd:   end.Format(time.RFC3339),
+		Offset:      0,
+		Size:        ringbaMaxPageSize,
+	}
 	nextCursor, err := EncodeCursor(next)
 	if err != nil {
 		return PageResult{}, err
@@ -94,6 +102,42 @@ func (a *RingbaAdapter) FetchPage(ctx context.Context, creds map[string]string, 
 		RequestCount:          stats.Requests,
 		OffsetFallbackWindows: stats.OffsetFallbackWindows,
 		OffsetFallbackRows:    stats.OffsetFallbackRows,
+		WindowStart:           start,
+		WindowEnd:             end,
+		WindowCapped:          capped,
+	}, nil
+}
+
+// FetchRange pulls an explicit [start, end) window (sweep / manual backfill).
+func (a *RingbaAdapter) FetchRange(ctx context.Context, creds map[string]string, start, end time.Time) (PageResult, error) {
+	start = start.UTC()
+	end = end.UTC()
+	if !start.Before(end) {
+		return PageResult{}, fmt.Errorf("ringba FetchRange: start must be before end")
+	}
+	calls, stats, err := a.fetchWindowed(ctx, creds, start, end)
+	if err != nil {
+		return PageResult{}, err
+	}
+	next := ringbaCursor{
+		ReportStart: start.Format(time.RFC3339),
+		ReportEnd:   end.Format(time.RFC3339),
+		Offset:      0,
+		Size:        ringbaMaxPageSize,
+	}
+	nextCursor, err := EncodeCursor(next)
+	if err != nil {
+		return PageResult{}, err
+	}
+	return PageResult{
+		Calls:                 calls,
+		NextCursor:            nextCursor,
+		HasMore:               false,
+		RequestCount:          stats.Requests,
+		OffsetFallbackWindows: stats.OffsetFallbackWindows,
+		OffsetFallbackRows:    stats.OffsetFallbackRows,
+		WindowStart:           start,
+		WindowEnd:             end,
 	}, nil
 }
 
@@ -108,14 +152,9 @@ func ringbaLookbackDays(lookbackDays int) int {
 	return days
 }
 
+// ringbaDefaultCursor remains for TestAuth empty-cursor probes only.
 func ringbaDefaultCursor(lastSyncAt string, lookbackDays int) ringbaCursor {
-	end := time.Now().UTC()
-	start := end.Add(-time.Duration(ringbaLookbackDays(lookbackDays)) * 24 * time.Hour)
-	if lastSyncAt != "" {
-		if t, err := time.Parse(time.RFC3339, lastSyncAt); err == nil {
-			start = t.Add(-ringbaOverlap)
-		}
-	}
+	start, end, _ := buildRingbaIncrementalWindow(lastSyncAt, lookbackDays, ringbaNow())
 	return ringbaCursor{
 		ReportStart: start.Format(time.RFC3339),
 		ReportEnd:   end.Format(time.RFC3339),
@@ -216,6 +255,7 @@ func ringbaValueColumns() []map[string]string {
 		"wasBlocked",
 		"blockReason",
 		"wasConversionAdjusted",
+		"wasPayoutAdjusted",
 		"ringTreeWinningBidDynamicDuration",
 		"ringTreeWinningBidMaxDynamicDuration",
 		"isDuplicate",

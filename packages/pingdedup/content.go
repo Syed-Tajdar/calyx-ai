@@ -48,6 +48,8 @@ type Content struct {
 	WasBlocked            bool
 	BlockReason           string
 	WasConversionAdjusted bool
+	// F068 / S1A: payout-only adjustments must change the hash so sweeps republish.
+	WasPayoutAdjusted bool
 	// Phase 2A-fix. Pointers so absent (nil) hashes differently from present 0.
 	RequiredDurationSeconds    *uint32
 	MaxRequiredDurationSeconds *uint32
@@ -83,6 +85,10 @@ func Hash(c Content) string {
 	if c.WasConversionAdjusted {
 		adjusted = "1"
 	}
+	payoutAdj := "0"
+	if c.WasPayoutAdjusted {
+		payoutAdj = "1"
+	}
 	req := ""
 	if c.RequiredDurationSeconds != nil {
 		req = fmt.Sprintf("%d", *c.RequiredDurationSeconds)
@@ -116,6 +122,7 @@ func Hash(c Content) string {
 		blocked,
 		norm(c.BlockReason),
 		adjusted,
+		payoutAdj,
 		req,
 		maxReq,
 	}, "\x1f")

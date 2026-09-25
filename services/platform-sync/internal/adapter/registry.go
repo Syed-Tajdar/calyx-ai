@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"time"
 )
 
 const maxPagesPerSync = 10
@@ -85,6 +86,9 @@ func (r *Registry) FetchAllPages(
 		if page == 0 {
 			// Replay page 1 of this window after a deep walk (content-hash suppresses unchanged).
 			firstWindowCursor = forceFirstPageCursor(platform, cur, res.NextCursor)
+			final.WindowStart = res.WindowStart
+			final.WindowEnd = res.WindowEnd
+			final.WindowCapped = res.WindowCapped
 		}
 		final.Calls = append(final.Calls, res.Calls...)
 		final.NextCursor = res.NextCursor
@@ -110,6 +114,25 @@ func (r *Registry) FetchAllPages(
 		// Keep NextCursor from the deep walk, not the refresh.
 	}
 	return final, nil
+}
+
+// FetchRange runs an explicit time window for Ringba (sweep / backfill). Other platforms: error.
+func (r *Registry) FetchRange(
+	ctx context.Context,
+	platform string,
+	syncMode string,
+	creds map[string]string,
+	start, end time.Time,
+) (PageResult, error) {
+	ad, err := r.Get(platform, syncMode)
+	if err != nil {
+		return PageResult{}, err
+	}
+	ra, ok := ad.(*RingbaAdapter)
+	if !ok {
+		return PageResult{}, fmt.Errorf("FetchRange only supported for ringba real adapter, got %T", ad)
+	}
+	return ra.FetchRange(ctx, creds, start, end)
 }
 
 // forceFirstPageCursor resets pagination to the first page of the same time window.

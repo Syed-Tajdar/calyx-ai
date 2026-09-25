@@ -43,6 +43,7 @@ type PingRow struct {
 	WasBlocked            *uint8
 	BlockReason           string
 	WasConversionAdjusted *uint8
+	WasPayoutAdjusted     *uint8
 	RequiredDurationSeconds    *uint32
 	MaxRequiredDurationSeconds *uint32
 }
@@ -87,6 +88,7 @@ func (c *Client) InsertPings(ctx context.Context, rows []PingRow) error {
 			duration_seconds, call_length_seconds, has_recording, recording_known,
 			profit_gross, has_converted, sync_path,
 			has_connected, was_blocked, block_reason, was_conversion_adjusted,
+			was_payout_adjusted,
 			required_duration_seconds, max_required_duration_seconds
 		)
 	`)
@@ -128,6 +130,7 @@ func (c *Client) InsertPings(ctx context.Context, rows []PingRow) error {
 			row.WasBlocked,
 			row.BlockReason,
 			row.WasConversionAdjusted,
+			row.WasPayoutAdjusted,
 			row.RequiredDurationSeconds,
 			row.MaxRequiredDurationSeconds,
 		); err != nil {

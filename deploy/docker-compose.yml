@@ -115,6 +115,7 @@ services:
       - ../db/clickhouse/migrations/000012_pings_has_converted.up.sql:/init-phase12.sql:ro
       - ../db/clickhouse/migrations/000013_pings_phase2a_call_flags.up.sql:/init-phase13.sql:ro
       - ../db/clickhouse/migrations/000014_pings_required_duration.up.sql:/init-phase14.sql:ro
+      - ../db/clickhouse/migrations/000015_pings_was_payout_adjusted.up.sql:/init-phase15.sql:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -132,6 +133,7 @@ services:
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase12.sql || true
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase13.sql || true
         clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase14.sql || true
+        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase15.sql || true
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -165,7 +167,7 @@ services:
       REDIS_URL: redis://redis:6379
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
-      DEDUP_TTL_HOURS: "168"
+      DEDUP_TTL_HOURS: "240"
       DATABASE_URL: postgres://callloom_ingestion:ingestion_dev@postgres:5432/callloom?sslmode=disable
       ANI_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     depends_on:
@@ -411,7 +413,7 @@ services:
       WRITEBACK_ENABLED: "true"
       WRITEBACK_INTERNAL_TOKEN: "dev_writeback_internal_token_change_me"
       SYNC_INTERVAL_SEC: "120"
-      DEDUP_TTL_HOURS: "168"
+      DEDUP_TTL_HOURS: "240"
     depends_on:
       migrate:
         condition: service_completed_successfully

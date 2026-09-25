@@ -83,6 +83,14 @@ func main() {
 		handleTestAuth(w, r, logger, svc)
 	})
 
+	if cfg.WritebackAuthToken != "" {
+		mux.HandleFunc("POST /sync/window", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
+			handleSyncWindow(w, r, logger, svc)
+		}))
+	} else {
+		logger.Error("WRITEBACK_INTERNAL_TOKEN empty — POST /sync/window not registered")
+	}
+
 	if cfg.WritebackEnabled {
 		if cfg.WritebackAuthToken == "" {
 			logger.Error("WRITEBACK_ENABLED is on but WRITEBACK_INTERNAL_TOKEN is empty — routes not registered")
@@ -118,12 +126,73 @@ func main() {
 		}
 	}()
 
+	sweepTicker := time.NewTicker(adapter.RingbaSweepInterval())
+	defer sweepTicker.Stop()
+	go func() {
+		for range sweepTicker.C {
+			runCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			if err := svc.RunAllSweeps(runCtx); err != nil {
+				logger.Error("scheduled ringba sweep failed", "error", redact.SanitizeErr(err))
+			}
+			cancel()
+		}
+	}()
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = server.Shutdown(shutdownCtx)
+}
+
+type syncWindowRequest struct {
+	IntegrationID string `json:"integration_id"`
+	TenantID      string `json:"tenant_id"`
+	Start         string `json:"start"`
+	End           string `json:"end"`
+	Reason        string `json:"reason"`
+}
+
+func handleSyncWindow(w http.ResponseWriter, r *http.Request, logger *slog.Logger, svc *syncer.Service) {
+	var req syncWindowRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if req.IntegrationID == "" || req.TenantID == "" || req.Start == "" || req.End == "" {
+		http.Error(w, "integration_id, tenant_id, start, and end required", http.StatusBadRequest)
+		return
+	}
+	start, err := time.Parse(time.RFC3339, req.Start)
+	if err != nil {
+		http.Error(w, "start must be RFC3339", http.StatusBadRequest)
+		return
+	}
+	end, err := time.Parse(time.RFC3339, req.End)
+	if err != nil {
+		http.Error(w, "end must be RFC3339", http.StatusBadRequest)
+		return
+	}
+	reason := req.Reason
+	if reason == "" {
+		reason = "manual"
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
+	defer cancel()
+	if err := svc.RunWindow(ctx, req.TenantID, req.IntegrationID, start.UTC(), end.UTC(), reason); err != nil {
+		if errors.Is(err, syncer.ErrAlreadyRunning) {
+			logger.Info("window sync rejected — already running",
+				"integration_id", req.IntegrationID, "tenant_id", req.TenantID)
+			http.Error(w, `{"status":"already_running"}`, http.StatusConflict)
+			return
+		}
+		logger.Error("window sync failed", "error", redact.SanitizeErr(err))
+		http.Error(w, "request failed", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 func handleIntegrationAction(

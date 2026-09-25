@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"time"
 
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/models"
 )
@@ -23,4 +24,7 @@ type PageResult struct {
 	RequestCount          int  // HTTP requests made for this result
 	OffsetFallbackWindows int  // 1-minute windows that still filled a page and used offset
 	OffsetFallbackRows    int  // rows returned by those offset fallbacks
+	WindowStart           time.Time
+	WindowEnd             time.Time
+	WindowCapped          bool
 }

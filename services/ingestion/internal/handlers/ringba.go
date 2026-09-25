@@ -123,7 +123,7 @@ func (h *RingbaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	decision, err := h.dedup.Evaluate(ctx, ping.TenantID, ping.Platform, dedup.Content{
+	content := dedup.Content{
 		ExternalCallID:    ping.ExternalCallID,
 		Revenue:           ping.Revenue,
 		Payout:            ping.Payout,
@@ -133,7 +133,8 @@ func (h *RingbaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		PublisherID:       ping.PublisherID,
 		TargetID:          ping.TargetID,
 		PlatformDuplicate: ping.PlatformDuplicate,
-	})
+	}
+	decision, err := h.dedup.Evaluate(ctx, ping.TenantID, ping.Platform, content)
 	if err != nil {
 		h.logger.Error("dedup check failed",
 			"service", "ingestion", "tenant_id", ping.TenantID, "error", err)
@@ -152,6 +153,10 @@ func (h *RingbaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"service", "ingestion", "tenant_id", ping.TenantID, "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
+	}
+	if err := h.dedup.Commit(ctx, ping.TenantID, ping.Platform, content); err != nil {
+		h.logger.Error("dedup commit failed after publish",
+			"service", "ingestion", "tenant_id", ping.TenantID, "error", err)
 	}
 
 	h.logger.Info("ping ingested",

@@ -5,12 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/dedup"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/models"
 )
 
 // Documents cursor safety: publishSyncCalls stops on first publish error after
-// some success; syncOne markError keeps the OLD cursor (see syncer.go).
+// some success; syncOne markError keeps the OLD last_sync_at (status-only).
 func TestPublishSyncCallsStopsMidBatchOnError(t *testing.T) {
 	pub := &failAfterPublisher{ok: 1, err: errors.New("kafka down")}
 	d := &stubContentDedup{hashes: map[string]string{}}
@@ -26,8 +25,11 @@ func TestPublishSyncCallsStopsMidBatchOnError(t *testing.T) {
 	if published != 1 {
 		t.Fatalf("published=%d want 1 before failure", published)
 	}
-	// Dedup already stored hash for "a"; "b" may have been Evaluate'd then Publish failed —
-	// Evaluate runs before Publish, so "b" hash is stored even if publish failed.
-	// That is intentional for content-hash; cursor must NOT advance (caller responsibility).
-	_ = dedup.Hash(dedup.Content{})
+	// F029: "a" committed; "b" evaluated but publish failed → no hash for "b".
+	if _, ok := d.hashes["t:retreaver:a"]; !ok {
+		t.Fatal("a must be committed after successful publish")
+	}
+	if _, ok := d.hashes["t:retreaver:b"]; ok {
+		t.Fatal("b must not have hash after failed publish")
+	}
 }

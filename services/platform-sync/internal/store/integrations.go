@@ -188,6 +188,15 @@ func (s *IntegrationStore) UpdateSyncState(
 	return err
 }
 
+// UpdateSyncStatus sets sync_status / last_sync_error without moving last_sync_at or cursor.
+func (s *IntegrationStore) UpdateSyncStatus(ctx context.Context, id, status string, errMsg *string) error {
+	_, err := s.pool.Exec(ctx,
+		`SELECT update_integration_sync_status($1::uuid, $2, $3)`,
+		id, status, errMsg,
+	)
+	return err
+}
+
 func (s *IntegrationStore) Ping(ctx context.Context) error {
 	return s.pool.Ping(ctx)
 }

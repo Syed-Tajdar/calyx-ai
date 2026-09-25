@@ -14,11 +14,11 @@ import (
 type Decision int
 
 const (
-	// PublishNew: key was absent — publish with is_duplicate=0 and store hash.
+	// PublishNew: key was absent — publish with is_duplicate=0 then Commit hash.
 	PublishNew Decision = iota
-	// PublishChanged: stored hash differed — publish with is_duplicate=0 and update hash.
+	// PublishChanged: stored hash differed — publish then Commit hash.
 	PublishChanged
-	// Unchanged: stored hash matched — do not publish.
+	// Unchanged: stored hash matched — do not publish (TTL refreshed).
 	Unchanged
 )
 
@@ -41,8 +41,9 @@ func (d Decision) String() string {
 }
 
 // Checker performs Redis-backed content-hash ping deduplication.
-// On ANY Redis error Evaluate fail-OPENs: returns PublishNew/PublishChanged with nil
+// On ANY Redis GET error Evaluate fail-OPENs: returns PublishNew/PublishChanged with nil
 // error so callers always publish (duplicates are OK; argMax protects aggregates).
+// Hash is written only via Commit after a successful publish (F029).
 type Checker struct {
 	client *redis.Client
 	ttl    time.Duration
@@ -59,8 +60,9 @@ func Key(tenantID, platform, externalCallID string) string {
 	return fmt.Sprintf("%s:dedup:%s:%s", tenantID, platform, externalCallID)
 }
 
-// Evaluate compares content hash against Redis and updates the stored hash when publishing.
-// Redis failures NEVER suppress publish (fail-OPEN).
+// Evaluate compares content hash against Redis without storing.
+// On match, refreshes TTL (so sweep re-sees do not expire hashes early).
+// Call Commit after a successful Kafka publish for PublishNew/PublishChanged.
 func (c *Checker) Evaluate(ctx context.Context, tenantID, platform string, content Content) (Decision, error) {
 	if c == nil || c.client == nil {
 		c.logError("pingdedup fail-OPEN: nil checker — publishing", "tenant_id", tenantID, "platform", platform)
@@ -75,11 +77,6 @@ func (c *Checker) Evaluate(ctx context.Context, tenantID, platform string, conte
 
 	prev, err := c.client.Get(ctx, key).Result()
 	if err == redis.Nil {
-		if setErr := c.client.Set(ctx, key, hash, c.ttl).Err(); setErr != nil {
-			c.logError("pingdedup fail-OPEN: redis SET failed after miss — publishing",
-				"tenant_id", tenantID, "platform", platform, "error", setErr.Error())
-			return PublishNew, nil
-		}
 		return PublishNew, nil
 	}
 	if err != nil {
@@ -91,12 +88,25 @@ func (c *Checker) Evaluate(ctx context.Context, tenantID, platform string, conte
 		_ = c.client.Expire(ctx, key, c.ttl).Err()
 		return Unchanged, nil
 	}
-	if setErr := c.client.Set(ctx, key, hash, c.ttl).Err(); setErr != nil {
-		c.logError("pingdedup fail-OPEN: redis SET failed after change — publishing",
-			"tenant_id", tenantID, "platform", platform, "error", setErr.Error())
-		return PublishChanged, nil
-	}
 	return PublishChanged, nil
+}
+
+// Commit stores the content hash after a successful publish.
+func (c *Checker) Commit(ctx context.Context, tenantID, platform string, content Content) error {
+	if c == nil || c.client == nil {
+		return nil
+	}
+	id := norm(content.ExternalCallID)
+	if id == "" {
+		return errors.New("pingdedup.Commit: empty external_call_id")
+	}
+	key := Key(tenantID, platform, id)
+	if err := c.client.Set(ctx, key, Hash(content), c.ttl).Err(); err != nil {
+		c.logError("pingdedup Commit: redis SET failed",
+			"tenant_id", tenantID, "platform", platform, "error", err.Error())
+		return fmt.Errorf("pingdedup.Commit: %w", err)
+	}
+	return nil
 }
 
 func (c *Checker) logError(msg string, args ...any) {

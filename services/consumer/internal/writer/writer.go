@@ -84,6 +84,7 @@ func (w *BatchWriter) InsertBatch(ctx context.Context, pings []models.PingMessag
 			WasBlocked:            u8ptr(p.WasBlocked),
 			BlockReason:           p.BlockReason,
 			WasConversionAdjusted:      u8ptr(p.WasConversionAdjusted),
+			WasPayoutAdjusted:          u8ptr(p.WasPayoutAdjusted),
 			RequiredDurationSeconds:    p.RequiredDurationSeconds,
 			MaxRequiredDurationSeconds: p.MaxRequiredDurationSeconds,
 		})

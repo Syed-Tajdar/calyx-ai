@@ -46,7 +46,7 @@ func Load() (Config, error) {
 		maxBody = parsed
 	}
 
-	dedupHours := 168 // align with platform-sync (7d content-hash window)
+	dedupHours := 240 // S1A A2.1: TTL > sweep range (7d) with margin
 	if v := os.Getenv("DEDUP_TTL_HOURS"); v != "" {
 		parsed, parseErr := strconv.Atoi(v)
 		if parseErr != nil {

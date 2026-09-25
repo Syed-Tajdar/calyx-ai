@@ -20,6 +20,7 @@ func (r *recordingPublisher) Publish(_ context.Context, _, _ string, call models
 	return nil
 }
 
+// stubContentDedup mirrors F029: Evaluate does not store; Commit stores.
 type stubContentDedup struct {
 	hashes map[string]string
 }
@@ -29,14 +30,18 @@ func (d *stubContentDedup) Evaluate(_ context.Context, tenantID, platform string
 	h := dedup.Hash(content)
 	prev, ok := d.hashes[key]
 	if !ok {
-		d.hashes[key] = h
 		return dedup.PublishNew, nil
 	}
 	if prev == h {
 		return dedup.Unchanged, nil
 	}
-	d.hashes[key] = h
 	return dedup.PublishChanged, nil
+}
+
+func (d *stubContentDedup) Commit(_ context.Context, tenantID, platform string, content dedup.Content) error {
+	key := tenantID + ":" + platform + ":" + content.ExternalCallID
+	d.hashes[key] = dedup.Hash(content)
+	return nil
 }
 
 func TestPublishSyncCallsSkipsEmptyExternalID(t *testing.T) {
@@ -109,7 +114,6 @@ func TestPublishSyncCallsPublishesRevenueChange(t *testing.T) {
 
 func TestPublishSyncCallsFailOpenStillPublishes(t *testing.T) {
 	pub := &recordingPublisher{}
-	// Fail-open Evaluate: Redis down → publish anyway.
 	client := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1", DialTimeout: 50 * time.Millisecond})
 	t.Cleanup(func() { _ = client.Close() })
 	d := dedup.NewChecker(client, time.Hour)
@@ -133,6 +137,46 @@ func TestPublishSyncCallsFailsOnPublishError(t *testing.T) {
 		[]models.RemoteCall{{ExternalCallID: "id-1"}}, d, pub, 0)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if len(d.hashes) != 0 {
+		t.Fatal("F029: hash must be absent when publish fails")
+	}
+}
+
+func TestPublishSyncCallsF029RetryAfterPublishFail(t *testing.T) {
+	fail := &failPublisher{err: errors.New("kafka down")}
+	d := &stubContentDedup{hashes: map[string]string{}}
+	call := models.RemoteCall{ExternalCallID: "retry-1", Revenue: 7}
+	_, _, _, err := publishSyncCalls(context.Background(), "tenant", "ringba",
+		[]models.RemoteCall{call}, d, fail, 0)
+	if err == nil {
+		t.Fatal("expected publish error")
+	}
+	if len(d.hashes) != 0 {
+		t.Fatal("hash absent after failed publish")
+	}
+	ok := &recordingPublisher{}
+	_, published, unchanged, err := publishSyncCalls(context.Background(), "tenant", "ringba",
+		[]models.RemoteCall{call}, d, ok, 0)
+	if err != nil || published != 1 || unchanged != 0 {
+		t.Fatalf("retry published=%d unchanged=%d err=%v", published, unchanged, err)
+	}
+	_, published2, unchanged2, err := publishSyncCalls(context.Background(), "tenant", "ringba",
+		[]models.RemoteCall{call}, d, ok, 0)
+	if err != nil || published2 != 0 || unchanged2 != 1 {
+		t.Fatalf("after success published=%d unchanged=%d", published2, unchanged2)
+	}
+}
+
+func TestPublishSyncCallsWasPayoutAdjustedRepublishes(t *testing.T) {
+	pub := &recordingPublisher{}
+	d := &stubContentDedup{hashes: map[string]string{}}
+	call := models.RemoteCall{ExternalCallID: "pay-1", Payout: 10}
+	_, _, _, _ = publishSyncCalls(context.Background(), "t", "ringba", []models.RemoteCall{call}, d, pub, 0)
+	call.WasPayoutAdjusted = true
+	_, published, _, err := publishSyncCalls(context.Background(), "t", "ringba", []models.RemoteCall{call}, d, pub, 0)
+	if err != nil || published != 1 {
+		t.Fatalf("payout adjust must republish: published=%d err=%v", published, err)
 	}
 }
 

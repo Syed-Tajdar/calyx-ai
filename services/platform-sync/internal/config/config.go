@@ -52,7 +52,7 @@ func Load() (Config, error) {
 	if v := os.Getenv("MOCK_MODE"); v == "false" || v == "0" {
 		mockMode = false
 	}
-	dedupHours := 168
+	dedupHours := 240
 	if v := os.Getenv("DEDUP_TTL_HOURS"); v != "" {
 		parsed, parseErr := strconv.Atoi(v)
 		if parseErr != nil {

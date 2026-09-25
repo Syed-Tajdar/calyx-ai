@@ -70,6 +70,7 @@ func (p *Producer) Publish(ctx context.Context, tenantID, platform string, call 
 		WasBlocked:                 boolPtr(call.WasBlocked),
 		BlockReason:                call.BlockReason,
 		WasConversionAdjusted:      boolPtr(call.WasConversionAdjusted),
+		WasPayoutAdjusted:          boolPtr(call.WasPayoutAdjusted),
 		RequiredDurationSeconds:    call.RequiredDurationSeconds,
 		MaxRequiredDurationSeconds: call.MaxRequiredDurationSeconds,
 		SyncPath:                   "api_sync",

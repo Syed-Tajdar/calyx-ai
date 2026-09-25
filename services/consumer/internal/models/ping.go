@@ -36,6 +36,7 @@ type PingMessage struct {
 	WasBlocked            *bool  `json:"was_blocked,omitempty"`
 	BlockReason           string `json:"block_reason,omitempty"`
 	WasConversionAdjusted *bool  `json:"was_conversion_adjusted,omitempty"`
+	WasPayoutAdjusted     *bool  `json:"was_payout_adjusted,omitempty"`
 	RequiredDurationSeconds    *uint32 `json:"required_duration_seconds,omitempty"`
 	MaxRequiredDurationSeconds *uint32 `json:"max_required_duration_seconds,omitempty"`
 	SyncPath                   string  `json:"sync_path,omitempty"`
