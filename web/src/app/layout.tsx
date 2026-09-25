@@ -1,17 +1,9 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
 import type { ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/lib/theme-provider';
 import './globals.css';
-
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-inter',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'Calyx AI',
@@ -24,13 +16,20 @@ export const viewport = {
   maximumScale: 1,
 };
 
+/**
+ * CSP nonces are applied during SSR from the request CSP header (middleware).
+ * Static prerender has no per-request nonce — force dynamic for every page.
+ * (Also avoids next/font/google network fetch during Docker builds.)
+ */
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>): JSX.Element {
   return (
-    <html lang="en" className={`dark ${GeistSans.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`dark ${GeistSans.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased">
         <ThemeProvider>
           {children}

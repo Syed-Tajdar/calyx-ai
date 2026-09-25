@@ -1,0 +1,70 @@
+{
+  "cspViolations": [],
+  "pageErrors": [],
+  "consoleLog": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "loc": "http://localhost:3001/favicon.ico"
+    }
+  ],
+  "checks": [
+    {
+      "name": "login redirects to /dashboard",
+      "ok": true
+    },
+    {
+      "name": "dashboard not skeleton",
+      "ok": true
+    },
+    {
+      "name": "dashboard KPI Total Revenue",
+      "ok": true
+    },
+    {
+      "name": "dashboard metric cards (4)",
+      "ok": true
+    },
+    {
+      "name": "pings not skeleton",
+      "ok": true
+    },
+    {
+      "name": "pings has content",
+      "ok": true
+    },
+    {
+      "name": "settings not skeleton",
+      "ok": true
+    },
+    {
+      "name": "settings has content",
+      "ok": true
+    },
+    {
+      "name": "call detail not skeleton",
+      "ok": true
+    },
+    {
+      "name": "call detail has content",
+      "ok": true
+    },
+    {
+      "name": "in-page session login",
+      "ok": true
+    },
+    {
+      "name": "live feed received event (csp-live-04d33ce0-8dea-4ff0-8427-6f3bc98bb7bf)",
+      "ok": true
+    },
+    {
+      "name": "zero CSP violations",
+      "ok": true
+    },
+    {
+      "name": "zero console/page errors",
+      "ok": true
+    }
+  ],
+  "liveOk": true
+}

@@ -1,0 +1,16 @@
+HTTP/1.1 200 OK
+content-security-policy: default-src 'self'; script-src 'self' 'nonce-NTNmZGVlODItZDA5YS00YTA4LWE0YTAtMjk2ZTMzZWNiYzA1' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:3000 http://localhost:3000 ws://localhost:3000; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+Vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, Accept-Encoding
+x-nextjs-cache: HIT
+Cache-Control: s-maxage=31536000, stale-while-revalidate
+ETag: "csd77mht209sn"
+Content-Type: text/html; charset=utf-8
+Content-Length: 12718
+Date: Fri, 25 Sep 2026 18:47:21 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

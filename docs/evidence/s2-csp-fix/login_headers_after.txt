@@ -1,0 +1,16 @@
+HTTP/1.1 200 OK
+cache-control: no-store, no-cache, must-revalidate, private
+content-security-policy: default-src 'self'; script-src 'self' 'nonce-ZGUzYTU0ZjEtM2IwNS00ODc0LTkyMGUtN2QxZDNiZmI2MmY0' 'strict-dynamic' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:3000 http://localhost:3000 ws://localhost:3000; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+pragma: no-cache
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+Vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, Accept-Encoding
+link: </_next/static/media/0b78ff376f6b9734-s.p.woff2>; rel=preload; as="font"; crossorigin=""; type="font/woff2"
+Content-Type: text/html; charset=utf-8
+Date: Fri, 25 Sep 2026 20:47:07 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+

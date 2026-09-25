@@ -12,6 +12,7 @@ $summary = @{
   WebRoutes        = @{ Pass = 0; Total = 0 }
   ApiPresentation  = $null
   WebSocket        = $null
+  BrowserCsp       = $null
   UnitTests        = $null
   PipelineSmoke    = $null
   WebBuild         = $null
@@ -131,6 +132,14 @@ $wsScript = Join-Path $repoRoot "scripts\ws-smoke-test.mjs"
 $wsExit = $LASTEXITCODE
 $summary.WebSocket = if ($wsExit -eq 0) { "PASS" } else { "FAIL" }
 
+Write-Section "Browser CSP + hydration (Playwright)"
+$browserScript = Join-Path $repoRoot "scripts\check-dashboard-browser.mjs"
+$env:CALYX_WEB_URL = $webBase
+$env:CALYX_API_URL = $apiBase
+& node $browserScript
+$browserExit = $LASTEXITCODE
+$summary.BrowserCsp = if ($browserExit -eq 0) { "PASS" } else { "FAIL" }
+
 Write-Section "Pipeline smoke (multi-platform 4/4)"
 $smokeScript = Join-Path $repoRoot "scripts\smoke-test-all-platforms.ps1"
 & powershell -ExecutionPolicy Bypass -File $smokeScript
@@ -177,6 +186,7 @@ Write-Host "  LiveStatus: $($summary.LiveStatus)"
 Write-Host "  API:        $($summary.ApiPresentation)"
 Write-Host "  Web routes: $($summary.WebRoutes.Pass) / $($summary.WebRoutes.Total)"
 Write-Host "  WebSocket:  $($summary.WebSocket)"
+Write-Host "  BrowserCSP: $($summary.BrowserCsp)"
 Write-Host "  Unit tests: $($summary.UnitTests)"
 Write-Host "  Web build:  $($summary.WebBuild)"
 Write-Host "  Pipeline:   $($summary.PipelineSmoke)"
@@ -188,6 +198,7 @@ if ($summary.LiveStatus -ne "PASS") { $hardFail = $true }
 if ($apiExit -ne 0) { $hardFail = $true }
 if ($summary.WebRoutes.Pass -lt $summary.WebRoutes.Total) { $hardFail = $true }
 if ($wsExit -ne 0) { $hardFail = $true }
+if ($browserExit -ne 0) { $hardFail = $true }
 if ($testFailed) { $hardFail = $true }
 if ($buildExit -ne 0) { $hardFail = $true }
 if ($smokeExit -ne 0) { $hardFail = $true }
