@@ -130,23 +130,22 @@ func main() {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 	})
-	mux.HandleFunc("POST /sync", func(w http.ResponseWriter, r *http.Request) {
-		inflight.Add(1)
-		defer inflight.Done()
-		handleIntegrationAction(w, r, logger, svc.RunOne, rootCtx)
-	})
-	mux.HandleFunc("POST /test-auth", func(w http.ResponseWriter, r *http.Request) {
-		handleTestAuth(w, r, logger, svc)
-	})
-
-	if cfg.WritebackAuthToken != "" {
+	if cfg.WritebackAuthToken == "" {
+		logger.Error("WRITEBACK_INTERNAL_TOKEN empty — POST /sync, /test-auth, /sync/window not registered")
+	} else {
+		mux.HandleFunc("POST /sync", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
+			inflight.Add(1)
+			defer inflight.Done()
+			handleIntegrationAction(w, r, logger, svc.RunOne, rootCtx)
+		}))
+		mux.HandleFunc("POST /test-auth", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
+			handleTestAuth(w, r, logger, svc)
+		}))
 		mux.HandleFunc("POST /sync/window", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
 			inflight.Add(1)
 			defer inflight.Done()
 			handleSyncWindow(w, r, logger, svc, rootCtx)
 		}))
-	} else {
-		logger.Error("WRITEBACK_INTERNAL_TOKEN empty — POST /sync/window not registered")
 	}
 
 	if cfg.WritebackEnabled {

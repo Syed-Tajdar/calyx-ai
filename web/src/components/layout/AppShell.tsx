@@ -9,6 +9,7 @@ import { DesignBackground } from '@/components/ui/DesignBackground';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateFilterProvider } from '@/lib/date-filter';
 import { clearToken, getToken } from '@/lib/auth';
+import { logout as apiLogout } from '@/lib/api';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -27,8 +28,10 @@ export function AppShell({ children }: AppShellProps): JSX.Element | null {
   }, [router]);
 
   function logout(): void {
-    clearToken();
-    router.push('/login');
+    void apiLogout().finally(() => {
+      clearToken();
+      router.push('/login');
+    });
   }
 
   if (!ready) {

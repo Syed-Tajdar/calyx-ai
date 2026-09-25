@@ -2,6 +2,7 @@ import { Controller, Get, Header, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
 import { z } from 'zod';
+import { optionalIsoDate } from '../common/date-params';
 import { CurrentTenant } from '../common/tenant.decorator';
 import { PingListResult, PingsService } from './pings.service';
 
@@ -9,8 +10,8 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
   platform: z.string().optional(),
-  from: z.string().optional(),
-  to: z.string().optional(),
+  from: optionalIsoDate,
+  to: optionalIsoDate,
   search: z.string().optional(),
   show_demo: z
     .union([z.literal('true'), z.literal('1'), z.literal('false'), z.literal('0')])

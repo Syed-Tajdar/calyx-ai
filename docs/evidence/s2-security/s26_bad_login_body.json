@@ -1,0 +1,1 @@
+{"statusCode":400,"message":"Validation failed","request_id":"b74c3389-7e92-4f27-8f45-6f38aec1fffc","errors":[{"path":"email","message":"Invalid email"}]}

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/ui/Logo';
-import { getToken, setToken } from '@/lib/auth';
+import { getToken } from '@/lib/auth';
 import { login } from '@/lib/api';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -32,8 +32,7 @@ export default function LoginPage(): JSX.Element {
     setLoading(true);
     setError('');
     try {
-      const token = await login(email, password);
-      setToken(token, remember);
+      await login(email, password);
       router.push('/dashboard');
     } catch {
       setError('Invalid email or password');

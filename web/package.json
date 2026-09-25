@@ -21,12 +21,13 @@
     "d3-scale": "^4.0.2",
     "geist": "^1.7.2",
     "lucide-react": "^1.21.0",
-    "next": "^14.2.0",
+    "next": "^14.2.35",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-simple-maps": "^3.0.0",
     "recharts": "^2.15.0",
-    "socket.io-client": "^4.8.3",
+    "socket.io-client": "^4.8.4",
+    "socket.io-parser": "^4.2.7",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7"
@@ -40,10 +41,15 @@
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
     "playwright": "^1.49.1",
-    "postcss": "^8.4.49",
+    "postcss": "^8.5.28",
     "storybook": "^8.4.7",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.5.0",
     "vite": "^5.4.11"
+  },
+  "overrides": {
+    "postcss": "$postcss",
+    "socket.io-parser": "^4.2.7",
+    "d3-color": "^3.1.0"
   }
 }

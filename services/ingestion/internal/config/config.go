@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,6 +23,9 @@ type Config struct {
 
 // Load reads and validates configuration from the environment.
 func Load() (Config, error) {
+	if err := refuseProductionPlaceholders(); err != nil {
+		return Config{}, err
+	}
 	port := envOrDefault("INGESTION_PORT", "8080")
 	redisURL := envOrDefault("REDIS_URL", "redis://localhost:6379")
 	kafkaBroker := envOrDefault("KAFKA_BROKER", "localhost:9092")
@@ -75,6 +79,25 @@ func Load() (Config, error) {
 		MaxBodyBytes:   maxBody,
 		EncryptionKey:  key,
 	}, nil
+}
+
+const devANIKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+func refuseProductionPlaceholders() error {
+	if os.Getenv("APP_ENV") != "production" {
+		return nil
+	}
+	var bad []string
+	if v := os.Getenv("ANI_ENCRYPTION_KEY"); v == "" || v == devANIKey {
+		bad = append(bad, "ANI_ENCRYPTION_KEY")
+	}
+	if v := os.Getenv("DATABASE_URL"); v == "" || strings.Contains(v, "ingestion_dev") || strings.Contains(v, "callloom_dev") {
+		bad = append(bad, "DATABASE_URL")
+	}
+	if len(bad) > 0 {
+		return fmt.Errorf("APP_ENV=production refuses to start with placeholder/missing secrets: %v", bad)
+	}
+	return nil
 }
 
 func envOrDefault(key, fallback string) string {

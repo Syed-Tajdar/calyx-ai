@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { getToken } from '@/lib/auth';
+import { hasSession } from '@/lib/auth';
 
 export type LiveEventType =
   | 'ping_received'
@@ -53,14 +53,12 @@ export function useLiveFeed({
     if (!enabled) {
       return undefined;
     }
-
-    const token = getToken();
-    if (!token) {
+    if (!hasSession()) {
       return undefined;
     }
 
     const socket = io(`${WS_URL}/live`, {
-      auth: { token },
+      withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 2000,

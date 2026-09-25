@@ -23,12 +23,17 @@ Each was found during write-back and pre-Phase-2 work. Do not deploy with any un
 
 ## Network exposure
 
-- [ ] **Port `8088` (platform-sync) must not be publicly reachable.** Write-back routes
-      require a bearer token, but `/sync` and `/test-auth` are still **unauthenticated**.
+- [ ] **Port `8088` (platform-sync) must not be publicly reachable.** All mutating routes
+      (`/sync`, `/test-auth`, `/sync/window`, write-back) require the internal bearer token.
       Internal network only.
 
 ## Infrastructure
 
+- [ ] Webhook ingestion (`ingestion`, :8080) is NOT exposed publicly in v1 — internal network
+      only. v1 connects platforms by API key.
+- [ ] Set `COOKIE_DOMAIN` to the parent domain, `WEB_ORIGINS` to the web origin(s),
+      `APP_ENV=production`, and the trusted-proxy setting for client IPs.
+- [ ] HTTPS everywhere — session cookie is `Secure` in production; HSTS enabled.
 - [ ] **Kubernetes probes** — readiness (`/readyz`) must depend only on what is needed
       to serve requests (Postgres, ClickHouse). Kafka / live-feed health is monitored via
       `/live-status`, never wired into readiness or liveness.

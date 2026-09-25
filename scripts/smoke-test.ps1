@@ -57,7 +57,9 @@ Start-Sleep -Seconds 8
 
 $login = Invoke-RestMethod -Uri "http://localhost:3000/auth/login" -Method POST `
   -ContentType "application/json" `
+  -Headers @{ "X-Calyx-Client" = "script" } `
   -Body '{"email":"admin@calyx.ai","password":"calyx_dev"}'
+if (-not $login.access_token) { throw "login missing access_token" }
 
 $pings = Invoke-RestMethod -Uri "http://localhost:3000/pings?limit=20&show_demo=true" -Method GET `
   -Headers @{ Authorization = "Bearer $($login.access_token)" }

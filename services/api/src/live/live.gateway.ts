@@ -7,13 +7,30 @@ import {
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
+import { loadEnv, parseWebOrigins } from '../config/env';
 import { JwtPayload } from '../auth/jwt-payload.interface';
 import { LiveEventEnvelope, tenantRoom } from './live-event.types';
+
+function parseCookieHeader(header: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!header) return out;
+  for (const part of header.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx < 0) continue;
+    const k = part.slice(0, idx).trim();
+    const v = part.slice(idx + 1).trim();
+    if (k) out[k] = decodeURIComponent(v);
+  }
+  return out;
+}
 
 @Injectable()
 @WebSocketGateway({
   namespace: '/live',
-  cors: { origin: true, credentials: true },
+  cors: {
+    origin: parseWebOrigins(),
+    credentials: true,
+  },
 })
 export class LiveGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(LiveGateway.name);
@@ -24,7 +41,11 @@ export class LiveGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(private readonly jwtService: JwtService) {}
 
   async handleConnection(client: Socket): Promise<void> {
-    const token = client.handshake.auth?.token as string | undefined;
+    const env = loadEnv();
+    const cookies = parseCookieHeader(client.handshake.headers.cookie);
+    const fromCookie = cookies[env.SESSION_COOKIE_NAME];
+    const fromAuth = client.handshake.auth?.token as string | undefined;
+    const token = fromCookie || fromAuth;
     if (!token) {
       client.disconnect(true);
       return;

@@ -24,6 +24,9 @@ type Config struct {
 
 // Load reads configuration from environment variables.
 func Load() (Config, error) {
+	if err := refuseProductionPlaceholders(); err != nil {
+		return Config{}, err
+	}
 	batchSize := 500
 	if v := os.Getenv("BATCH_SIZE"); v != "" {
 		parsed, err := strconv.Atoi(v)
@@ -60,6 +63,20 @@ func Load() (Config, error) {
 		BatchSize:        batchSize,
 		BatchFlushMillis: flushMs,
 	}, nil
+}
+
+func refuseProductionPlaceholders() error {
+	if os.Getenv("APP_ENV") != "production" {
+		return nil
+	}
+	var bad []string
+	if v := os.Getenv("CLICKHOUSE_PASSWORD"); v == "" || v == "callloom_dev" {
+		bad = append(bad, "CLICKHOUSE_PASSWORD")
+	}
+	if len(bad) > 0 {
+		return fmt.Errorf("APP_ENV=production refuses to start with placeholder/missing secrets: %v", bad)
+	}
+	return nil
 }
 
 func envOrDefault(key, fallback string) string {

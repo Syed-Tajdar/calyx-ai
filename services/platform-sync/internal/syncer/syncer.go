@@ -275,8 +275,8 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 
 	if skippedEmptyID > 0 {
 		errMsg := fmt.Sprintf("%d calls skipped: missing external id", skippedEmptyID)
-		s.markError(runCtx, item.ID, redact.ClassifySyncError(fmt.Errorf(errMsg)))
-		return fmt.Errorf(errMsg)
+		s.markError(runCtx, item.ID, redact.ClassifySyncError(fmt.Errorf("%s", errMsg)))
+		return fmt.Errorf("%s", errMsg)
 	}
 
 	// Cancelled/lost-lock runs must not advance last_sync_at (S1A).

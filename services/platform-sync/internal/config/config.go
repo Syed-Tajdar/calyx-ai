@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -23,6 +24,9 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	if err := refuseProductionPlaceholders(); err != nil {
+		return Config{}, err
+	}
 	port := envOrDefault("PLATFORM_SYNC_PORT", "8088")
 	databaseURL := envOrDefault("DATABASE_URL", "postgres://callloom_sync:sync_dev@localhost:5432/callloom?sslmode=disable")
 	redisURL := envOrDefault("REDIS_URL", "redis://localhost:6379")
@@ -78,6 +82,34 @@ func Load() (Config, error) {
 		WritebackEnabled:        writebackEnabled,
 		WritebackAuthToken:      os.Getenv("WRITEBACK_INTERNAL_TOKEN"),
 	}, nil
+}
+
+const (
+	devCredKey    = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	devWriteback  = "dev_writeback_internal_token_change_me"
+)
+
+func refuseProductionPlaceholders() error {
+	if os.Getenv("APP_ENV") != "production" {
+		return nil
+	}
+	var bad []string
+	if v := os.Getenv("CREDENTIAL_ENCRYPTION_KEY"); v == "" || v == devCredKey {
+		bad = append(bad, "CREDENTIAL_ENCRYPTION_KEY")
+	}
+	if v := os.Getenv("ANI_ENCRYPTION_KEY"); v == "" || v == devCredKey {
+		bad = append(bad, "ANI_ENCRYPTION_KEY")
+	}
+	if v := os.Getenv("WRITEBACK_INTERNAL_TOKEN"); v == "" || v == devWriteback {
+		bad = append(bad, "WRITEBACK_INTERNAL_TOKEN")
+	}
+	if v := os.Getenv("DATABASE_URL"); v == "" || strings.Contains(v, "sync_dev") || strings.Contains(v, "callloom_dev") {
+		bad = append(bad, "DATABASE_URL")
+	}
+	if len(bad) > 0 {
+		return fmt.Errorf("APP_ENV=production refuses to start with placeholder/missing secrets: %v", bad)
+	}
+	return nil
 }
 
 func envOrDefault(key, fallback string) string {

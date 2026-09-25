@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { z } from 'zod';
 import { CurrentTenant } from '../common/tenant.decorator';
+import { optionalIsoDate } from '../common/date-params';
 import { AnalyticsService, MetricsResult, PnLResult, PlatformMixRow } from './analytics.service';
 
 const showDemoField = z
@@ -10,8 +11,8 @@ const showDemoField = z
   .transform((v) => v === 'true' || v === '1');
 
 const dateQuerySchema = z.object({
-  from: z.string().optional(),
-  to: z.string().optional(),
+  from: optionalIsoDate,
+  to: optionalIsoDate,
   show_demo: showDemoField,
 });
 

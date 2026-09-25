@@ -1,5 +1,5 @@
 # Build from repo root: context `..`, dockerfile `services/platform-sync/Dockerfile`
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24.13-alpine AS builder
 
 WORKDIR /src
 
@@ -12,8 +12,11 @@ COPY services/platform-sync/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X main.dedupMode=content_hash" -o /platform-sync ./cmd/server
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates \
+  && adduser -D -H -u 65532 nonroot
 WORKDIR /app
 COPY --from=builder /platform-sync .
+RUN chown nonroot:nonroot /app/platform-sync
+USER nonroot
 EXPOSE 8088
 CMD ["./platform-sync"]

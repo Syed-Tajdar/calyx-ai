@@ -201,9 +201,16 @@ export class IntegrationsService {
       };
     }
     const syncUrl = process.env.PLATFORM_SYNC_URL ?? 'http://localhost:8088';
+    const token = process.env.WRITEBACK_INTERNAL_TOKEN ?? '';
+    if (!token) {
+      return { ok: false, message: 'Internal sync token is not configured' };
+    }
     const res = await fetch(`${syncUrl}/test-auth`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ integration_id: id, tenant_id: tenantId }),
     });
     const body = (await res.json().catch(() => ({}))) as {
@@ -442,11 +449,21 @@ export class IntegrationsService {
     id: string,
   ): Promise<{ status: string }> {
     const syncUrl = process.env.PLATFORM_SYNC_URL ?? 'http://localhost:8088';
+    const token = process.env.WRITEBACK_INTERNAL_TOKEN ?? '';
+    if (!token) {
+      throw new ServiceUnavailableException('Internal sync token is not configured');
+    }
     const res = await fetch(`${syncUrl}/sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ integration_id: id, tenant_id: tenantId }),
     });
+    if (res.status === 401) {
+      throw new ServiceUnavailableException('Platform sync unauthorized (internal token)');
+    }
     if (!res.ok) {
       throw new ServiceUnavailableException(
         `Platform sync service unavailable (${res.status})`,

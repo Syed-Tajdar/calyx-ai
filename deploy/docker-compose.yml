@@ -174,6 +174,7 @@
     ports:
       - "8080:8080"
     environment:
+      APP_ENV: "development"
       INGESTION_PORT: "8080"
       REDIS_URL: redis://redis:6379
       KAFKA_BROKER: redpanda:9092
@@ -198,6 +199,7 @@
     ports:
       - "8081:8081"
     environment:
+      APP_ENV: "development"
       CONSUMER_PORT: "8081"
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
@@ -226,6 +228,7 @@
     ports:
       - "3000:3000"
     environment:
+      APP_ENV: "development"
       API_PORT: "3000"
       # KafkaJS reconnect DNS storms otherwise starve getaddrinfo for PG/CH readiness.
       UV_THREADPOOL_SIZE: "64"
@@ -254,6 +257,9 @@
       PLATFORM_SYNC_URL: http://platform-sync:8088
       WRITEBACK_ENABLED: "true"
       WRITEBACK_INTERNAL_TOKEN: "dev_writeback_internal_token_change_me"
+      WEB_ORIGINS: "http://localhost:3001,http://127.0.0.1:3001"
+      COOKIE_DOMAIN: ""
+      TRUSTED_PROXIES: ""
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -415,6 +421,7 @@
       - 1.1.1.1
       - 8.8.8.8
     environment:
+      APP_ENV: "development"
       PLATFORM_SYNC_PORT: "8088"
       DATABASE_URL: postgres://callloom_sync:sync_dev@postgres:5432/callloom?sslmode=disable
       REDIS_URL: redis://redis:6379

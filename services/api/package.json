@@ -19,6 +19,7 @@
     "@nestjs/platform-express": "^10.4.0",
     "@nestjs/platform-socket.io": "^10.4.22",
     "@nestjs/websockets": "^10.4.22",
+    "cookie-parser": "^1.4.7",
     "kafkajs": "^2.2.4",
     "kafkajs-snappy": "^1.1.0",
     "passport": "^0.7.0",
@@ -29,12 +30,14 @@
     "redis": "^4.7.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "socket.io": "^4.8.3",
+    "socket.io": "^4.8.4",
+    "socket.io-parser": "^4.2.7",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.0",
     "@nestjs/schematics": "^10.1.0",
+    "@types/cookie-parser": "^1.4.10",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.14.0",
     "@types/passport-jwt": "^4.0.1",
@@ -43,5 +46,8 @@
     "socket.io-client": "^4.8.3",
     "ts-jest": "^29.2.0",
     "typescript": "^5.5.0"
+  },
+  "overrides": {
+    "multer": "^2.2.1"
   }
 }

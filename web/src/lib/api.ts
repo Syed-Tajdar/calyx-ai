@@ -1,4 +1,4 @@
-import { clearToken } from './auth';
+import { clearToken, getCsrfToken, isCookieSession } from './auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -161,14 +161,26 @@ export interface HeatmapResult {
   ca_regions: number;
 }
 
+function authHeaders(token: string, init?: RequestInit): HeadersInit {
+  const headers: Record<string, string> = {
+    ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+  };
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') {
+    const csrf = getCsrfToken();
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+  }
+  if (token && !isCookieSession(token)) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return { ...(init?.headers ?? {}), ...headers };
+}
+
 async function fetchWithAuth<T>(token: string, path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      Authorization: `Bearer ${token}`,
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-    },
+    credentials: 'include',
+    headers: authHeaders(token, init),
   });
   if (res.status === 401) {
     clearToken();
@@ -194,11 +206,8 @@ async function fetchWithAuthNoContent(
 ): Promise<void> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      Authorization: `Bearer ${token}`,
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-    },
+    credentials: 'include',
+    headers: authHeaders(token, init),
   });
   if (res.status === 401) {
     clearToken();
@@ -212,14 +221,28 @@ async function fetchWithAuthNoContent(
 export async function login(email: string, password: string): Promise<string> {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
+  if (res.status === 429) {
+    throw new Error('Too many attempts');
+  }
   if (!res.ok) {
     throw new Error('Login failed');
   }
-  const body = (await res.json()) as { access_token: string };
-  return body.access_token;
+  // JWT is httpOnly — return sentinel for callers that still expect a string.
+  return 'cookie-session';
+}
+
+export async function logout(): Promise<void> {
+  const csrf = getCsrfToken();
+  await fetch(`${API_URL}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+  }).catch(() => undefined);
+  clearToken();
 }
 
 export interface MeResult {
@@ -324,7 +347,8 @@ export async function downloadPingsExport(
   if (filters.show_demo) params.set('show_demo', 'true');
   const qs = params.toString();
   const res = await fetch(`${API_URL}/pings/export${qs ? `?${qs}` : ''}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'include',
+    headers: authHeaders(token),
   });
   if (res.status === 401) {
     clearToken();

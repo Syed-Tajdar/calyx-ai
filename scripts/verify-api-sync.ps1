@@ -9,7 +9,9 @@ $createdId = $null
 function Get-AuthHeaders {
   $login = Invoke-RestMethod -Uri "$apiBase/auth/login" -Method POST `
     -ContentType "application/json" `
+    -Headers @{ "X-Calyx-Client" = "script" } `
     -Body '{"email":"admin@calyx.ai","password":"calyx_dev"}'
+  if (-not $login.access_token) { throw "login missing access_token" }
   return @{ Authorization = "Bearer $($login.access_token)" }
 }
 

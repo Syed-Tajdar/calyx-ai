@@ -121,7 +121,10 @@ async function login() {
   try {
     res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Calyx-Client': 'script',
+      },
       body: JSON.stringify({
         email: 'admin@calyx.ai',
         password: 'calyx_dev',
@@ -134,6 +137,9 @@ async function login() {
     throw new Error(`login failed: ${res.status}`);
   }
   const body = await res.json();
+  if (!body.access_token) {
+    throw new Error('login missing access_token (need X-Calyx-Client: script)');
+  }
   return body.access_token;
 }
 
