@@ -230,7 +230,6 @@
       # Host 3100 — avoid reserved 3000–3003 on shared servers.
       - "3100:3000"
     environment:
-      APP_ENV: "development"
       API_PORT: "3000"
       # KafkaJS reconnect DNS storms otherwise starve getaddrinfo for PG/CH readiness.
       UV_THREADPOOL_SIZE: "64"
@@ -259,9 +258,10 @@
       PLATFORM_SYNC_URL: http://platform-sync:8088
       WRITEBACK_ENABLED: "true"
       WRITEBACK_INTERNAL_TOKEN: "dev_writeback_internal_token_change_me"
-      WEB_ORIGINS: "http://localhost:3101,http://127.0.0.1:3101"
-      COOKIE_DOMAIN: ""
-      TRUSTED_PROXIES: ""
+      APP_ENV: "development"
+      WEB_ORIGINS: ${WEB_ORIGINS:-http://localhost:3101,http://127.0.0.1:3101}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -519,18 +519,20 @@
     build:
       context: ../web
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:3100
-        NEXT_PUBLIC_WS_URL: http://localhost:3100
-        NEXT_PUBLIC_MOCK_MODE: "true"
-        NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN: "https://retreaver.com/calls/{id}"
+        # Baked into the browser bundle. Required so login cannot fall back to localhost.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL in .env}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?Set NEXT_PUBLIC_WS_URL in .env}
+        NEXT_PUBLIC_MOCK_MODE: ${NEXT_PUBLIC_MOCK_MODE:-true}
+        NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN: ${NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN:-https://retreaver.com/calls/{id}}
     ports:
       # Host 3101 — avoid reserved 3000–3003 on shared servers.
       - "3101:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3100
-      NEXT_PUBLIC_WS_URL: http://localhost:3100
-      NEXT_PUBLIC_MOCK_MODE: "true"
-      NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN: "https://retreaver.com/calls/{id}"
+      APP_ENV: ${APP_ENV:-development}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL in .env}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?Set NEXT_PUBLIC_WS_URL in .env}
+      NEXT_PUBLIC_MOCK_MODE: ${NEXT_PUBLIC_MOCK_MODE:-true}
+      NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN: ${NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN:-https://retreaver.com/calls/{id}}
     depends_on:
       - api
 
