@@ -48,7 +48,7 @@ const envSchema = z.object({
   /** Comma-separated browser origins allowed for CORS + CSRF Origin checks. */
   WEB_ORIGINS: z
     .string()
-    .default('http://localhost:3001,http://127.0.0.1:3001'),
+    .default('http://localhost:3101,http://127.0.0.1:3101'),
   /** Empty in local http; set to parent domain in production (e.g. `.example.com`). */
   COOKIE_DOMAIN: z.string().default(''),
   /**

@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25.14-alpine AS builder
 WORKDIR /src/services/ask-ai
 COPY services/ask-ai/go.mod services/ask-ai/go.sum* ./
 RUN go mod download

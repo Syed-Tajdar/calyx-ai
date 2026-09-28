@@ -1,7 +1,7 @@
 # Retreaver real ingestion verification (local Docker or post-tunnel real calls).
 # Does NOT print call_key values or webhook secrets.
 param(
-  [string]$ApiBase = $(if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3000" }),
+  [string]$ApiBase = $(if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3100" }),
   [string]$Platform = "retreaver",
   [int]$LogTail = 40
 )

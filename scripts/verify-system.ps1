@@ -2,8 +2,8 @@
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $deployDir = Join-Path $repoRoot "deploy"
-if ($env:WEB_BASE_URL) { $webBase = $env:WEB_BASE_URL } else { $webBase = "http://localhost:3001" }
-if ($env:API_BASE_URL) { $apiBase = $env:API_BASE_URL } else { $apiBase = "http://localhost:3000" }
+if ($env:WEB_BASE_URL) { $webBase = $env:WEB_BASE_URL } else { $webBase = "http://localhost:3101" }
+if ($env:API_BASE_URL) { $apiBase = $env:API_BASE_URL } else { $apiBase = "http://localhost:3100" }
 $fixtureCallId = "demo-call-1"
 
 $summary = @{
@@ -13,6 +13,7 @@ $summary = @{
   ApiPresentation  = $null
   WebSocket        = $null
   BrowserCsp       = $null
+  SmokePrefix      = $null
   UnitTests        = $null
   PipelineSmoke    = $null
   WebBuild         = $null
@@ -84,7 +85,7 @@ foreach ($port in $healthPorts) {
   }
 }
 $summary.HealthEndpoints.Total++
-if (Test-HttpStatus ":3000/readyz" "http://localhost:3000/readyz") {
+if (Test-HttpStatus ":3100/readyz" "http://localhost:3100/readyz") {
   $summary.HealthEndpoints.Pass++
 }
 
@@ -131,6 +132,12 @@ $wsScript = Join-Path $repoRoot "scripts\ws-smoke-test.mjs"
 & node $wsScript
 $wsExit = $LASTEXITCODE
 $summary.WebSocket = if ($wsExit -eq 0) { "PASS" } else { "FAIL" }
+
+Write-Section "Smoke call-id prefix (scripts/)"
+$smokePrefixScript = Join-Path $repoRoot "scripts\check-smoke-call-id-prefix.mjs"
+& node $smokePrefixScript
+$smokePrefixExit = $LASTEXITCODE
+$summary.SmokePrefix = if ($smokePrefixExit -eq 0) { "PASS" } else { "FAIL" }
 
 Write-Section "Browser CSP + hydration (Playwright)"
 $browserScript = Join-Path $repoRoot "scripts\check-dashboard-browser.mjs"
@@ -186,6 +193,7 @@ Write-Host "  LiveStatus: $($summary.LiveStatus)"
 Write-Host "  API:        $($summary.ApiPresentation)"
 Write-Host "  Web routes: $($summary.WebRoutes.Pass) / $($summary.WebRoutes.Total)"
 Write-Host "  WebSocket:  $($summary.WebSocket)"
+Write-Host "  SmokePrefix:$($summary.SmokePrefix)"
 Write-Host "  BrowserCSP: $($summary.BrowserCsp)"
 Write-Host "  Unit tests: $($summary.UnitTests)"
 Write-Host "  Web build:  $($summary.WebBuild)"
@@ -198,6 +206,7 @@ if ($summary.LiveStatus -ne "PASS") { $hardFail = $true }
 if ($apiExit -ne 0) { $hardFail = $true }
 if ($summary.WebRoutes.Pass -lt $summary.WebRoutes.Total) { $hardFail = $true }
 if ($wsExit -ne 0) { $hardFail = $true }
+if ($smokePrefixExit -ne 0) { $hardFail = $true }
 if ($browserExit -ne 0) { $hardFail = $true }
 if ($testFailed) { $hardFail = $true }
 if ($buildExit -ne 0) { $hardFail = $true }

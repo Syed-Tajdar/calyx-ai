@@ -1,0 +1,126 @@
+﻿==== callloom-consumer ====
+GROUP        callloom-consumer
+COORDINATOR  0
+STATE        Stable
+BALANCER     range
+MEMBERS      1
+TOTAL-LAG    0
+
+TOPIC              PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                                                                   CLIENT-ID                                              HOST
+callloom.pings.v1  0          1796            0                 1796            0     consumer@147af8f21d18 (github.com/segmentio/kafka-go)-c0155b04-bad3-45a1-944d-275b860a2a67  consumer@147af8f21d18 (github.com/segmentio/kafka-go)  172.18.0.12
+callloom.pings.v1  1          1448            0                 1448            0     consumer@147af8f21d18 (github.com/segmentio/kafka-go)-c0155b04-bad3-45a1-944d-275b860a2a67  consumer@147af8f21d18 (github.com/segmentio/kafka-go)  172.18.0.12
+callloom.pings.v1  2          13633           0                 13633           0     consumer@147af8f21d18 (github.com/segmentio/kafka-go)-c0155b04-bad3-45a1-944d-275b860a2a67  consumer@147af8f21d18 (github.com/segmentio/kafka-go)  172.18.0.12
+
+==== callloom-scoring ====
+GROUP        callloom-scoring
+COORDINATOR  0
+STATE        Stable
+BALANCER     range
+MEMBERS      1
+TOTAL-LAG    66
+
+TOPIC                                    PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                                                                  CLIENT-ID                                             HOST
+callloom.calls.call_transcript_ready.v1  0          -               0                 0               -     scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)-a5973e63-8c7f-4a87-bfb7-d1c18970a236  scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)  172.18.0.11
+callloom.calls.call_transcript_ready.v1  1          -               0                 0               -     scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)-a5973e63-8c7f-4a87-bfb7-d1c18970a236  scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)  172.18.0.11
+callloom.calls.call_transcript_ready.v1  2          12574           0                 12640           66    scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)-a5973e63-8c7f-4a87-bfb7-d1c18970a236  scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)  172.18.0.11
+
+==== callloom-enrichment ====
+GROUP        callloom-enrichment
+COORDINATOR  0
+STATE        Stable
+BALANCER     range
+MEMBERS      1
+TOTAL-LAG    0
+
+TOPIC              PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                                                                     CLIENT-ID                                                HOST
+callloom.pings.v1  0          1796            0                 1796            0     enrichment@04738110126c (github.com/segmentio/kafka-go)-b2695f97-cd7e-4964-a344-77f6292f2a6f  enrichment@04738110126c (github.com/segmentio/kafka-go)  172.18.0.15
+callloom.pings.v1  1          1448            0                 1448            0     enrichment@04738110126c (github.com/segmentio/kafka-go)-b2695f97-cd7e-4964-a344-77f6292f2a6f  enrichment@04738110126c (github.com/segmentio/kafka-go)  172.18.0.15
+callloom.pings.v1  2          13633           0                 13633           0     enrichment@04738110126c (github.com/segmentio/kafka-go)-b2695f97-cd7e-4964-a344-77f6292f2a6f  enrichment@04738110126c (github.com/segmentio/kafka-go)  172.18.0.15
+
+==== callloom-compliance ====
+GROUP        callloom-compliance
+COORDINATOR  0
+STATE        Stable
+BALANCER     range
+MEMBERS      1
+TOTAL-LAG    4315
+
+TOPIC              PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                                                                                  CLIENT-ID                                                             HOST
+callloom.pings.v1  0          454             0                 1796            1342  compliance-intelligence@4d40fd8a6a92 (github.com/segmentio/kafka-go)-ff996464-51d8-428f-919e-f0f290e5ff96  compliance-intelligence@4d40fd8a6a92 (github.com/segmentio/kafka-go)  172.18.0.9
+callloom.pings.v1  1          251             0                 1448            1197  compliance-intelligence@4d40fd8a6a92 (github.com/segmentio/kafka-go)-ff996464-51d8-428f-919e-f0f290e5ff96  compliance-intelligence@4d40fd8a6a92 (github.com/segmentio/kafka-go)  172.18.0.9
+callloom.pings.v1  2          11857           0                 13633           1776  compliance-intelligence@4d40fd8a6a92 (github.com/segmentio/kafka-go)-ff996464-51d8-428f-919e-f0f290e5ff96  compliance-intelligence@4d40fd8a6a92 (github.com/segmentio/kafka-go)  172.18.0.9
+
+==== callloom-attribution ====
+GROUP        callloom-attribution
+COORDINATOR  0
+STATE        Stable
+BALANCER     range
+MEMBERS      1
+TOTAL-LAG    50
+
+TOPIC                    PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                                                                         CLIENT-ID                                                    HOST
+callloom.conversions.v1  0          1026            0                 1043            17    ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)-e8dba6ff-b1a2-4741-bcb9-16d16e4637b3  ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)  172.18.0.14
+callloom.conversions.v1  1          1026            0                 1043            17    ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)-e8dba6ff-b1a2-4741-bcb9-16d16e4637b3  ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)  172.18.0.14
+callloom.conversions.v1  2          1026            0                 1042            16    ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)-e8dba6ff-b1a2-4741-bcb9-16d16e4637b3  ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)  172.18.0.14
+
+==== callloom-attribution-bridge ====
+GROUP        callloom-attribution-bridge
+COORDINATOR  0
+STATE        Stable
+BALANCER     range
+MEMBERS      1
+TOTAL-LAG    4228
+
+TOPIC              PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                                                                         CLIENT-ID                                                    HOST
+callloom.pings.v1  0          281             0                 1796            1515  ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)-5c267dba-b560-4392-b944-7a021feb8e2a  ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)  172.18.0.14
+callloom.pings.v1  1          381             0                 1448            1067  ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)-5c267dba-b560-4392-b944-7a021feb8e2a  ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)  172.18.0.14
+callloom.pings.v1  2          11987           0                 13633           1646  ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)-5c267dba-b560-4392-b944-7a021feb8e2a  ad-attribution@824863d654e7 (github.com/segmentio/kafka-go)  172.18.0.14
+
+==== callloom-scoring-mock-emitter ====
+GROUP        callloom-scoring-mock-emitter
+COORDINATOR  0
+STATE        Stable
+BALANCER     range
+MEMBERS      1
+TOTAL-LAG    4228
+
+TOPIC              PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                                                                  CLIENT-ID                                             HOST
+callloom.pings.v1  0          312             0                 1796            1484  scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)-6368ebbb-00a5-4be7-88fd-0a32cf04d466  scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)  172.18.0.11
+callloom.pings.v1  1          382             0                 1448            1066  scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)-6368ebbb-00a5-4be7-88fd-0a32cf04d466  scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)  172.18.0.11
+callloom.pings.v1  2          11955           0                 13633           1678  scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)-6368ebbb-00a5-4be7-88fd-0a32cf04d466  scoring@c2f4a9b82ce7 (github.com/segmentio/kafka-go)  172.18.0.11
+
+==== calyx-api-live-feed ====
+GROUP        calyx-api-live-feed
+COORDINATOR  0
+STATE        Stable
+BALANCER     RoundRobinAssigner
+MEMBERS      1
+TOTAL-LAG    0
+
+TOPIC                                      PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                     CLIENT-ID  HOST
+callloom.attribution.attributed.v1         0          1027            0                 1027            0     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.attribution.attributed.v1         1          1028            0                 1028            0     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.attribution.attributed.v1         2          1028            0                 1028            0     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.calls.call_scored.v1              0          -               0                 0               -     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.calls.call_scored.v1              1          -               0                 0               -     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.calls.call_scored.v1              2          5569            0                 5569            0     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.compliance.violation_detected.v1  0          22              0                 22              0     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.compliance.violation_detected.v1  1          22              0                 22              0     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.compliance.violation_detected.v1  2          23              0                 23              0     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.pings.v1                          0          1796            0                 1796            0     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.pings.v1                          1          1448            0                 1448            0     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+callloom.pings.v1                          2          13633           0                 13633           0     kafkajs-cd36328c-e37b-4c30-87c9-19eb6e295fdd  kafkajs    172.18.0.2
+
+==== callloom-alert-engine ====
+GROUP        callloom-alert-engine
+COORDINATOR  0
+STATE        Stable
+BALANCER     RoundRobinAssigner
+MEMBERS      1
+TOTAL-LAG    0
+
+TOPIC                          PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                     CLIENT-ID  HOST
+callloom.calls.call_scored.v1  0          -               0                 0               -     kafkajs-dbc0886d-3aaa-4d9a-b6ed-27ba23d6db4d  kafkajs    172.18.0.2
+callloom.calls.call_scored.v1  1          -               0                 0               -     kafkajs-dbc0886d-3aaa-4d9a-b6ed-27ba23d6db4d  kafkajs    172.18.0.2
+callloom.calls.call_scored.v1  2          5569            0                 5569            0     kafkajs-dbc0886d-3aaa-4d9a-b6ed-27ba23d6db4d  kafkajs    172.18.0.2
+

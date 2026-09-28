@@ -1,6 +1,6 @@
 # Content-hash ClickHouse row-level proof (Retreaver Test + MOCK_DEDUP_PROOF=1).
 $ErrorActionPreference = "Stop"
-$apiBase = if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3000" }
+$apiBase = if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3100" }
 
 function Get-AuthHeaders {
   $login = Invoke-RestMethod -Uri "$apiBase/auth/login" -Method POST `

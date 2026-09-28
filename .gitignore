@@ -58,3 +58,10 @@ bin/
 
 # Docker
 docker-compose.override.yml
+
+# S2b local production dry-run secrets (never commit)
+deploy/.env.s2b.prod.local
+
+
+deploy/docker-compose.s2b.prod.override.yml
+

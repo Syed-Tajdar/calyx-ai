@@ -1,6 +1,6 @@
 module github.com/Syed-Tajdar/calyx-ai/packages/pingdedup
 
-go 1.22
+go 1.25.0
 
 require (
 	github.com/alicebob/miniredis/v2 v2.33.0

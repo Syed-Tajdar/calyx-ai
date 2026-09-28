@@ -18,7 +18,7 @@ const require = createRequire(
 );
 const { io } = require('socket.io-client');
 
-const API_BASE = process.env.API_BASE ?? 'http://localhost:3000';
+const API_BASE = process.env.API_BASE ?? 'http://localhost:3100';
 const INGESTION_BASE = process.env.INGESTION_BASE ?? 'http://localhost:8080';
 const WS_BASE = process.env.WS_BASE ?? API_BASE;
 const TIMEOUT_MS = Number(process.env.WS_SMOKE_TIMEOUT_MS ?? 45000);

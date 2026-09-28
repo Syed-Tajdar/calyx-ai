@@ -19,7 +19,7 @@ UI↔backend coverage: [`docs/ui-backend-coverage.md`](docs/ui-backend-coverage.
 | Layer | Result |
 |-------|--------|
 | Docker containers | App + infra up (`api` / `platform-sync` / `web` / `consumer` / `enrichment`) |
-| Service health | **PASS** (API :3000, Web :3001, platform-sync :8088) |
+| Service health | **PASS** (API :3100, Web :3101, platform-sync :8088) |
 | **Ringba LIVE cert** | **YES** — D8/D9/D10/D5/D8b ([`docs/phase2-ringba-live-certified.md`](docs/phase2-ringba-live-certified.md)) |
 | **Ringba parity A+B1** | **PASS** — P-A, P-B1.1–B1.5 ([`docs/ringba-parity-a-b1-report.md`](docs/ringba-parity-a-b1-report.md)) |
 | **Ringba parity Delta** | **PASS** — P2D1–P2D5 republish + cohort proof ([`docs/ringba-parity-delta-report.md`](docs/ringba-parity-delta-report.md)) |
@@ -77,7 +77,7 @@ Evidence: `docs/evidence/ringba-writeback-probe/` · `docs/evidence/ringba-write
 cd deploy
 docker compose build api platform-sync web
 docker compose up -d --force-recreate api platform-sync web redis
-# Hard-refresh http://localhost:3001 — Open in Ringba must open call-logs report + copy id
+# Hard-refresh http://localhost:3101 — Open in Ringba must open call-logs report + copy id
 ```
 
 Production items that must change before go-live: [`docs/deploy-checklist.md`](docs/deploy-checklist.md).
@@ -154,7 +154,7 @@ Production items that must change before go-live: [`docs/deploy-checklist.md`](d
 - **Verification:** `scripts/verify-ingestion-slice.ps1` / `make verify-ingestion-slice` — unique ping +1, duplicate resend does not inflate totals, Retreaver ciphertext length check.
 - **Mode scoping (Option B):** ingestion + consumer always real; intelligence services stay `MOCK_MODE=true` until Phases 1–4. Verify dashboard/coverage via **poll/refresh**, not WebSocket.
 - **Coverage map labels:** state abbreviations (TX, CA, …) via `d3-geo` `geoCentroid` + `useMapContext` (no `Marker` — avoids React runtime error).
-- **Docker web deploy:** `deploy-web-1` serves production Next.js on **:3001** (`docker compose up -d --build web`); local `npm run dev` and Docker web cannot share port 3001.
+- **Docker web deploy:** `deploy-web-1` serves production Next.js on **:3101** (`docker compose up -d --build web`); local `npm run dev` and Docker web cannot share port 3101.
 
 **Recent fixes (2026-06-22):**
 
@@ -376,12 +376,24 @@ WebSocket /live → Kafka live consumer (default); mock WS emitter off via `MOCK
 
 ## Quick start (local)
 
+
+**Host ports (shared-server safe):** published ports avoid **3000–3003 / 8000 / 9000** (common conflicts). Containers still listen on their internal ports; ClickHouse native is published as **9100→9000**.
+
+| Host (browser / curl) | Maps to container |
+|-----------------------|-------------------|
+| **3100** | API `:3000` |
+| **3101** | Web `:3000` |
+| **9100** | ClickHouse native `:9000` |
+| **8123** | ClickHouse HTTP (unchanged) |
+
+Env defaults: `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL` / `WEB_ORIGINS` / `API_BASE_URL` / `WEB_BASE_URL` — see [`.env.example`](.env.example).
+
 ```bash
 cp .env.example .env
 make dev-up
 ```
 
-`make dev-up` starts the full stack including **Web on Docker** at http://localhost:3001 (production Next.js build inside `deploy-web-1`). API at http://localhost:3000.
+`make dev-up` starts the full stack including **Web on Docker** at http://localhost:3101 (production Next.js build inside `deploy-web-1`). API at http://localhost:3100.
 
 | Service | Port | Health |
 |---------|------|--------|
@@ -394,30 +406,30 @@ make dev-up
 | Ask AI | 8086 | http://localhost:8086/healthz |
 | Ad attribution | 8087 | http://localhost:8087/healthz |
 | **Platform sync** | **8088** | http://localhost:8088/healthz |
-| API | 3000 | http://localhost:3000/healthz |
-| **Web (Docker)** | **3001** | http://localhost:3001 |
+| API | 3100 | http://localhost:3100/healthz |
+| **Web (Docker)** | **3101** | http://localhost:3101 |
 
 **Dev login:** `admin@calyx.ai` / `calyx_dev`  
 **Tenant A UUID:** `11111111-1111-1111-1111-111111111111` (displays as **Demo Tenant**)
 
 ### Web: Docker vs local dev
 
-Both bind **port 3001** — only one can run at a time.
+Both bind **port 3101** — only one can run at a time.
 
 | Mode | Command | When to use |
 |------|---------|-------------|
 | **Docker (default)** | `cd deploy && docker compose up -d --build web` | Presentation demo, production-like build |
-| **Local dev** | Stop Docker web first, then `cd web && npm run dev -- -p 3001` | Hot reload while editing UI |
+| **Local dev** | Stop Docker web first, then `cd web && npm run dev -- -p 3101` | Hot reload while editing UI |
 
 ```powershell
-# Deploy / rebuild web on Docker (stop local dev on :3001 first if running)
+# Deploy / rebuild web on Docker (stop local dev on :3101 first if running)
 cd deploy
 docker compose up -d --build web
 
-# Switch to local dev (free port 3001)
+# Switch to local dev (free port 3101)
 docker compose stop web
 cd ..\web
-npm run dev -- -p 3001
+npm run dev -- -p 3101
 ```
 
 After UI changes, rebuild the Docker image — `npm run dev` does **not** update the container.
@@ -570,8 +582,8 @@ After Live-gate / certification / hardening:
 cd deploy
 docker compose build api platform-sync web
 docker compose up -d --force-recreate api platform-sync web
-# Confirm: http://localhost:8088/healthz and http://localhost:3000/healthz → 200
-# Web: http://localhost:3001 — hard-refresh Ctrl+Shift+R
+# Confirm: http://localhost:8088/healthz and http://localhost:3100/healthz → 200
+# Web: http://localhost:3101 — hard-refresh Ctrl+Shift+R
 ```
 
 ---

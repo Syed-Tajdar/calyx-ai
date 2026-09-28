@@ -1,0 +1,14 @@
+HTTP/1.1 201 Created
+X-Powered-By: Express
+Access-Control-Allow-Origin: http://localhost:3001
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Set-Cookie: calyx_session=REDACTED; Max-Age=86400; Path=/; Expires=Tue, 29 Sep 2026 19:55:13 GMT; HttpOnly; Secure; SameSite=Lax
+Set-Cookie: calyx_csrf=REDACTED; Max-Age=86400; Path=/; Expires=Tue, 29 Sep 2026 19:55:13 GMT; Secure; SameSite=Lax
+Content-Type: application/json; charset=utf-8
+Content-Length: 70
+ETag: W/"46-qp7VJ3NMjt4X90rSu5RnY/seyls"
+Date: Mon, 28 Sep 2026 19:55:13 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

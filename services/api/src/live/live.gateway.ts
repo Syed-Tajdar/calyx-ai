@@ -42,6 +42,18 @@ export class LiveGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: Socket): Promise<void> {
     const env = loadEnv();
+    const allowed = parseWebOrigins(env);
+    const origin = client.handshake.headers.origin;
+    // Cookie-authenticated sockets must come from an allowed browser origin.
+    // Script clients (no Origin) are allowed when they present auth.token.
+    if (origin && !allowed.includes(origin)) {
+      this.logger.warn(
+        { origin, socket_id: client.id },
+        'live reject: origin not in WEB_ORIGINS',
+      );
+      client.disconnect(true);
+      return;
+    }
     const cookies = parseCookieHeader(client.handshake.headers.cookie);
     const fromCookie = cookies[env.SESSION_COOKIE_NAME];
     const fromAuth = client.handshake.auth?.token as string | undefined;

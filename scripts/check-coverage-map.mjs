@@ -5,7 +5,7 @@ import path from 'node:path';
 const require = createRequire(import.meta.url);
 const { chromium } = require(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web', 'node_modules', 'playwright'));
 
-const baseUrl = process.env.CALYX_WEB_URL ?? 'http://localhost:3001';
+const baseUrl = process.env.CALYX_WEB_URL ?? 'http://localhost:3101';
 
 const browser = await chromium.launch({ channel: 'msedge' });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -27,7 +27,7 @@ try {
         break;
       }
     }
-    const r = await fetch('http://localhost:3000/coverage/heatmap', {
+    const r = await fetch('http://localhost:3100/coverage/heatmap', {
       headers: { Authorization: `Bearer ${t}` },
     });
     return r.json();

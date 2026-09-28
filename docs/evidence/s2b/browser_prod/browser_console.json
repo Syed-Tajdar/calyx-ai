@@ -1,0 +1,98 @@
+{
+  "cspViolations": [],
+  "pageErrors": [],
+  "consoleLog": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "loc": "http://localhost:3001/favicon.ico"
+    }
+  ],
+  "checks": [
+    {
+      "name": "login redirects to /dashboard",
+      "ok": true
+    },
+    {
+      "name": "dashboard not skeleton",
+      "ok": true
+    },
+    {
+      "name": "body font Inter (__interBody_ab419e)",
+      "ok": true
+    },
+    {
+      "name": "h1 font Geist (__geistHeading_74e938)",
+      "ok": true
+    },
+    {
+      "name": "topbar email (admin@calyx.ai)",
+      "ok": true
+    },
+    {
+      "name": "dashboard KPI Total Revenue",
+      "ok": true
+    },
+    {
+      "name": "dashboard metric cards (4)",
+      "ok": true
+    },
+    {
+      "name": "pings not skeleton",
+      "ok": true
+    },
+    {
+      "name": "pings body font Inter",
+      "ok": true
+    },
+    {
+      "name": "pings has content",
+      "ok": true
+    },
+    {
+      "name": "settings not skeleton",
+      "ok": true
+    },
+    {
+      "name": "settings body font Inter",
+      "ok": true
+    },
+    {
+      "name": "settings has content",
+      "ok": true
+    },
+    {
+      "name": "call detail not skeleton",
+      "ok": true
+    },
+    {
+      "name": "call detail body font Inter",
+      "ok": true
+    },
+    {
+      "name": "call detail h1 font Geist",
+      "ok": true
+    },
+    {
+      "name": "call detail has content",
+      "ok": true
+    },
+    {
+      "name": "in-page session login",
+      "ok": true
+    },
+    {
+      "name": "live feed received event (smoke-csp-6f16b220-85a3-4a54-a437-a05bfb2dac9c)",
+      "ok": true
+    },
+    {
+      "name": "zero CSP violations",
+      "ok": true
+    },
+    {
+      "name": "zero console/page errors",
+      "ok": true
+    }
+  ],
+  "liveOk": true
+}

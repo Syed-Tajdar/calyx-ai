@@ -6,7 +6,7 @@ import fs from 'node:fs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web', 'node_modules', 'playwright'));
 
-const baseUrl = process.env.CALYX_WEB_URL ?? 'http://localhost:3001';
+const baseUrl = process.env.CALYX_WEB_URL ?? 'http://localhost:3101';
 const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'mockups');
 fs.mkdirSync(outDir, { recursive: true });
 const screenshotPath = path.join(outDir, 'coverage-north-america.png');
@@ -32,10 +32,10 @@ try {
       }
     }
     const [coverage, pings] = await Promise.all([
-      fetch('http://localhost:3000/coverage/heatmap', {
+      fetch('http://localhost:3100/coverage/heatmap', {
         headers: { Authorization: `Bearer ${t}` },
       }).then((r) => r.json()),
-      fetch('http://localhost:3000/pings?limit=1', {
+      fetch('http://localhost:3100/pings?limit=1', {
         headers: { Authorization: `Bearer ${t}` },
       }).then((r) => r.json()),
     ]);

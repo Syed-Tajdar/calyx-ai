@@ -1,0 +1,3 @@
+# P2 BLOCKED for API: assertProductionSecrets rejects DATABASE_URL containing api_dev/callloom_dev.
+# Local compose uses postgres://callloom_api:api_dev@... — changing DB password is outside permitted state changes.
+# Web APP_ENV=production CSP (no unsafe-eval) was proven while API was crash-looping.

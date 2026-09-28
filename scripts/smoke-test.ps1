@@ -55,13 +55,13 @@ if ($r.StatusCode -ne 200) { exit 1 }
 
 Start-Sleep -Seconds 8
 
-$login = Invoke-RestMethod -Uri "http://localhost:3000/auth/login" -Method POST `
+$login = Invoke-RestMethod -Uri "http://localhost:3100/auth/login" -Method POST `
   -ContentType "application/json" `
   -Headers @{ "X-Calyx-Client" = "script" } `
   -Body '{"email":"admin@calyx.ai","password":"calyx_dev"}'
 if (-not $login.access_token) { throw "login missing access_token" }
 
-$pings = Invoke-RestMethod -Uri "http://localhost:3000/pings?limit=20&show_demo=true" -Method GET `
+$pings = Invoke-RestMethod -Uri "http://localhost:3100/pings?limit=20&show_demo=true" -Method GET `
   -Headers @{ Authorization = "Bearer $($login.access_token)" }
 
 $found = $pings.data | Where-Object { $_.external_call_id -eq $callId -and $_.platform -eq $Platform }

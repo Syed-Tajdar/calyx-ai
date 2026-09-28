@@ -1,5 +1,5 @@
 # Build from repo root: context `..`, dockerfile `services/ingestion/Dockerfile`
-FROM golang:1.24.13-alpine AS builder
+FROM golang:1.25.14-alpine AS builder
 
 WORKDIR /src
 

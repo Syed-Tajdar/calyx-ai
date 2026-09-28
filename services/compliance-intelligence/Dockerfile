@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25.14-alpine AS builder
 WORKDIR /src/services/compliance-intelligence
 COPY services/compliance-intelligence/go.mod services/compliance-intelligence/go.sum* ./
 RUN go mod download

@@ -2,7 +2,7 @@
 param(
   [Parameter(Mandatory = $true)][string]$Platform,
   [Parameter(Mandatory = $true)][hashtable]$Credentials,
-  [string]$ApiBase = $(if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3000" })
+  [string]$ApiBase = $(if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3100" })
 )
 
 $ErrorActionPreference = "Stop"

@@ -1,7 +1,7 @@
 # Phase 0 ingestion slice verification: content-hash contract + call_key ciphertext.
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$apiBase = if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3000" }
+$apiBase = if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3100" }
 $ingestionDir = Join-Path $repoRoot "services\ingestion"
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 

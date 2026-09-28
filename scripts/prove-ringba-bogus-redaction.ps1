@@ -8,7 +8,7 @@ Requires rebuilt platform-sync with RINGBA_BASE_URL support.
 #   RINGBA_BASE_URL: https://this-host-does-not-exist-xyz.invalid
 # Then: docker compose up -d --force-recreate platform-sync
 
-$api = "http://localhost:3000"
+$api = "http://localhost:3100"
 $login = Invoke-RestMethod "$api/auth/login" -Method POST -ContentType "application/json" `
   -Body '{"email":"admin@calyx.ai","password":"calyx_dev"}'
 $h = @{ Authorization = "Bearer $($login.access_token)" }

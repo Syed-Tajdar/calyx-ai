@@ -11,8 +11,9 @@
 @layer base {
   :root,
   .dark {
-    --font-sans: var(--font-geist-sans), var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --font-mono: var(--font-jetbrains-mono), ui-monospace, 'SF Mono', Menlo, monospace;
+    /* Set by next/font/local in layout.tsx — undefined vars made font-family invalid → browser serif. */
+    --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
 
     --background: 222 47% 4%;
     --foreground: 210 20% 98%;

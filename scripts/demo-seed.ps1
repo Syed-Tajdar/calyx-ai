@@ -19,7 +19,8 @@ Write-Host "Seeding $Count demo pings..."
 $callIds = @()
 
 for ($i = 0; $i -lt $Count; $i++) {
-  $callId = [guid]::NewGuid().ToString()
+  # smoke- prefix so KPI exclusion keeps seed rows out of default dashboards.
+  $callId = "smoke-demo-" + [guid]::NewGuid().ToString()
   $callIds += $callId
   $state = $states[$i % $states.Length]
   $revenue = $revenues[$i % $revenues.Length]
@@ -42,11 +43,11 @@ Pop-Location
 Write-Host "Waiting ${WaitSeconds}s for pipeline (consumer, scoring, compliance, attribution)..."
 Start-Sleep -Seconds $WaitSeconds
 
-$login = Invoke-RestMethod -Uri "http://localhost:3000/auth/login" -Method POST `
+$login = Invoke-RestMethod -Uri "http://localhost:3100/auth/login" -Method POST `
   -ContentType "application/json" `
   -Body '{"email":"admin@calyx.ai","password":"calyx_dev"}'
 
-$pings = Invoke-RestMethod -Uri "http://localhost:3000/pings?limit=5" -Method GET `
+$pings = Invoke-RestMethod -Uri "http://localhost:3100/pings?limit=5" -Method GET `
   -Headers @{ Authorization = "Bearer $($login.access_token)" }
 
 Write-Host "API total pings: $($pings.total)"
@@ -55,7 +56,7 @@ if ($pings.total -lt 1) {
   exit 1
 }
 
-$metrics = Invoke-RestMethod -Uri "http://localhost:3000/analytics/metrics" -Method GET `
+$metrics = Invoke-RestMethod -Uri "http://localhost:3100/analytics/metrics" -Method GET `
   -Headers @{ Authorization = "Bearer $($login.access_token)" }
 
 Write-Host "Revenue: `$$($metrics.total_revenue) | Pings: $($metrics.total_pings)"

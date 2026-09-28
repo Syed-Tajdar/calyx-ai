@@ -6,8 +6,8 @@
  * Seeds a live-feed ping and waits for a matched ping_received event.
  *
  * Env:
- *   CALYX_WEB_URL   default http://localhost:3001
- *   CALYX_API_URL   default http://localhost:3000
+ *   CALYX_WEB_URL   default http://localhost:3101
+ *   CALYX_API_URL   default http://localhost:3100
  *   CALYX_INGESTION_URL default http://127.0.0.1:8080
  *   CALYX_EVIDENCE_DIR  optional directory for screenshots + console log
  */
@@ -23,8 +23,8 @@ const apiRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 's
 const { chromium } = require(path.join(webRoot, 'node_modules', 'playwright'));
 const { io } = require(path.join(apiRoot, 'node_modules', 'socket.io-client'));
 
-const baseUrl = process.env.CALYX_WEB_URL ?? 'http://localhost:3001';
-const apiUrl = process.env.CALYX_API_URL ?? 'http://127.0.0.1:3000';
+const baseUrl = process.env.CALYX_WEB_URL ?? 'http://localhost:3101';
+const apiUrl = process.env.CALYX_API_URL ?? 'http://127.0.0.1:3100';
 const ingestionUrl = process.env.CALYX_INGESTION_URL ?? 'http://127.0.0.1:8080';
 const ringbaSecret =
   process.env.RINGBA_WEBHOOK_SECRET || 'dev_ringba_hmac_secret_change_me';
@@ -195,6 +195,46 @@ try {
   await shot('02-dashboard');
   await assertNoSkeletons('dashboard');
 
+  // Fonts: body must be Inter (not generic serif); headings Geist
+  const fontCheck = await page.evaluate(() => {
+    const body = getComputedStyle(document.body).fontFamily;
+    const h1 = document.querySelector('h1');
+    const heading = h1 ? getComputedStyle(h1).fontFamily : '';
+    return { body, heading };
+  });
+  const bodyLower = fontCheck.body.toLowerCase();
+  const isSerifFallback =
+    /^(times|times new roman|georgia|serif)\b/i.test(fontCheck.body.trim()) ||
+    (bodyLower.includes('serif') && !bodyLower.includes('sans-serif') && !bodyLower.includes('inter'));
+  if (isSerifFallback || !/inter/i.test(fontCheck.body)) {
+    fail('body font Inter', `got "${fontCheck.body}"`);
+  } else {
+    pass(`body font Inter (${fontCheck.body.split(',')[0].trim()})`);
+  }
+  if (fontCheck.heading && !/geist/i.test(fontCheck.heading)) {
+    fail('h1 font Geist', `got "${fontCheck.heading}"`);
+  } else if (fontCheck.heading) {
+    pass(`h1 font Geist (${fontCheck.heading.split(',')[0].trim()})`);
+  }
+
+  // Account email from /auth/me (not JWT decode)
+  try {
+    await page.waitForSelector('[data-testid="topbar-email"]', { timeout: 15000 });
+    await page.waitForFunction(
+      () => {
+        const el = document.querySelector('[data-testid="topbar-email"]');
+        return el && /@/.test(el.textContent || '');
+      },
+      { timeout: 15000 },
+    );
+    const emailText = await page.locator('[data-testid="topbar-email"]').innerText();
+    if (/admin@calyx\.ai/i.test(emailText)) pass(`topbar email (${emailText.trim()})`);
+    else fail('topbar email', `got "${emailText}"`);
+  } catch {
+    fail('topbar email', 'email never appeared (still Account?)');
+  }
+  await shot('02b-topbar-email');
+
   // KPI data (not empty shells)
   try {
     await page.waitForSelector('text=Total Revenue', { timeout: 25000 });
@@ -211,6 +251,11 @@ try {
   await page.waitForTimeout(2000);
   await shot('03-pings');
   await assertNoSkeletons('pings');
+  {
+    const ff = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+    if (!/inter/i.test(ff)) fail('pings body font', ff);
+    else pass('pings body font Inter');
+  }
   const pingsBody = await page.locator('main').innerText().catch(() => '');
   if (pingsBody.length > 20) pass('pings has content');
   else fail('pings has content', `main text len=${pingsBody.length}`);
@@ -220,6 +265,11 @@ try {
   await page.waitForTimeout(2000);
   await shot('04-settings');
   await assertNoSkeletons('settings');
+  {
+    const ff = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+    if (!/inter/i.test(ff)) fail('settings body font', ff);
+    else pass('settings body font Inter');
+  }
   const settingsBody = await page.locator('main').innerText().catch(() => '');
   if (/integration|setting|platform/i.test(settingsBody) || settingsBody.length > 20) {
     pass('settings has content');
@@ -232,6 +282,18 @@ try {
   await page.waitForTimeout(2000);
   await shot('05-call-detail');
   await assertNoSkeletons('call detail');
+  {
+    const ff = await page.evaluate(() => ({
+      body: getComputedStyle(document.body).fontFamily,
+      h1: document.querySelector('h1')
+        ? getComputedStyle(document.querySelector('h1')).fontFamily
+        : '',
+    }));
+    if (!/inter/i.test(ff.body)) fail('call detail body font', ff.body);
+    else pass('call detail body font Inter');
+    if (ff.h1 && !/geist/i.test(ff.h1)) fail('call detail h1 font', ff.h1);
+    else if (ff.h1) pass('call detail h1 font Geist');
+  }
   const callBody = await page.locator('main').innerText().catch(() => '');
   if (callBody.length > 20) pass('call detail has content');
   else fail('call detail has content', `main text len=${callBody.length}`);
@@ -258,7 +320,8 @@ try {
       else fail('in-page session login', `auth/me=${session.status} live-status=${liveStatus.status}`);
     }
 
-    const callId = `csp-live-${randomUUID()}`;
+    // Must use smoke- so KPI exclusion (apisync-/demo-/smoke-) keeps gates out of dashboards.
+    const callId = `smoke-csp-${randomUUID()}`;
     await waitForLiveEvent(callId);
     liveOk = true;
     pass(`live feed received event (${callId})`);

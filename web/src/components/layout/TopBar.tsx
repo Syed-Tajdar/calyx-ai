@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ApiError, fetchMe, MeResult } from '@/lib/api';
 import { getToken } from '@/lib/auth';
-import { decodeJwtPayload } from '@/lib/jwt';
 
 interface TopBarProps {
   onLogout: () => void;
@@ -26,14 +25,13 @@ interface TopBarProps {
 export function TopBar({ onLogout }: TopBarProps): JSX.Element {
   const router = useRouter();
   const token = getToken();
-  const payload = token ? decodeJwtPayload(token) : null;
-  const initials = payload?.email?.slice(0, 2).toUpperCase() ?? 'CA';
   const [me, setMe] = useState<MeResult | null>(null);
   const [search, setSearch] = useState('');
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   useEffect(() => {
     if (!token) return;
+    // JWT is httpOnly — email comes from /auth/me, not client-side decode.
     fetchMe(token)
       .then(setMe)
       .catch((err: unknown) => {
@@ -51,7 +49,9 @@ export function TopBar({ onLogout }: TopBarProps): JSX.Element {
     router.push(`/calls/${encodeURIComponent(trimmed)}`);
   }
 
-  const tenantLabel = me?.tenant_name ?? payload?.tenant_id?.slice(0, 8) ?? '—';
+  const email = me?.email ?? null;
+  const initials = email?.slice(0, 2).toUpperCase() ?? 'CA';
+  const tenantLabel = me?.tenant_name ?? '—';
 
   const searchForm = (
     <form onSubmit={handleSearch} className="w-full">
@@ -95,14 +95,17 @@ export function TopBar({ onLogout }: TopBarProps): JSX.Element {
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
-                <span className="hidden max-w-[140px] truncate text-sm text-calyx-muted sm:inline">
-                  {payload?.email ?? 'Account'}
+                <span
+                  data-testid="topbar-email"
+                  className="hidden max-w-[140px] truncate text-sm text-calyx-muted sm:inline"
+                >
+                  {email ?? 'Account'}
                 </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="font-normal">
-                <p className="text-sm font-medium text-calyx-text">{payload?.email}</p>
+                <p className="text-sm font-medium text-calyx-text">{email ?? '…'}</p>
                 <p className="text-xs text-calyx-muted">{tenantLabel}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

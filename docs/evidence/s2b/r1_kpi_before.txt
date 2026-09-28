@@ -1,0 +1,3 @@
+BEFORE csp-live: count=4 revenue=50
+BEFORE default-KPI-exclusion CH (not apisync/demo/smoke): count=20947 revenue=111527.32
+BEFORE API analytics/metrics: total_pings=8907 total_revenue=48581.3

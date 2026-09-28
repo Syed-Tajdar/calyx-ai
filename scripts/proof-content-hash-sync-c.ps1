@@ -1,6 +1,6 @@
 # Content-hash Sync C proof — run on rebuilt stack with MOCK_DEDUP_PROOF=1 / REVENUE=99.99
 $ErrorActionPreference = "Stop"
-$apiBase = "http://localhost:3000"
+$apiBase = "http://localhost:3100"
 $integrationId = if ($env:DEDUP_PROOF_INTEGRATION_ID) { $env:DEDUP_PROOF_INTEGRATION_ID } else { "c78106df-723f-4694-9401-e45af3c47926" }
 
 $login = Invoke-RestMethod -Uri "$apiBase/auth/login" -Method POST -ContentType "application/json" -Body '{"email":"admin@calyx.ai","password":"calyx_dev"}'

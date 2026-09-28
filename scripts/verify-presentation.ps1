@@ -23,19 +23,19 @@ Write-Host "=== Calyx AI Presentation Verification ==="
 
 $healthUrls = @(
   "http://localhost:8080/healthz",
-  "http://localhost:3000/healthz"
+  "http://localhost:3100/healthz"
 )
 foreach ($u in $healthUrls) {
   if (-not (Test-Endpoint "health $u" $u @{})) { exit 1 }
 }
 
-$login = Invoke-RestMethod -Uri "http://localhost:3000/auth/login" -Method POST `
+$login = Invoke-RestMethod -Uri "http://localhost:3100/auth/login" -Method POST `
   -ContentType "application/json" `
   -Headers @{ "X-Calyx-Client" = "script" } `
   -Body '{"email":"admin@calyx.ai","password":"calyx_dev"}'
 
 $h = @{ Authorization = "Bearer $($login.access_token)" }
-$base = "http://localhost:3000"
+$base = "http://localhost:3100"
 $passed = 0
 $total = 0
 

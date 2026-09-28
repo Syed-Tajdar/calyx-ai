@@ -1,0 +1,5 @@
+host_go=go version go1.24.13 windows/amd64
+user_go=go version go1.24.13 windows/amd64
+web_login=200 visual=ok
+api_login_from_browser=201
+api_me_from_browser=200

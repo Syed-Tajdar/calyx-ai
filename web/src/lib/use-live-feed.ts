@@ -16,7 +16,7 @@ export interface LiveEventEnvelope {
   emitted_at: string;
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3000';
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3100';
 
 interface UseLiveFeedOptions {
   enabled?: boolean;

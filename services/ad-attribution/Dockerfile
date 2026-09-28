@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25.14-alpine AS builder
 WORKDIR /src/services/ad-attribution
 COPY services/ad-attribution/go.mod services/ad-attribution/go.sum* ./
 RUN go mod download

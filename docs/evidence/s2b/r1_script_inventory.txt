@@ -1,0 +1,10 @@
+R1.1 scripts that send pings (call id prefix):
+- scripts/check-dashboard-browser.mjs  -> smoke-csp-\  [FIXED from csp-live-]
+- scripts/ws-smoke-test.mjs            -> smoke-\
+- scripts/smoke-test.ps1               -> smoke-\
+- scripts/smoke-test-all-platforms.ps1 -> via smoke-test.ps1
+- scripts/verify-ingestion-slice.ps1   -> smoke-\
+- scripts/demo-seed.ps1                -> smoke-demo-\  [FIXED from bare uuid]
+- scripts/verify-apisync-platform.ps1  -> creates apisync-* integration name (mock sync, not webhook CallID)
+- scripts/proof-content-hash-sync-c.ps1 / prove-content-hash-ch.ps1 -> query proof-retreaver-% only (do not generate in scripts/)
+Gate: scripts/check-smoke-call-id-prefix.mjs wired into verify-system.ps1

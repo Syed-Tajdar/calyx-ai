@@ -1,5 +1,5 @@
 # Build from repo root so catalog.json is available
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25.14-alpine AS builder
 WORKDIR /src
 COPY shared/providers/catalog.json ./catalog.json
 COPY services/providerconfig/go.mod services/providerconfig/go.sum* ./services/providerconfig/

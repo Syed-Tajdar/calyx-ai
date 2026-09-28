@@ -3,7 +3,7 @@
 # The integration is deactivated (is_active=false) at the end — not deleted.
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$apiBase = if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3000" }
+$apiBase = if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3100" }
 $createdId = $null
 
 function Get-AuthHeaders {

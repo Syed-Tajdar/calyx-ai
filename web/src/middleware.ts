@@ -16,7 +16,7 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest): NextResponse {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const isProd = process.env.APP_ENV === 'production';
-  const api = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+  const api = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3100';
   const ws = process.env.NEXT_PUBLIC_WS_URL ?? api;
   const wsOrigin = ws.replace(/^http/, 'ws');
 
