@@ -1,4 +1,4 @@
-import type { PingRecord } from '@/lib/api';
+import { shouldHaveConverted, type PingRecord } from '@/lib/api';
 import { CallIdCell } from '@/components/dashboard/CallIdCell';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,27 @@ function formatTime(iso: string): string {
   });
 }
 
+/**
+ * Conversion state for one call.
+ *
+ * `Review` is the actionable state — the platform has not marked the call converted, but it either
+ * earned revenue or met the buyer's qualifying duration. Matches the server-side `should_convert`
+ * filter via the shared `shouldHaveConverted` helper, so badge and filter cannot drift apart.
+ */
+function ConversionCell({ ping }: { ping: PingRecord }): JSX.Element {
+  if (ping.has_converted) {
+    return <Badge variant="teal">Converted</Badge>;
+  }
+  if (shouldHaveConverted(ping)) {
+    return (
+      <Badge variant="warning" title="Not converted, but it earned revenue or met the required duration">
+        Review
+      </Badge>
+    );
+  }
+  return <span className="text-calyx-muted">—</span>;
+}
+
 export function PingsTable({
   pings,
   linkable = false,
@@ -33,7 +54,7 @@ export function PingsTable({
 }: PingsTableProps): JSX.Element {
   const table = (
     <DataTable
-      columns={['Time', 'Platform', 'Call ID', 'State', 'Event', 'Revenue', 'Dup']}
+      columns={['Time', 'Platform', 'Call ID', 'State', 'Event', 'Revenue', 'Status', 'Syncs']}
       emptyTitle="No pings yet"
       emptyDescription="Connect Ringba to start receiving data."
       isEmpty={pings.length === 0}
@@ -62,10 +83,23 @@ export function PingsTable({
           <TableCell className="capitalize text-calyx-muted">{p.event_type}</TableCell>
           <TableCell className="font-semibold text-calyx-success">${p.revenue.toFixed(2)}</TableCell>
           <TableCell>
-            {p.is_duplicate ? (
-              <Badge variant="warning">Yes</Badge>
+            <ConversionCell ping={p} />
+          </TableCell>
+          <TableCell>
+            {/*
+              The list now returns one row per call, so this is how many times the call has been
+              written — a re-sync means the platform changed something (revenue, conversion,
+              payout adjustment). "1" is the ordinary case and stays quiet.
+            */}
+            {(p.sync_count ?? 1) > 1 ? (
+              <Badge
+                variant="secondary"
+                title="Updated by a later sync — the values shown are the most recent"
+              >
+                {p.sync_count}×
+              </Badge>
             ) : (
-              <span className="text-calyx-muted">No</span>
+              <span className="text-calyx-muted">1</span>
             )}
           </TableCell>
         </TableRow>

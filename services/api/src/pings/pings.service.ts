@@ -16,6 +16,18 @@ export interface PingRecord {
   revenue: number;
   payout: number;
   is_duplicate: number;
+  /**
+   * Platform-reported conversion state. `has_converted` is `UInt8 DEFAULT 0` in ClickHouse, so a
+   * missing value is indistinguishable from an explicit false (audit F038/K8) — 0 is read as
+   * not-converted, matching the deep view.
+   */
+  has_converted: boolean;
+  /** Connected talk time in seconds. */
+  duration_seconds: number;
+  /** Buyer's qualifying threshold when the platform reports one; null when unknown. */
+  required_duration_seconds: number | null;
+  /** How many times this call has been written (re-syncs). 1 in raw mode. */
+  sync_count: number;
   /** Ingestion timestamp (when Calyx received the ping). */
   received_at: string;
   /**
@@ -42,19 +54,62 @@ const PING_SELECT = `
   tenant_id, platform, external_call_id, ani_hash,
   campaign_id, publisher_id, target_id, state,
   event_type, revenue, payout, is_duplicate,
+  has_converted, duration_seconds, required_duration_seconds,
   formatDateTime(received_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS received_at_iso,
   formatDateTime(${EVENT_AT_EXPR}, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS occurred_at_iso
 `;
 
-interface PingRecordRow extends Omit<PingRecord, 'received_at' | 'occurred_at'> {
+/**
+ * One row per call instead of one row per sync.
+ *
+ * The raw `pings` table is an event stream: every re-sync that changed something writes another
+ * row, so the same call legitimately appears several times. That is correct storage but reads as a
+ * bug in the call list — and it made the table disagree with its own "N calls" headline, which has
+ * always counted distinct calls. Collapsing here mirrors what analytics and coverage already do
+ * (`argMax(..., received_at)`), so every surface now tells the same story. `raw=true` returns the
+ * event stream for debugging a sync.
+ */
+const PING_SELECT_COLLAPSED = `
+  platform,
+  external_call_id,
+  argMax(tenant_id, received_at)                 AS tenant_id,
+  argMax(ani_hash, received_at)                  AS ani_hash,
+  argMax(campaign_id, received_at)               AS campaign_id,
+  argMax(publisher_id, received_at)              AS publisher_id,
+  argMax(target_id, received_at)                 AS target_id,
+  argMax(state, received_at)                     AS state,
+  argMax(event_type, received_at)                AS event_type,
+  argMax(revenue, received_at)                   AS revenue,
+  argMax(payout, received_at)                    AS payout,
+  argMax(has_converted, received_at)             AS has_converted,
+  argMax(duration_seconds, received_at)          AS duration_seconds,
+  argMax(required_duration_seconds, received_at) AS required_duration_seconds,
+  count()                                        AS sync_count,
+  if(count() > 1, 1, 0)                          AS is_duplicate,
+  max(${EVENT_AT_EXPR})                          AS event_at,
+  formatDateTime(max(received_at), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS received_at_iso,
+  formatDateTime(max(${EVENT_AT_EXPR}), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS occurred_at_iso
+`;
+
+interface PingRecordRow
+  extends Omit<
+    PingRecord,
+    'received_at' | 'occurred_at' | 'has_converted' | 'sync_count'
+  > {
+  /** ClickHouse `UInt8` — 1 when the platform reported the call converted. */
+  has_converted: number;
+  /** Times this call has been written (collapsed mode only; 1 in raw mode). */
+  sync_count?: string | number;
   received_at_iso: string;
   occurred_at_iso: string;
 }
 
 function mapPingRow(row: PingRecordRow): PingRecord {
-  const { received_at_iso, occurred_at_iso, ...rest } = row;
+  const { received_at_iso, occurred_at_iso, has_converted, sync_count, ...rest } = row;
   return {
     ...rest,
+    has_converted: Number(has_converted ?? 0) === 1,
+    sync_count: Number(sync_count ?? 1),
     received_at: received_at_iso,
     occurred_at: occurred_at_iso,
   };
@@ -101,12 +156,26 @@ export class PingsService {
     const distinctTotal = Number(countRows[0]?.distinct_total ?? 0);
 
     const dataResult = await this.clickhouse.getClient().query({
-      query: `
+      query: filters.raw
+        ? `
         SELECT ${PING_SELECT}
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
         ${clause}
         ORDER BY ${EVENT_AT_EXPR} DESC
+        LIMIT {limit:UInt32}
+        OFFSET {offset:UInt32}
+      `
+        : `
+        SELECT ${PING_SELECT_COLLAPSED}
+        FROM (
+          SELECT * FROM pings
+          WHERE tenant_id = {tenant_id:UUID}
+            AND external_call_id != ''
+          ${clause}
+        )
+        GROUP BY platform, external_call_id
+        ORDER BY event_at DESC
         LIMIT {limit:UInt32}
         OFFSET {offset:UInt32}
       `,
@@ -118,7 +187,9 @@ export class PingsService {
 
     return {
       data: raw.map(mapPingRow),
-      total,
+      // Collapsed mode paginates over calls, so the page count must be the distinct count —
+      // otherwise Next stays enabled past the last row.
+      total: filters.raw ? total : distinctTotal,
       distinct_total: distinctTotal,
       limit: safeLimit,
       offset: safeOffset,
@@ -133,13 +204,27 @@ export class PingsService {
       ...filterParams,
     };
 
+    // Export mirrors the screen: one row per call unless the raw stream was asked for.
     const dataResult = await this.clickhouse.getClient().query({
-      query: `
+      query: filters.raw
+        ? `
         SELECT ${PING_SELECT}
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
         ${clause}
         ORDER BY ${EVENT_AT_EXPR} DESC
+        LIMIT {limit:UInt32}
+      `
+        : `
+        SELECT ${PING_SELECT_COLLAPSED}
+        FROM (
+          SELECT * FROM pings
+          WHERE tenant_id = {tenant_id:UUID}
+            AND external_call_id != ''
+          ${clause}
+        )
+        GROUP BY platform, external_call_id
+        ORDER BY event_at DESC
         LIMIT {limit:UInt32}
       `,
       query_params: params,
@@ -156,7 +241,8 @@ export class PingsService {
       'event_type',
       'revenue',
       'payout',
-      'is_duplicate',
+      'sync_count',
+      'has_converted',
       'ani_hash',
     ];
     const lines = rows.map((row) =>
@@ -169,7 +255,8 @@ export class PingsService {
         row.event_type,
         row.revenue,
         row.payout,
-        row.is_duplicate,
+        row.sync_count,
+        row.has_converted ? 1 : 0,
         row.ani_hash,
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)

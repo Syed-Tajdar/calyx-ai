@@ -1,17 +1,24 @@
 'use client';
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import type { PingConversionFilter } from '@/lib/api';
 
 export type DateRangePreset = '7d' | '30d' | 'all';
+
+/** `''` means no conversion filtering (all calls). */
+export type ConversionSelection = PingConversionFilter | '';
 
 interface DateFilterState {
   preset: DateRangePreset;
   platform: string;
   /** Include `apisync-%` demo rows. Default false. */
   showDemo: boolean;
+  /** Conversion state filter. `''` = all. */
+  conversion: ConversionSelection;
   setPreset: (preset: DateRangePreset) => void;
   setPlatform: (platform: string) => void;
   setShowDemo: (show: boolean) => void;
+  setConversion: (conversion: ConversionSelection) => void;
   startDate: Date | null;
 }
 
@@ -30,18 +37,21 @@ export function DateFilterProvider({ children }: { children: ReactNode }): JSX.E
   const [preset, setPreset] = useState<DateRangePreset>('30d');
   const [platform, setPlatform] = useState('');
   const [showDemo, setShowDemo] = useState(false);
+  const [conversion, setConversion] = useState<ConversionSelection>('');
 
   const value = useMemo(
     () => ({
       preset,
       platform,
       showDemo,
+      conversion,
       setPreset,
       setPlatform,
       setShowDemo,
+      setConversion,
       startDate: presetToStart(preset),
     }),
-    [preset, platform, showDemo],
+    [preset, platform, showDemo, conversion],
   );
 
   return <DateFilterContext.Provider value={value}>{children}</DateFilterContext.Provider>;
@@ -75,12 +85,14 @@ export interface DateFilterQuery {
   platform?: string;
   search?: string;
   show_demo?: boolean;
+  conversion?: PingConversionFilter;
 }
 
 export function dateFilterToQuery(
   startDate: Date | null,
   platform: string,
   showDemo = false,
+  conversion: ConversionSelection = '',
 ): DateFilterQuery {
   const query: DateFilterQuery = {};
   if (startDate) {
@@ -91,6 +103,9 @@ export function dateFilterToQuery(
   }
   if (showDemo) {
     query.show_demo = true;
+  }
+  if (conversion) {
+    query.conversion = conversion;
   }
   return query;
 }

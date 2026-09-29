@@ -31,6 +31,7 @@ import {
 import { getToken } from '@/lib/auth';
 import { computeDashboardStats } from '@/lib/dashboard-stats';
 import { DEMO_PUBLISHERS } from '@/lib/demo-publishers';
+import { SHOW_MOCK_PANELS } from '@/lib/v1-features';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
 import { formatPlatformLabel } from '@/lib/platform-options';
@@ -171,7 +172,11 @@ export default function DashboardPage(): JSX.Element {
 
       {!loading && !error && (
         <div className="space-y-8">
-          <section className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+          <section
+            className={`grid grid-cols-2 gap-3 lg:gap-4 ${
+              SHOW_MOCK_PANELS ? 'lg:grid-cols-4' : 'lg:grid-cols-2'
+            }`}
+          >
             <MetricCard
               label="Total Revenue"
               value={`$${(metrics?.total_revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -188,32 +193,37 @@ export default function DashboardPage(): JSX.Element {
               iconPulseDelayMs={400}
               sparklineData={pingTimeline.map((t) => t.count)}
             />
-            <MetricCard
-              label="Avg Call Score"
-              value={avgScore}
-              trend={scores.length > 0 ? `${scores.length} scored` : 'No scores yet'}
-              icon={TrendingUp}
-              iconPulseDelayMs={800}
-              sparklineData={scoreSparkline.length > 1 ? scoreSparkline : undefined}
-            />
-            <MetricCardFrame>
-              <div className="flex items-start justify-between">
-                <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-calyx-muted">
-                  Compliance Exposure
-                </p>
-                <span className="calyx-metric-icon-pulse">
-                  <Shield className="size-[18px] text-calyx-teal" strokeWidth={2} aria-hidden />
-                </span>
-              </div>
-              <div className="mt-2">
-                <ComplianceRiskRing
-                  score={Math.round(exposure?.avg_risk_score ?? 0)}
-                  exposureUsd={exposure?.total_exposure_usd ?? 0}
-                  size="sm"
-                  align="start"
+            {/* Scoring and compliance are mock-only pipelines — out of v1 scope. */}
+            {SHOW_MOCK_PANELS && (
+              <>
+                <MetricCard
+                  label="Avg Call Score"
+                  value={avgScore}
+                  trend={scores.length > 0 ? `${scores.length} scored` : 'No scores yet'}
+                  icon={TrendingUp}
+                  iconPulseDelayMs={800}
+                  sparklineData={scoreSparkline.length > 1 ? scoreSparkline : undefined}
                 />
-              </div>
-            </MetricCardFrame>
+                <MetricCardFrame>
+                  <div className="flex items-start justify-between">
+                    <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-calyx-muted">
+                      Compliance Exposure
+                    </p>
+                    <span className="calyx-metric-icon-pulse">
+                      <Shield className="size-[18px] text-calyx-teal" strokeWidth={2} aria-hidden />
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <ComplianceRiskRing
+                      score={Math.round(exposure?.avg_risk_score ?? 0)}
+                      exposureUsd={exposure?.total_exposure_usd ?? 0}
+                      size="sm"
+                      align="start"
+                    />
+                  </div>
+                </MetricCardFrame>
+              </>
+            )}
           </section>
 
           <section className="grid gap-4 lg:grid-cols-2">
@@ -223,21 +233,31 @@ export default function DashboardPage(): JSX.Element {
 
           {connected && <LiveActivityStrip events={liveEvents} />}
 
-          <section>
-            <SubsectionHeader title="Calyx Intelligence" icon={Brain} />
-            <IntelligenceHubCards />
-          </section>
+          {/*
+            Intelligence entry points (Ask AI / TCPA / Attribution), Top Scores and the Publishers
+            table all render mock data. The Publishers table is the worst offender: DEMO_PUBLISHERS
+            is a hardcoded fixture that ignores the demo toggle, so it showed invented revenue even
+            while the rest of the dashboard said "No pings yet".
+          */}
+          {SHOW_MOCK_PANELS && (
+            <>
+              <section>
+                <SubsectionHeader title="Calyx Intelligence" icon={Brain} />
+                <IntelligenceHubCards />
+              </section>
 
-          <section className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
-            <div className="flex min-h-[320px] flex-col">
-              <SubsectionHeader title="Top Scores" icon={Star} />
-              <ScoresTable scores={scores} compact />
-            </div>
-            <div className="flex min-h-[320px] flex-col">
-              <SubsectionHeader title="Publishers" icon={Users} />
-              <PerformanceTable publishers={DEMO_PUBLISHERS} />
-            </div>
-          </section>
+              <section className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+                <div className="flex min-h-[320px] flex-col">
+                  <SubsectionHeader title="Top Scores" icon={Star} />
+                  <ScoresTable scores={scores} compact />
+                </div>
+                <div className="flex min-h-[320px] flex-col">
+                  <SubsectionHeader title="Publishers" icon={Users} />
+                  <PerformanceTable publishers={DEMO_PUBLISHERS} />
+                </div>
+              </section>
+            </>
+          )}
 
           <section>
             <SubsectionHeader title="Recent Pings" icon={Phone} />

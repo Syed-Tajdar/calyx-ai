@@ -25,9 +25,33 @@ export interface PingRecord {
   revenue: number;
   payout: number;
   is_duplicate: number;
+  /** Platform-reported conversion state. ClickHouse default is 0, so false also means "not reported". */
+  has_converted?: boolean;
+  /** Connected talk time in seconds. */
+  duration_seconds?: number;
+  /** Buyer's qualifying threshold when the platform reports one. */
+  required_duration_seconds?: number | null;
+  /** Times this call has been written (re-syncs). 1 unless the call was updated. */
+  sync_count?: number;
   received_at: string;
   /** Source call time when known; otherwise equals received_at. Prefer for display/filters. */
   occurred_at?: string;
+}
+
+/** Conversion-state filter for the call list. Mirrors the API's `conversion` query param. */
+export type PingConversionFilter = 'converted' | 'unconverted' | 'should_convert';
+
+/**
+ * True when a call did not convert but looks like it should have: it either earned revenue, or
+ * talked at least as long as the buyer's qualifying threshold. Mirrors the server-side
+ * `should_convert` filter so the table badge and the filter never disagree.
+ */
+export function shouldHaveConverted(ping: PingRecord): boolean {
+  if (ping.has_converted) return false;
+  if (ping.revenue > 0) return true;
+  const required = ping.required_duration_seconds;
+  if (required == null) return false;
+  return (ping.duration_seconds ?? 0) >= required;
 }
 
 export interface PingListResponse {
@@ -115,6 +139,8 @@ export interface IntegrationRecord {
   supports_api_sync: boolean;
   supports_webhook: boolean;
   initial_lookback_days: number | null;
+  /** Per-tenant write-back gate (default false). Drives whether Convert / Cancel are offered. */
+  writeback_enabled?: boolean;
 }
 
 export interface ApiSyncCredentialField {
@@ -187,7 +213,7 @@ async function fetchWithAuth<T>(token: string, path: string, init?: RequestInit)
     throw new ApiError('Session expired', 401);
   }
   if (!res.ok) {
-    throw new ApiError(`Request failed: ${path}`, res.status);
+    throw new ApiError(await errorMessage(res, path), res.status);
   }
   if (res.status === 204) {
     return null as T;
@@ -197,6 +223,25 @@ async function fetchWithAuth<T>(token: string, path: string, init?: RequestInit)
     return null as T;
   }
   return JSON.parse(text) as T;
+}
+
+/**
+ * Surface the API's own message (Nest puts it in `message`) so operator-facing failures read as
+ * "call already converted" rather than "Request failed: /integrations/…". Falls back to the path
+ * when the body is empty or not JSON.
+ */
+async function errorMessage(res: Response, path: string): Promise<string> {
+  try {
+    const body: unknown = JSON.parse(await res.text());
+    if (body && typeof body === 'object' && 'message' in body) {
+      const m = (body as { message: unknown }).message;
+      if (typeof m === 'string' && m.trim()) return m;
+      if (Array.isArray(m) && typeof m[0] === 'string') return m[0];
+    }
+  } catch {
+    // fall through to the generic message
+  }
+  return `Request failed: ${path}`;
 }
 
 async function fetchWithAuthNoContent(
@@ -315,6 +360,10 @@ export interface PingFetchFilters {
   search?: string;
   /** Include mock `apisync-%` rows. Default false (API hides them). */
   show_demo?: boolean;
+  /** Conversion state. Omitted = no conversion filtering. */
+  conversion?: PingConversionFilter;
+  /** Raw event stream (one row per sync) instead of one row per call. */
+  raw?: boolean;
 }
 
 export async function fetchPings(
@@ -332,6 +381,8 @@ export async function fetchPings(
   if (filters.to) params.set('to', filters.to);
   if (filters.search) params.set('search', filters.search);
   if (filters.show_demo) params.set('show_demo', 'true');
+  if (filters.conversion) params.set('conversion', filters.conversion);
+  if (filters.raw) params.set('raw', 'true');
   return fetchWithAuth<PingListResponse>(token, `/pings?${params.toString()}`);
 }
 
@@ -345,6 +396,8 @@ export async function downloadPingsExport(
   if (filters.to) params.set('to', filters.to);
   if (filters.search) params.set('search', filters.search);
   if (filters.show_demo) params.set('show_demo', 'true');
+  if (filters.conversion) params.set('conversion', filters.conversion);
+  if (filters.raw) params.set('raw', 'true');
   const qs = params.toString();
   const res = await fetch(`${API_URL}/pings/export${qs ? `?${qs}` : ''}`, {
     credentials: 'include',
@@ -509,6 +562,88 @@ export async function backfillIntegration(
   });
 }
 
+/**
+ * Outcome of a Ringba write-back. Mirrors the platform-sync `writeback.Result` struct.
+ * The service re-reads the call from Ringba after writing (12s settle window), so
+ * `has_converted` / `conversion_amount` are what Ringba actually reports back — not what we sent.
+ */
+export interface WritebackResult {
+  outcome: string;
+  inbound_call_id: string;
+  campaign_id?: string;
+  webhook_name?: string;
+  amount: number;
+  has_converted: boolean;
+  conversion_amount: number;
+  audit_id?: string;
+  message?: string;
+  offline_conversion_uploaded?: string;
+  ringba_response_ref?: string;
+  void_reversible?: boolean;
+}
+
+/** Hard cap enforced server-side by `writeback.ValidateAmount`. Mirrored here for input validation. */
+export const WRITEBACK_MAX_AMOUNT = 25;
+
+/**
+ * Mark a call converted in Ringba at `amount`.
+ *
+ * The amount is not a label: it is sent to Ringba as `call_revenue` and becomes that call's
+ * conversion value, which syncs back into Calyx as the call's revenue.
+ */
+export async function convertCall(
+  token: string,
+  integrationId: string,
+  inboundCallId: string,
+  amount: number,
+): Promise<WritebackResult> {
+  return fetchWithAuth<WritebackResult>(
+    token,
+    `/integrations/${integrationId}/writeback/convert`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inbound_call_id: inboundCallId, amount }),
+    },
+  );
+}
+
+/** Void (cancel) a conversion in Ringba. Reversible — the call can be converted again. */
+export async function voidCall(
+  token: string,
+  integrationId: string,
+  inboundCallId: string,
+): Promise<WritebackResult> {
+  return fetchWithAuth<WritebackResult>(
+    token,
+    `/integrations/${integrationId}/writeback/void`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inbound_call_id: inboundCallId }),
+    },
+  );
+}
+
+/**
+ * Pick the integration write-back should go through: a live Ringba API-key connection.
+ * Returns null when none exists — callers hide the Convert / Cancel controls rather than
+ * letting the operator click into a 403.
+ */
+export function resolveWritebackIntegration(
+  integrations: IntegrationRecord[],
+  platform: string,
+): IntegrationRecord | null {
+  return (
+    integrations.find(
+      (i) =>
+        i.platform === platform &&
+        i.connection_mode === 'api_sync' &&
+        i.sync_mode === 'real',
+    ) ?? null
+  );
+}
+
 export async function updateIntegrationSyncMode(
   token: string,
   id: string,
@@ -529,10 +664,12 @@ export async function updateIntegrationSyncMode(
 
 export async function fetchCoverageHeatmap(
   token: string,
-  options: { show_demo?: boolean } = {},
+  options: { show_demo?: boolean; from?: string; to?: string } = {},
 ): Promise<HeatmapResult> {
   const params = new URLSearchParams();
   if (options.show_demo) params.set('show_demo', 'true');
+  if (options.from) params.set('from', options.from);
+  if (options.to) params.set('to', options.to);
   const qs = params.toString();
   return fetchWithAuth<HeatmapResult>(token, `/coverage/heatmap${qs ? `?${qs}` : ''}`);
 }

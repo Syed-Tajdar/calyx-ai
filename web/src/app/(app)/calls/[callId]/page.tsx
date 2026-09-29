@@ -12,6 +12,7 @@ import { EnrichmentPanel } from '@/components/enrichment/EnrichmentPanel';
 import { ScoreCard } from '@/components/scoring/ScoreCard';
 import { TranscriptPanel } from '@/components/scoring/TranscriptPanel';
 import { CallDeepViewPanel } from '@/components/native/CallDeepViewPanel';
+import { ConversionActions } from '@/components/native/ConversionActions';
 import { Button } from '@/components/ui/button';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -42,6 +43,8 @@ function CallDetailContent(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  /** Bumped after a write-back so the deep view refetches and the status reflects Ringba. */
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const token = getToken();
@@ -84,7 +87,7 @@ function CallDetailContent(): JSX.Element {
         setError('Failed to load call details');
       })
       .finally(() => setLoading(false));
-  }, [router, callId]);
+  }, [router, callId, reloadKey]);
 
   const displayScore = useMemo((): ScoreRecord | null => {
     if (score) return score;
@@ -218,6 +221,13 @@ function CallDetailContent(): JSX.Element {
           <CallJourneyTimeline steps={journeySteps} />
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="space-y-4">
+              <ConversionActions
+                callId={callId}
+                platform={platform}
+                hasConverted={deepView?.ping?.has_converted ?? false}
+                revenue={deepView?.ping?.revenue ?? 0}
+                onChanged={() => setReloadKey((k) => k + 1)}
+              />
               <CallDeepViewPanel view={deepView} />
               <ScoreCard score={displayScore} />
             </div>

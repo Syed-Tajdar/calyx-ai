@@ -45,6 +45,11 @@ export interface IntegrationRecord {
   supports_webhook: boolean;
   /** Empty-cursor / backfill window in days (api_sync only; null for webhook). */
   initial_lookback_days: number | null;
+  /**
+   * Per-tenant write-back gate (default false). Exposed so the UI can explain why Convert /
+   * Cancel are unavailable instead of surfacing a 403 after the operator clicks.
+   */
+  writeback_enabled: boolean;
 }
 
 export interface CreateIntegrationInput {
@@ -82,6 +87,7 @@ interface IntegrationRow {
   last_sync_error: string | null;
   created_at: string;
   initial_lookback_days: number | null;
+  writeback_enabled?: boolean;
 }
 
 @Injectable()
@@ -98,7 +104,8 @@ export class IntegrationsService {
                 CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
                 is_active, last_sync_at::text, sync_status, last_sync_error,
                 created_at::text,
-                CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days
+                CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days,
+                COALESCE(writeback_enabled, FALSE) AS writeback_enabled
          FROM integrations
          WHERE is_active = TRUE
          ORDER BY created_at DESC
@@ -152,7 +159,8 @@ export class IntegrationsService {
                    CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
                    is_active, last_sync_at::text, sync_status, last_sync_error,
                    created_at::text,
-                   CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days`,
+                   CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days,
+                   COALESCE(writeback_enabled, FALSE) AS writeback_enabled`,
         [
           tenantId,
           input.platform,
@@ -396,7 +404,8 @@ export class IntegrationsService {
              RETURNING id::text, platform, name, connection_mode,
                        sync_mode, NULL AS webhook_token,
                        is_active, last_sync_at::text, sync_status, last_sync_error,
-                       created_at::text, initial_lookback_days`
+                       created_at::text, initial_lookback_days,
+                       COALESCE(writeback_enabled, FALSE) AS writeback_enabled`
           : `UPDATE integrations
              SET sync_mode = $3, updated_at = NOW()
              WHERE id = $1::uuid AND tenant_id = $2::uuid
@@ -404,7 +413,8 @@ export class IntegrationsService {
              RETURNING id::text, platform, name, connection_mode,
                        sync_mode, NULL AS webhook_token,
                        is_active, last_sync_at::text, sync_status, last_sync_error,
-                       created_at::text, initial_lookback_days`,
+                       created_at::text, initial_lookback_days,
+                       COALESCE(writeback_enabled, FALSE) AS writeback_enabled`,
         lookback !== undefined
           ? [id, tenantId, syncMode, lookback]
           : [id, tenantId, syncMode],
@@ -614,6 +624,7 @@ export class IntegrationsService {
         row.connection_mode === 'api_sync'
           ? (row.initial_lookback_days ?? DEFAULT_LOOKBACK_DAYS)
           : null,
+      writeback_enabled: row.writeback_enabled ?? false,
     };
   }
 }

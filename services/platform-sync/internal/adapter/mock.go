@@ -81,7 +81,9 @@ func (m *mockAdapter) fetchProofPage(platform, cursor string) (PageResult, error
 	rev := proofRevenue()
 	mk := func(id string, revenue float64) models.RemoteCall {
 		c := models.RemoteCall{
-			ExternalCallID: fmt.Sprintf("proof-%s-%s", platform, id),
+			// `smoke-` prefix is required: the read-time KPI filter only excludes
+			// apisync-/demo-/smoke-, so a bare `proof-` id would count as real revenue.
+			ExternalCallID: fmt.Sprintf("smoke-proof-%s-%s", platform, id),
 			CallerID:       "15555550100",
 			State:          "WA",
 			Revenue:        revenue,

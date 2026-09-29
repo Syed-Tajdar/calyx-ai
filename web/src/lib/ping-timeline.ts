@@ -6,6 +6,21 @@ export interface PingTimelinePoint {
   count: number;
 }
 
+/**
+ * `YYYY-MM-DD` in the **viewer's local timezone**.
+ *
+ * `toISOString().slice(0,10)` cannot be used here: it yields the UTC date, and local midnight in
+ * any positive-offset zone (e.g. PKT +05:00) is the *previous* day in UTC. Bucket labels were
+ * built that way while ping rows were bucketed on their UTC date, so the whole chart sat one day
+ * off and the newest calls fell outside every bucket. The Ping Feed prints local times, so local
+ * is the axis the two must share.
+ */
+function localDayKey(d: Date): string {
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
 /** Bucket distinct calls by day (dedupe platform+external_call_id) and fill the window. */
 export function buildFilledPingTimeline(
   pings: PingRecord[],
@@ -21,7 +36,7 @@ export function buildFilledPingTimeline(
   for (let i = 0; i < days; i++) {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
-    const key = d.toISOString().slice(0, 10);
+    const key = localDayKey(d);
     dayKeys.push(key);
     buckets.set(key, 0);
   }
@@ -38,7 +53,8 @@ export function buildFilledPingTimeline(
   }
 
   for (const ping of Array.from(latestByCall.values())) {
-    const key = pingEventAt(ping).slice(0, 10);
+    // Local date, to match the bucket labels and the times shown in the Ping Feed.
+    const key = localDayKey(new Date(pingEventAt(ping)));
     if (buckets.has(key)) {
       buckets.set(key, (buckets.get(key) ?? 0) + 1);
     }

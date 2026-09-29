@@ -30,20 +30,20 @@ function PingsPageContent(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('search') ?? '';
-  const { startDate, platform, showDemo } = useDateFilter();
+  const { startDate, platform, showDemo, conversion } = useDateFilter();
   const [offset, setOffset] = useState(0);
   const [exporting, setExporting] = useState(false);
 
   const filters = useMemo(() => {
-    const base = dateFilterToQuery(startDate, platform, showDemo);
+    const base = dateFilterToQuery(startDate, platform, showDemo, conversion);
     if (searchQuery) base.search = searchQuery;
     return base;
-  }, [startDate, platform, searchQuery, showDemo]);
+  }, [startDate, platform, searchQuery, showDemo, conversion]);
 
-  // Reset pagination when demo toggle changes
+  // Reset pagination when a filter that changes the result set changes
   useEffect(() => {
     setOffset(0);
-  }, [showDemo]);
+  }, [showDemo, conversion]);
 
   const { pings, total, displayTotal, loaded, loading, error, newRowKeys, isLive, isPollingFallback } =
     useHybridPingFeed({
@@ -99,7 +99,7 @@ function PingsPageContent(): JSX.Element {
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <FilterBar showPlatform platforms={platforms} />
+        <FilterBar showPlatform platforms={platforms} showConversion />
         <Button
           type="button"
           variant="outline"
