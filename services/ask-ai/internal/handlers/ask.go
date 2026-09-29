@@ -88,6 +88,9 @@ func (h *AskHandler) handleHistory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if records == nil {
+		records = []models.HistoryRecord{}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"data": records})
 }

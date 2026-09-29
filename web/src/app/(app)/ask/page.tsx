@@ -24,7 +24,7 @@ export default function AskPage(): JSX.Element {
     const token = getToken();
     if (!token) return;
     fetchAskHistory(token, 20)
-      .then((res) => setHistory(res.data))
+      .then((res) => setHistory(res.data ?? []))
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
           router.replace('/login');

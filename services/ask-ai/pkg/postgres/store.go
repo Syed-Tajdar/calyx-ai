@@ -91,7 +91,8 @@ func (s *Store) ListHistory(ctx context.Context, tenantID string, limit int) ([]
 	if limit > 100 {
 		limit = 100
 	}
-	var rows []models.HistoryRecord
+	// Non-nil empty slice so JSON encodes "data":[] not "data":null.
+	rows := make([]models.HistoryRecord, 0)
 	err := s.withTenant(ctx, tenantID, func(ctx context.Context, tx pgx.Tx) error {
 		result, err := tx.Query(ctx, `
 			SELECT id::text, question, answer, intent, cache_hit, row_count, tokens_used,
