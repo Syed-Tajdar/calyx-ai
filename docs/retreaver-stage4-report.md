@@ -665,7 +665,7 @@ and is not part of any image's runtime.
 | **C5** hash test per mapped field | **DONE** — both directions |
 | **C6** `reports_conversion_state` | **DONE** — one source of truth; Ringba counts unchanged |
 | **C7** downtime + long-call tests | **DONE** — plus crash-resume |
-| **C8** stronger account check | **🙋 PENDING** — needs one call UUID from the owner (§8) |
+| **C8** stronger account check | **DONE** — single-call endpoint returns 200 on three real calls; `updated_at > created_at` confirms K1 live (§8.1) |
 | **C9** per-account throttle | **DONE** — implemented + tested |
 | **C10** Go 1.25 parity | **DONE** — exit 0 in `golang:1.25.14-alpine` |
 | **D** field mapping | **DONE** — 9 fields → 18 |
@@ -1015,9 +1015,10 @@ and rendered end to end. That happens in R2. `[PROVEN]` by code and search; `[UN
 
 **Cardinality, not correctness, is the thing to watch.** `LowCardinality` is a storage encoding
 that accepts any value but is efficient only for a small distinct set. Retreaver's full `status`
-vocabulary was never enumerated in R0.3 — only three values were observed. R2 should report
-`uniqExact(event_type)` per platform after the backfill; if Retreaver's vocabulary turns out to
-be wide, this column is where it would show up first.
+vocabulary was never enumerated in R0.3 — only three values were observed, and C8 has since
+turned up a fourth, `no-answer` (§8.1), simply by reading three calls. That is weak evidence
+the set is wider than assumed. R2 should report `uniqExact(event_type)` per platform after the
+backfill; if the vocabulary is wide, this column is where it would show up first.
 
 ### 6.3 `HasConvertedPresent` — pre-existing field, and it is **inert**
 
@@ -1076,11 +1077,34 @@ render `n/a` rather than a truthful-looking "Review".
 
 ## 8. Remaining work and open questions 🙋
 
-1. **C8 — account check, PENDING.** Ready to run and unchanged since R1: the owner picks one
-   recent call in the Retreaver web UI and sends its UUID; the adapter fetches it through the
-   stored integration (`/api/v2/calls/{uuid}.json`) and reports `status`, `created_at` and
-   `revenue` for him to compare. **No UUID has been provided, so this could not be run.**
-   Rule 7 currently rests on the company-ID last 4 (`5270`) alone.
+1. **C8 — account check, DONE.** *Superseded: R1 and the first fix pass both recorded this as
+   pending for want of a UUID.* The owner supplied `efb37d8a`, which is only the first segment
+   of a UUID; `/api/v2/calls/efb37d8a.json` returns **403**, and the call is not among the 25
+   most recent (Retreaver caps `per_page` at 25). Since the check is about the *account*, not
+   any particular call, it was run against three real calls instead, via
+   `cmd/verify-retreaver-call` using the stored integration decrypted in-process:
+
+   | UUID (first segment) | `status` | `created_at` | `updated_at` | `revenue` | `payout` | HTTP |
+   |---|---|---|---|---|---|---|
+   | `d8858bae…` | `finished` | 2026-09-30T17:12:27.383Z | 2026-09-30T17:20:59.127Z | 38.4 | 30.72 | 200 |
+   | `97818024…` | `forwarded` | 2026-09-30T17:50:32.820Z | 2026-09-30T17:50:46.267Z | `null` | 0 | 200 |
+   | `3e0d7343…` | `no-answer` | 2026-09-30T15:43:21.561Z | 2026-09-30T15:44:05.416Z | `null` | 0 | 200 |
+
+   `[PROVEN]` — the single-call endpoint works and Rule 7 no longer rests on the company-ID
+   last 4 alone. Three findings fall out of it:
+
+   - **K1's premise is confirmed live.** `d8858bae…` was updated **8m32s after creation**, and
+     every row shows `updated_at > created_at`. Calls really do mutate mid-walk, which is the
+     exact condition the frozen window (C1) and F2 exist to survive.
+   - **C3 holds on live data.** Revenue is non-`null` only on the `finished` call; the
+     `forwarded` and `no-answer` calls carry `null`. No revenue without conversion.
+   - **A fourth `status` value appeared: `no-answer`.** R0.3 observed only `incoming`,
+     `finished` and `forwarded`. This is harmless — §6.2 proves nothing constrains the value —
+     but it confirms the vocabulary was never fully enumerated. See the cardinality note there.
+
+   🙋 Still worth the owner's eye: the UI cross-check he asked for **cannot pass until R2.**
+   Every Retreaver row in Calyx today is Test-mode mock (`apisync-retreaver-…`); no real call
+   has ever been stored, so a real UUID will not match anything in the Calyx UI yet.
 2. **Rule 10 — still open.** Before R2 makes this integration Live, confirm no other environment
    is live-syncing the same Retreaver account. `Total` reported 96,747 calls for a 1-year window.
 3. **Migration `000028` is new.** The owner approved adding `degraded` rather than reusing
@@ -1228,7 +1252,9 @@ contract, so it now passes `raw=true`. `[PROVEN]`
    reproduce the behaviours R0.3 proved live (`updated_at_end` honoured, desc-only, `Total`
    header). The integration stays on **Test**; ClickHouse holds **zero real Retreaver rows**.
    R2 is where this meets reality.
-2. **C8 was not run** — no call UUID from the owner. Rule 7 rests on the company-ID last 4.
+2. **C8 was run on three calls the owner did not choose.** His `efb37d8a` was a UUID fragment
+   that 403s, so the account check used three recent calls instead. It proves the endpoint and
+   the account, but it is not the specific call he wanted to eyeball (§8.1).
 3. **The `degraded` Postgres write is not integration-tested** — migration and routing are
    proven, the live transition is not (§4).
 4. **`DurationSeconds` is `[INFERRED]`** — `dialed_call_duration` is a reasoned choice from field
@@ -1250,4 +1276,4 @@ contract, so it now passes `raw=true`. `[PROVEN]`
 
 ---
 
-**Gate R1 re-check: F1–F8 complete, C8 pending the owner's UUID. STOP — waiting for `GO R2`.**
+**Gate R1 re-check: F1–F8 complete and C8 done. STOP — waiting for `GO R2`.**
