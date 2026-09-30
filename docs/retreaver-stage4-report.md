@@ -983,14 +983,41 @@ new in the R1 diff. **That was an R0 reporting error, corrected here.**
 
 | Consumer | Behaviour with `finished` / `forwarded` |
 |---|---|
+| **Ingestion** `ingestion/internal/handlers/ringba.go:131,167` | copies `ping.EventType` onto the event and logs it; no validation, no allowlist |
+| **Contract** `shared/contracts/events/ping_event.schema.json:15` | `"event_type": { "type": "string" }` — **no `enum`**, so any string validates |
+| **Consumer** `consumer/internal/models/ping.go:15` → `writer/writer.go:63` | decodes the JSON string and writes it straight to ClickHouse; no mapping table |
 | ClickHouse `pings.event_type` | `LowCardinality(String) DEFAULT 'incoming'` — free-form, no enum |
 | `PingsTable.tsx:92` | renders `{p.event_type}` capitalised; any string works |
 | `use-hybrid-ping-feed.ts:56` | coerces a non-string to `'incoming'`; a string passes through |
 | `kafka-live-consumer.service.ts:126` | same coercion |
 | `StatusPill.tsx` `liveEventLabel` | a `switch` **on the live-feed event type**, a different field; unknown values fall through to `default` and are returned unchanged |
 | Analytics / Coverage / compliance | aggregate by platform, state and time — never by `event_type` |
+| `smoke-test.ps1:74` | prints `event_type` in a results table; display only |
 
-`[PROVEN]` by search: no filter, badge, or aggregate constrains the value.
+`[PROVEN]` by search: no filter, badge, aggregate, schema `enum`, or validation anywhere
+constrains the value. The write path is pass-through from adapter to ClickHouse, and
+`LowCardinality` is a storage encoding, not a constraint — it does not reject new values.
+
+⚠️ Two caveats, both honest:
+
+**The Retreaver `status` values have never reached this database.** Measured now:
+
+```
+retreaver        1 distinct event_type: ['incoming']
+trackdrive       2 distinct: ['buyer_converted','incoming']
+ringba / callgrid / callloom-native   1 distinct: ['incoming']
+```
+
+Every Retreaver row here is Test-mode mock output, and the mock sets `EventType: "incoming"`.
+So `finished` and `forwarded` are proven to come **out of the adapter** (R0.3 Q9 sampled them
+live) and proven **not to be rejected** by any consumer above, but they have not yet been stored
+and rendered end to end. That happens in R2. `[PROVEN]` by code and search; `[UNKNOWN]` live.
+
+**Cardinality, not correctness, is the thing to watch.** `LowCardinality` is a storage encoding
+that accepts any value but is efficient only for a small distinct set. Retreaver's full `status`
+vocabulary was never enumerated in R0.3 — only three values were observed. R2 should report
+`uniqExact(event_type)` per platform after the backfill; if Retreaver's vocabulary turns out to
+be wide, this column is where it would show up first.
 
 ### 6.3 `HasConvertedPresent` — pre-existing field, and it is **inert**
 
@@ -1200,7 +1227,11 @@ contract, so it now passes `raw=true`. `[PROVEN]`
    history. Full-history scale is still `[UNKNOWN]`.
 9. **The F5 real-data path was proven with one synthetic row** inserted and removed, not with a
    genuine synced call.
-10. **Local dev machine, not the staging server.**
+10. **Retreaver's `status` values have never been stored.** Every Retreaver row in this database
+    is Test-mode mock output with `event_type = 'incoming'`. `finished` / `forwarded` are proven
+    to leave the adapter and proven not to be rejected by any consumer, but the end-to-end path
+    is `[UNKNOWN]` until R2 (§6.2).
+11. **Local dev machine, not the staging server.**
 
 ---
 
