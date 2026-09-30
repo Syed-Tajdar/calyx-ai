@@ -1112,8 +1112,23 @@ render `n/a` rather than a truthful-looking "Review".
 R0, R1 and this fix land in **one commit** on `stage4/retreaver` — R0 was never committed
 separately (B3), so there is no earlier hash to quote. Commit hash in §12.
 
-**Secret scan before commit:** every file above scanned for the company-ID last 4, `api_key=`,
-`company_id=`, bearer tokens and 32+ character hex/alphanumeric runs. **0 matches.**
+**Secret scan before commit.** Every file above scanned for `api_key=`, `company_id=`, bearer
+tokens, the company-ID last 4, and 32+ character alphanumeric runs.
+
+| Pattern | Code, scripts, migrations | This report |
+|---|---|---|
+| `api_key=<value>` | 0 | 0 |
+| `company_id=<digits>` | 0 | 0 |
+| `Bearer <token>` | 0 | 0 |
+| company-ID last 4 (`5270`) | 0 | **3 — expected** |
+| 32+ char alphanumeric run | 0 | **9 — all Go test function names** |
+
+The two non-zero cells are accounted for, not overlooked. The company-ID last 4 appears in R0.3,
+R0's open questions and §8 because **Rule 7 requires reporting it** — it is the agreed
+identification method for this account (amendments A2), and only the last four characters ever
+appear. The nine long runs are identifiers like `TestRetreaverStatusErrorDoesNotLeakLinkHeader`,
+matched because the pattern cannot tell a long camel-case name from a token; each was inspected
+by length and prefix. No credential, token or full company ID is present in any committed file.
 
 ## 10. Server deploy note
 
