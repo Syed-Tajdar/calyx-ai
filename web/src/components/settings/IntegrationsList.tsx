@@ -27,6 +27,31 @@ function maskToken(token: string | null): string {
   return `${token.slice(0, 4)}…${token.slice(-4)}`;
 }
 
+/**
+ * Stage 4 R1-fix F1. `degraded` means the last window came back short of the platform's own
+ * row count, so the cursor is deliberately held and the sync is not making progress. It has to
+ * read differently from `ok` at a glance — a stuck sync that looks healthy is the failure this
+ * whole stage is about. Hover shows `last_sync_error`, which names the window and the counts.
+ */
+function syncStatusStyle(status: string): string {
+  switch (status) {
+    case 'ok':
+      return 'bg-emerald-500/15 text-emerald-400';
+    case 'degraded':
+      return 'bg-amber-500/15 text-amber-400';
+    case 'error':
+      return 'bg-red-500/15 text-red-400';
+    case 'syncing':
+      return 'bg-blue-500/15 text-blue-400';
+    default:
+      return 'bg-white/5 text-calyx-muted';
+  }
+}
+
+function syncStatusLabel(status: string): string {
+  return status === 'degraded' ? 'Degraded — sync held' : status;
+}
+
 export function IntegrationsList({
   integrations,
   onDeleted,
@@ -210,8 +235,11 @@ export function IntegrationsList({
                 </td>
                 <td className="px-4 py-3 text-calyx-muted">
                   {item.connection_mode === 'api_sync' ? (
-                    <span title={item.last_sync_error ?? undefined}>
-                      {item.sync_status}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${syncStatusStyle(item.sync_status)}`}
+                      title={item.last_sync_error ?? undefined}
+                    >
+                      {syncStatusLabel(item.sync_status)}
                     </span>
                   ) : (
                     '—'

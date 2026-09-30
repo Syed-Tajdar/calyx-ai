@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -82,6 +83,55 @@ func RetreaverDeepSweepInterval() time.Duration {
 	return envDuration("RETREAVER_DEEP_SWEEP_INTERVAL", 24*time.Hour)
 }
 
+// RetreaverWindowRetryAttempts — `RETREAVER_WINDOW_RETRY_ATTEMPTS` (default 3): how many times a
+// window that came back short is re-walked before the integration is marked degraded.
+func RetreaverWindowRetryAttempts() int {
+	return envInt("RETREAVER_WINDOW_RETRY_ATTEMPTS", 3)
+}
+
+// RetreaverWindowRetryBackoff — `RETREAVER_WINDOW_RETRY_BACKOFF` (default 2s), doubled each
+// attempt. Three attempts therefore wait 2s then 4s before giving up.
+func RetreaverWindowRetryBackoff() time.Duration {
+	return envDuration("RETREAVER_WINDOW_RETRY_BACKOFF", 2*time.Second)
+}
+
+// retreaverSleep is a seam so bounded-retry tests do not spend real seconds waiting.
+var retreaverSleep = func(d time.Duration) <-chan time.Time { return time.After(d) }
+
+// WindowShortfallError means a frozen window returned fewer rows than the API's own `Total` and
+// kept doing so across every retry (Stage 4 R1-fix / F1).
+//
+// This is deliberately not a transport error: the requests succeeded. It says the window is
+// incomplete, so the cursor must be held and the integration marked degraded rather than
+// advancing over rows that were never delivered.
+type WindowShortfallError struct {
+	Platform  string
+	Start     time.Time
+	End       time.Time
+	Collected int
+	Total     int
+	Attempts  int
+}
+
+func (e *WindowShortfallError) Error() string {
+	return fmt.Sprintf(
+		"%s: window [%s, %s) returned %d of %d rows after %d attempts — cursor held",
+		e.Platform,
+		e.Start.UTC().Format(time.RFC3339),
+		e.End.UTC().Format(time.RFC3339),
+		e.Collected, e.Total, e.Attempts)
+}
+
+// AsWindowShortfall returns the shortfall detail when err is one, else nil. The syncer uses it to
+// choose `degraded` over `error` and to log the window that failed.
+func AsWindowShortfall(err error) *WindowShortfallError {
+	var w *WindowShortfallError
+	if errors.As(err, &w) {
+		return w
+	}
+	return nil
+}
+
 // BuildRetreaverWindow computes the frozen window for a tick.
 //
 // `lastSyncAt` empty (first ever sync) falls back to the per-integration lookback. The end is
@@ -144,42 +194,109 @@ func retreaverWindowFits(total, perPage, maxPages int) bool {
 	return total <= perPage*maxPages
 }
 
+// walkWindow reads every page of [start, end) in one pass and reports the API's `Total` for the
+// window alongside the rows actually collected.
+func (a *RetreaverAdapter) walkWindow(
+	ctx context.Context,
+	creds map[string]string,
+	start, end time.Time,
+	perPage int,
+) (calls []models.RemoteCall, total, requests int, err error) {
+	maxPages := RetreaverMaxPagesPerWindow()
+	all := []models.RemoteCall{}
+
+	for page := 1; page <= maxPages; page++ {
+		pageCalls, pageTotal, hasMore, fetchErr := a.fetchWindowPage(ctx, creds, start, end, page, perPage)
+		if fetchErr != nil {
+			return nil, 0, requests, fetchErr
+		}
+		requests++
+		all = append(all, pageCalls...)
+		if pageTotal > 0 {
+			total = pageTotal
+		}
+		if !hasMore {
+			break
+		}
+	}
+	return all, total, requests, nil
+}
+
+// walkWindowWithRetry walks a window and, when it comes back short of `Total`, walks it again —
+// up to `RETREAVER_WINDOW_RETRY_ATTEMPTS` times with a doubling backoff (Stage 4 R1-fix / F1).
+//
+// A short walk is usually transient: a row can be edited between the page-1 `Total` being read
+// and the last page being fetched, which moves it out of the frozen window. Re-walking settles
+// it. What must never happen is advancing the cursor over the difference, so when every attempt
+// is short this returns a *WindowShortfallError and the caller holds the cursor.
+func (a *RetreaverAdapter) walkWindowWithRetry(
+	ctx context.Context,
+	creds map[string]string,
+	start, end time.Time,
+	perPage int,
+) ([]models.RemoteCall, int, error) {
+	attempts := RetreaverWindowRetryAttempts()
+	if attempts < 1 {
+		attempts = 1
+	}
+	backoff := RetreaverWindowRetryBackoff()
+	requests := 0
+
+	var lastCalls []models.RemoteCall
+	lastTotal := 0
+
+	for attempt := 1; attempt <= attempts; attempt++ {
+		calls, total, reqs, err := a.walkWindow(ctx, creds, start, end, perPage)
+		requests += reqs
+		if err != nil {
+			return nil, requests, err
+		}
+		lastCalls, lastTotal = calls, total
+
+		// `Total` absent (0) means the API gave us nothing to reconcile against, so there is
+		// no shortfall to detect — accept the walk.
+		if total <= 0 || len(calls) >= total {
+			return calls, requests, nil
+		}
+
+		if attempt < attempts {
+			select {
+			case <-ctx.Done():
+				return nil, requests, ctx.Err()
+			case <-retreaverSleep(backoff << (attempt - 1)):
+			}
+		}
+	}
+
+	return lastCalls, requests, &WindowShortfallError{
+		Platform:  "retreaver",
+		Start:     start,
+		End:       end,
+		Collected: len(lastCalls),
+		Total:     lastTotal,
+		Attempts:  attempts,
+	}
+}
+
 // FetchRange walks an explicit [start, end) window to completion.
 //
 // This is what makes sweeps and the day-windowed backfill work for Retreaver (Stage 4 R1 / D).
 // It reuses the same frozen-window paging as the incremental path — the only difference is that
-// the caller supplies the bounds instead of them being derived from the cursor.
+// the caller supplies the bounds instead of them being derived from the cursor. Both paths share
+// walkWindowWithRetry, so the short-window rule is identical on each (F1).
 func (a *RetreaverAdapter) FetchRange(
 	ctx context.Context,
 	creds map[string]string,
 	start, end time.Time,
 ) (PageResult, error) {
 	const perPage = 100
-	all := []models.RemoteCall{}
-	requests := 0
-	maxPages := RetreaverMaxPagesPerWindow()
 
-	for page := 1; page <= maxPages; page++ {
-		calls, total, hasMore, err := a.fetchWindowPage(ctx, creds, start, end, page, perPage)
-		if err != nil {
-			return PageResult{}, err
-		}
-		requests++
-		all = append(all, calls...)
-
-		// C2: a short walk must be visible to the caller rather than silently accepted.
-		if !hasMore {
-			if total > 0 && len(all) < total {
-				return PageResult{}, fmt.Errorf(
-					"retreaver: window [%s, %s) returned %d of %d rows — refusing to advance",
-					start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339), len(all), total)
-			}
-			break
-		}
+	calls, requests, err := a.walkWindowWithRetry(ctx, creds, start, end, perPage)
+	if err != nil {
+		return PageResult{}, err
 	}
-
 	return PageResult{
-		Calls:        all,
+		Calls:        calls,
 		HasMore:      false,
 		RequestCount: requests,
 		WindowStart:  start,

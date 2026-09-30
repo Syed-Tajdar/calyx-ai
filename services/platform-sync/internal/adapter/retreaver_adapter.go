@@ -59,6 +59,11 @@ type retreaverCursor struct {
 	WindowStart string `json:"window_start,omitempty"`
 	WindowEnd   string `json:"window_end,omitempty"`
 	Page        int    `json:"page"`
+	// Collected counts rows already returned for this window across previous ticks. The
+	// incremental path walks at most `maxPagesPerSync` pages per tick, so the row total for a
+	// window is only known once the last page is read — this carries the running count
+	// between ticks so a short window can still be detected there (F1).
+	Collected int `json:"collected,omitempty"`
 
 	UpdatedAtStart string `json:"updated_at_start,omitempty"` // legacy migrate-only
 	CreatedAtStart string `json:"created_at_start,omitempty"` // legacy migrate-only
@@ -174,11 +179,45 @@ func (a *RetreaverAdapter) FetchPage(ctx context.Context, creds map[string]strin
 		}
 	}
 
+	// A split restarts the walk, so anything counted for the wider window no longer applies.
+	if splits > 0 {
+		cs.Collected = 0
+	}
+	collected := cs.Collected + len(calls)
+
+	// F1 — the window closed short of the API's own `Total`. Re-walk the whole frozen window
+	// with bounded retry; if it is still short, walkWindowWithRetry returns a
+	// *WindowShortfallError, the syncer holds the cursor and marks the integration degraded.
+	if !hasMore && total > 0 && collected < total {
+		retried, reqs, rerr := a.walkWindowWithRetry(ctx, creds, start, end, perPage)
+		if rerr != nil {
+			return PageResult{}, rerr
+		}
+		done := retreaverCursor{
+			WindowStart: end.Add(-RetreaverWindowOverlap()).UTC().Format(time.RFC3339),
+			Page:        1,
+		}
+		doneCursor, encErr := EncodeCursor(done)
+		if encErr != nil {
+			return PageResult{}, encErr
+		}
+		return PageResult{
+			Calls:        retried,
+			NextCursor:   doneCursor,
+			HasMore:      false,
+			RequestCount: 1 + splits + reqs,
+			WindowStart:  start,
+			WindowEnd:    end,
+			WindowCapped: splits > 0,
+		}, nil
+	}
+
 	next := retreaverCursor{WindowStart: start.Format(time.RFC3339), Page: cs.Page}
 	if hasMore {
 		// Stay inside this window; keep the frozen end so later pages see the same set.
 		next.WindowEnd = end.Format(time.RFC3339)
 		next.Page = cs.Page + 1
+		next.Collected = collected
 	} else {
 		// Window complete. Next tick starts at this window's end minus the overlap; leaving
 		// WindowEnd empty marks it finished so a fresh end is computed then.
@@ -325,6 +364,14 @@ func mapRetreaverCall(raw json.RawMessage) models.RemoteCall {
 	if row.Payout != nil {
 		pay = *row.Payout
 	}
+
+	// F3: null → 0.00 is only lossless while `revenue = null` ⟺ `converted = false` holds.
+	// Count and log every call that breaks it so the assumption is watched, not trusted.
+	externalIDForLog := row.UUID
+	if externalIDForLog == "" {
+		externalIDForLog = row.CallUUID
+	}
+	recordRetreaverC3(externalIDForLog, row.Converted, row.Revenue)
 	publisher := row.AFID
 	if publisher == "" {
 		publisher = row.ClientAFID

@@ -35,6 +35,12 @@ func (m *mockAdapter) FetchPage(_ context.Context, creds map[string]string, curs
 	return m.fetchRandomPage(platform)
 }
 
+// mockReportsConversionState mirrors the API's platform-capabilities list. Only these platforms
+// are asked for conversion state, so only they should mock it.
+func mockReportsConversionState(platform string) bool {
+	return platform == "ringba" || platform == "retreaver"
+}
+
 func (m *mockAdapter) fetchRandomPage(platform string) (PageResult, error) {
 	states := []string{"WA", "TX", "CA"}
 	now := time.Now().UTC()
@@ -50,6 +56,24 @@ func (m *mockAdapter) fetchRandomPage(platform string) (PageResult, error) {
 		EventType:      "incoming",
 		OccurredAt:     now,
 	}
+
+	// F6: follow the real rule — revenue only on a converted call.
+	//
+	// The generator used to emit revenue with converted=false on every row, which is exactly
+	// the shape the "should have converted" badge exists to flag. Every demo therefore filled
+	// up with false alarms that looked like a product bug. Alternating on the clock keeps both
+	// states present in a demo dataset without needing state between ticks.
+	if mockReportsConversionState(platform) {
+		converted := now.Unix()%2 == 0
+		call.HasConverted = converted
+		call.HasConvertedPresent = true
+		call.HasConnected = true
+		if !converted {
+			call.Revenue = 0
+			call.Payout = 0
+		}
+	}
+
 	if platform == "retreaver" {
 		call.CallKey = "sync-mock-key"
 	}

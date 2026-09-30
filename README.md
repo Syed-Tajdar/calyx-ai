@@ -185,6 +185,21 @@ powershell -ExecutionPolicy Bypass -File scripts/verify-api-sync.ps1
 
 **Pre-push gate:** all three scripts above must exit 0 before pushing to `main`.
 
+**On macOS the binary is `pwsh-preview`, not `pwsh` or `powershell`.** The plain `powershell`
+Homebrew cask no longer exists, and `brew install --cask powershell@preview` does not create a
+`pwsh` symlink. The `make verify-*` targets invoke `powershell`, which is a Windows-only binary
+name, so they will not resolve on macOS until you alias it:
+
+```bash
+brew install --cask powershell@preview
+alias powershell=pwsh-preview          # or: ln -s "$(command -v pwsh-preview)" /usr/local/bin/pwsh
+pwsh-preview -ExecutionPolicy Bypass -File scripts/verify-system.ps1
+```
+
+The scripts themselves are cross-platform: `verify-system.ps1` re-invokes its own host rather
+than shelling out to `powershell`, and the `[Environment]::GetEnvironmentVariable(...,"Machine")`
+calls that return `$null` off Windows are guarded with `if ($IsWindows)`.
+
 ---
 
 ## Phase 0 — Real ingestion slice (MOCK_MODE=true on intelligence)

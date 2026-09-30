@@ -634,43 +634,60 @@ and is not part of any image's runtime.
 
 ---
 
-# PHASE R1 — Paging fix (K1) + sync parity  ·  **GATE R1 MET** (one item partial)
+# PHASE R1 — Paging fix (K1) + sync parity  ·  **GATE R1 RE-CHECK MET**
 
-**Date:** 2026-09-30 · **Branch:** `stage4/retreaver` · **Amendments:** `docs/retreaver-r1-amendments.md`
+**Date:** 2026-09-30 · **Branch:** `stage4/retreaver`
+**Owner reviews applied:** `docs/retreaver-r1-amendments.md` (A/B/C/D/E), then
+`docs/retreaver-r1-fix.md` (F1–F8). Where they disagree, the later file wins.
 
-> **Status: all R1 code items are complete and proven, and all three PowerShell gates pass.**
-> `pwsh` was installed (A5) and the gates were run — they needed six fixes first, every one of
-> them a Windows-only assumption in the scripts, none in the product. C3 was resolved **without**
-> a migration, by evidence rather than by inventing one. **C2 remains partial**: a short walk is
-> refused, but bounded retry and a degraded sync status are not built.
+> **How to read this section.** It was rewritten in one pass after the R1-fix review (F7).
+> Earlier drafts contradicted themselves — C3 was called BLOCKED in one place and RESOLVED in
+> another, `pwsh` was called missing after it had been installed, and a "Gate R1 not met" note
+> survived next to a scoreboard saying the opposite. Every item below now has exactly one
+> current state. Where the history matters it is marked *superseded*, in one line.
 
 ## 1. Scoreboard
 
-| Item | Result |
+### Amendments (B, C, D, E)
+
+| Item | State |
 |---|---|
-| **B1** transcript scan | **DONE** — key **IS** present on disk |
-| **B2(1)** header auth | **DONE** — `[PROVEN]` impossible |
-| **B2(2)** shared redaction | **DONE — found and fixed a real leak in product code** |
-| **B2(3)** forced-transport-error test | **DONE** — 4 tests |
-| **B2(4)** scan stored data | **DONE** — **CLEAN** |
-| **B3** R0 commit hash | **N/A** — R0 was never committed (see §6) |
-| **C1** frozen window + split, no truncation | **DONE** — K1 proven fixed |
-| **C2** `Total` mismatch blocks | **MOSTLY** — windowed path refuses to advance on a short walk; retry/degraded-status not built |
-| **C3** `null` revenue/payout | **RESOLVED — no migration needed** (100-call proof) |
-| **C4** field-meaning table | **DONE** — §7 |
+| **B1** key on disk | **DONE** — present in 1 transcript file; no rotation (owner A1), kept private to the operator's machine |
+| **B2(1)** header auth | **DONE** — `[PROVEN]` impossible, 401 on four header forms |
+| **B2(2)** shared redaction | **DONE** — found and fixed a real leak in product code |
+| **B2(3)** forced-transport-error tests | **DONE** — 4 tests |
+| **B2(4)** scan stored data | **DONE** — clean, 0 matches |
+| **B3** R0 commit hash | **N/A** — R0 was never committed separately; R0 + R1 + this fix land in one commit (§9) |
+| **C1** frozen window, split not truncate | **DONE** — K1 proven fixed |
+| **C2** `Total` mismatch blocks | **DONE via F1** — *superseded:* R1 only refused to advance; retry and degraded status are now built |
+| **C3** `null` revenue/payout | **RESOLVED, no migration** — *superseded:* R1 first reported this BLOCKED on a 3-call sample; a 100-call sample settled it. Now monitored (F3) |
+| **C4** field-meaning table | **DONE** — §5 |
 | **C5** hash test per mapped field | **DONE** — both directions |
-| **C6** `reports_conversion_state` | **DONE** — Ringba counts identical, 18 false positives removed |
-| **C7** downtime + long-call tests | **DONE** — plus a crash-resume test |
-| **C8** stronger account check | **READY** — needs a UUID from the owner (§5) |
+| **C6** `reports_conversion_state` | **DONE** — one source of truth; Ringba counts unchanged |
+| **C7** downtime + long-call tests | **DONE** — plus crash-resume |
+| **C8** stronger account check | **🙋 PENDING** — needs one call UUID from the owner (§8) |
 | **C9** per-account throttle | **DONE** — implemented + tested |
 | **C10** Go 1.25 parity | **DONE** — exit 0 in `golang:1.25.14-alpine` |
 | **D** field mapping | **DONE** — 9 fields → 18 |
-| **D** capability method (share sweeps/backfill) | **DONE** — `RangeFetcher`, both guards removed |
-| **E** three PowerShell gates | **PASS** — all three, after six script portability fixes (§13) |
+| **D** capability method | **DONE** — `RangeFetcher`; both `"ringba"` guards removed |
+| **E** three PowerShell gates | **PASS** — all three, after six script portability fixes |
 
-## 2. B — security
+### R1-fix (F1–F8)
 
-### B1 — the key IS on disk. My R0 claim was wrong. `[PROVEN]`
+| Item | State |
+|---|---|
+| **F1** finish C2 — retry, degraded, visible | **DONE** — migration `000028`, both paths, 4 adapter + 4 syncer tests, Settings pill |
+| **F2** update just before `window_end` | **DONE** — test added; guarantee stated in §4 |
+| **F3** monitor the C3 assumption | **DONE** — 3 counters, 1 log line per violation, 6 tests |
+| **F4** explain three behaviour changes | **DONE** — §6. **None of the three came from R1** |
+| **F5** gates must not get weaker | **DONE** — real-data path restored, `DEMO-ONLY` fallback; both paths shown |
+| **F6** realistic Test-mode mock | **DONE** — revenue only when `converted=true`; 2 tests |
+| **F7** one consistent report | **DONE** — this rewrite |
+| **F8** commit and push | **DONE** — §9 |
+
+## 2. Security (B)
+
+### B1 — the key IS on disk. R0's claim was wrong. `[PROVEN]`
 
 Counts only, never the match:
 
@@ -680,21 +697,13 @@ Counts only, never the match:
   company_id  : 2 files (4 lines)
 ```
 
-R0 said "terminal only". That was inaccurate — the grep covered the repo and scratchpad but not the
-transcripts. The owner has decided against rotation (A1), so per B1 these files stay private to this
-machine: not shared, not uploaded, not attached to any report.
+R0 said "terminal only". That was inaccurate: the grep covered the repo and the scratchpad but
+not the Claude Code session transcripts. The owner ruled out rotation (A1) because this is the
+running account and rotating could break the clients' existing setup, so the mitigation is that
+those files stay private to the operator's machine — not shared, not uploaded, not attached to
+any report.
 
-### B2(4) — nothing leaked through normal operation `[PROVEN]`
-
-Postgres `last_sync_error` / `sync_status` / `sync_cursor` across all integrations, plus current
-`platform-sync` and `api` container logs:
-
-```
-api_key     matching lines: 0
-company_id  matching lines: 0
-```
-
-### B2(1) — the key cannot leave the URL `[PROVEN]`
+### B2(1) — the key cannot leave the query string `[PROVEN]`
 
 Docs: *"Retreaver expects for the API key to be included in all API requests to the server in a
 query string parameter"* — https://retreaver.github.io/core-api-docs/#authentication
@@ -709,12 +718,12 @@ Tested live anyway, GET only:
 | `X-Api-Key: <key>` | HTTP 401 |
 | `Api-Key: <key>` | HTTP 401 |
 
-So redaction is the only defence — exactly why the owner made B2 mandatory once rotation was ruled out.
+Redaction is therefore the only defence, which is exactly why the owner made B2 mandatory once
+rotation was ruled out.
 
 ### B2(2) — a real leak in product code, found and fixed 🔴 `[PROVEN]`
 
-Writing the B2(3) test surfaced a genuine vulnerability that was **not** my probe:
-
+Writing the B2(3) test surfaced a genuine vulnerability that was **not** the R0 probe.
 `formatHTTPStatusError` (`internal/adapter/httpclient.go`) interpolated the upstream **response
 body** raw:
 
@@ -723,14 +732,12 @@ return fmt.Sprintf("%s %d: headers={%s} body=%s", prefix, status, headers, bodyS
 ```
 
 Transport errors were already redacted via `sanitizeHTTPError` → `redact.SanitizeErr`, and `Link`
-was already excluded from the safe-header allowlist. But the **status-error body path was not
+was already excluded from the safe-header allowlist. The **status-error body path was not
 redacted at all**. Any Retreaver 4xx/5xx whose body echoes the request URL would have written
 `api_key=…` into the error — and that error is stored as the integration's `last_sync_error`.
 
-**Fix:** the body now passes through `redact.RedactMessage`. This is shared code, so it protects
-every adapter, not just Retreaver.
-
-**Before the fix** the test failed with `status error leaked the api_key`. After, it passes.
+**Fix:** the body now passes through `redact.RedactMessage`. Shared code, so it protects every
+adapter. Before the fix the test failed with `status error leaked the api_key`; after, it passes.
 
 ### B2(3) — four redaction tests `[PROVEN]`
 
@@ -743,335 +750,458 @@ every adapter, not just Retreaver.
 | `TestSafeResponseHeadersExcludeLink` | pins `Link` out of the loggable allowlist |
 | `TestRetreaverAuthErrorIsClassifiedWithoutCredentials` | the `ClassifySyncError` path that reaches `last_sync_error` |
 
-Observed transport error after the fix:
+### B2(4) — nothing leaked through normal operation `[PROVEN]`
 
-```
-Get "https://…/api/v2/calls.json?api_key=[REDACTED]&company_id=[REDACTED]&order=desc&page=1…"
-  dial tcp: lookup …: no such host
-```
+Postgres `last_sync_error` / `sync_status` / `sync_cursor` across all integrations, plus the
+`platform-sync` and `api` container logs: **`api_key` 0 matching lines, `company_id` 0 matching
+lines.**
 
-## 3. C1 — the frozen window, and a correction to my own R0 design
+## 3. C1 — the frozen window
 
-### What was built
+`internal/adapter/retreaver_window.go` (new) plus a rewritten `FetchPage` / `fetchWindowPage`:
 
-`internal/adapter/retreaver_window.go` (new) + a rewritten `FetchPage` / `fetchWindowPage`:
+- Every walk runs inside `[window_start, window_end)`, the end captured once when the window
+  opens. `updated_at_end` is now sent.
+- The cursor is `{window_start, window_end, page, collected}`; a crash resumes the same window.
+- Both legacy cursor shapes migrate without losing position (two tests).
+- `per_page` stays 100, with a comment recording that above 100 the API silently returns 25.
+- The `Total` header drives `hasMore` when present. `Link` is deliberately never read.
 
-- Every walk runs inside `[window_start, window_end)`, the end captured once when the window opens.
-- The cursor is now `{window_start, window_end, page}`; a crash resumes the **same** window.
-- Both legacy cursor shapes migrate into it without losing position (two tests).
-- `updated_at_end` is now sent. `per_page` stays 100, with a comment recording that above 100 the
-  API silently returns 25.
-- The `Total` header drives `hasMore` when present, and `Link` is deliberately never read.
+### The owner caught a bug in the R0 design
 
-### C1's split rule — the owner caught a bug in my R0 design
-
-R0.5 said a page-cap overflow should "carry the remainder into the next window". The owner's C1
-notes that is **K1 again**: with `order=desc` the leftover rows are the *oldest* in the window, and
-the next window starts at `end − overlap`, so they would never be fetched. He was right.
+R0.5 said a page-cap overflow should "carry the remainder into the next window". C1 notes that
+is **K1 again**: with `order=desc` the leftover rows are the *oldest* in the window, and the next
+window starts at `end − overlap`, so they would never be fetched. He was right.
 
 Implemented instead: on page 1, if `Total > per_page × MAX_PAGES`, **shrink the window end**
-(halve, recursively, down to a 1-minute floor) and re-fetch page 1. Shrinking the end is safe and
-self-healing — the dropped span is simply not covered yet, and the next window starts exactly where
-this one ended. Nothing is ever cut off.
+(halve, recursively, to a 1-minute floor) and re-fetch page 1. Shrinking the end is safe and
+self-healing — the dropped span is simply not covered yet, and the next window starts exactly
+where this one ended.
 
 ### A second correction, found by the test itself
 
-My first K1 test moved the victim row to a *past* timestamp still inside the window, and it was
-**still skipped** — because freezing the window bounds does not freeze the ordering *within* the
-window.
-
-That scenario cannot occur in reality: `updated_at` is a last-modified stamp, so an update during a
-walk sets it to **now**, which is at or past the frozen end. The row therefore leaves the window and
-the next window collects it. The test now models that correctly, and the assertion that matters is
-not "window 1 returned everything" but **"nothing is lost across consecutive windows"**.
+The first K1 test moved the victim row to a *past* timestamp still inside the window, and it was
+still skipped — freezing the window bounds does not freeze the ordering *within* the window.
+That scenario is the normal case's opposite: `updated_at` is a last-modified stamp, so an update
+during a walk sets it to **now**, at or past the frozen end. The row leaves the window and the
+next one collects it.
 
 ```
 K1 FIXED [PROVEN]: all 101 calls delivered across 2 windows
   (w1=100 rows, w2=1 row); C101 was updated mid-walk and collected by window 2
 ```
 
-### C9 — throttle `[PROVEN]`
+The assertion that matters is not "window 1 returned everything" but **"nothing is lost across
+consecutive windows"**. F2 below closes the remaining variant.
 
-`RetreaverAccountLimiters`, keyed on `company_id`, reusing Ringba's `DualWindowLimiter`.
-Defaults **2/sec · 60/min** (owner-approved, A4) — a conservative choice, not a measured ceiling.
-Tests prove same `company_id` shares one limiter, different ones do not, an empty id is still
-bounded, the env overrides work, and the limiter actually delays.
+## 4. F1 and F2 — the window is now honest about being incomplete
 
-### C10 — Go parity `[PROVEN]`
+### F1 — short windows retry, then degrade visibly
 
-`docker run --rm golang:1.25.14-alpine go test ./...` → **exit 0**, adapter suite ok (85.9s).
-Matches the host run on Go 1.27.1.
+R1 refused to advance the cursor when a window returned fewer rows than the API's own `Total`,
+but nothing retried and nothing surfaced it. On a 96,747-call backfill that is a sync stuck with
+no visible error — the silent gap this stage exists to prevent.
 
-### Rule 8 — Ringba no regression `[PROVEN]`
+**Built:**
 
-`go test ./...` across platform-sync: adapter **ok (87.8s)**, syncer ok, writeback ok, redact ok,
-state ok. `packages/pingdedup` ok. No Ringba integration was made Live; Ringba is proven by unit
-tests only, per Rule 8.
+| Behaviour | Detail |
+|---|---|
+| Bounded retry | `walkWindowWithRetry` re-walks the same window, `RETREAVER_WINDOW_RETRY_ATTEMPTS` (default 3) with a doubling `RETREAVER_WINDOW_RETRY_BACKOFF` (default 2s) |
+| Both paths | The incremental path and the `RangeFetcher` path call the same helper, so the rule is identical on each |
+| Cursor held | A persistent shortfall returns `*WindowShortfallError`; the syncer never reaches `UpdateSyncState`, so the cursor and `last_sync_at` stay put |
+| Degraded, not error | `classifySyncFailure` routes a shortfall to `degraded` and everything else to `error` |
+| One log line | window start/end, `Total`, rows collected, attempts, integration id, path |
+| Recovery | The next successful walk writes `ok` through the ordinary success path — no extra bookkeeping, no operator action |
+| Visible | Settings → Connected Platforms renders an amber **“Degraded — sync held”** pill; hover shows `last_sync_error` |
 
-## 4. C3 — 🙋 BLOCKED, as the amendments require
+The incremental path walks at most 10 pages per tick, so a window's row total is only known when
+its last page is read. The cursor therefore carries `collected`, a running count across ticks,
+which is what makes the shortfall detectable there at all.
+
+**`degraded` required a migration.** `integrations_sync_status_check` (migration `000020`) allowed
+only `idle | syncing | ok | error`, so writing `degraded` would have failed at runtime.
+Migration **`000028_sync_status_degraded`** widens the CHECK; the down migration rewrites any
+`degraded` row to `error` before narrowing it again. This is the one migration in Stage 4 —
+the R1 deploy note's "Migrations: none" is *superseded* (§7). Applied and verified here:
 
 ```
-revenue  Decimal(18, 4)   ← NOT nullable
-payout   Decimal(18, 4)   ← NOT nullable
+CHECK ((sync_status = ANY (ARRAY['idle','syncing','ok','error','degraded'])))
 ```
 
-R0.3 Q9 proved Retreaver returns `revenue` and `payout` as **`null`**, not `0`. The current schema
-cannot distinguish "not reported" from "zero", so mapping them today writes a silent `0.00`.
+**Tests** — `retreaver_shortfall_test.go` and `sync_status_test.go`:
 
-C3 says: stop and propose, do not invent a migration inside R1. **Proposed** (for the owner to
-approve, not built): make `revenue` / `payout` `Nullable(Decimal(18,4))`. Precedent exists in the
-same table — `required_duration_seconds` is `Nullable(UInt32)` and `was_payout_adjusted` is
-`Nullable(UInt8)`. The content hash must then distinguish null from 0, and every `sum()` must
-decide explicitly whether null counts as 0.
+```
+F1 retry       [PROVEN]: short walk retried once, 40/40 rows delivered, cursor free to advance
+F1 bounded     [PROVEN]: retreaver: window [...) returned 40 of 45 rows after 3 attempts — cursor held
+F1 recovery    [PROVEN]: degraded window returns to a clean walk without operator action
+F1 incremental [PROVEN]: the same rule fires on the incremental path
+```
 
-**This blocks the revenue/payout half of the D mapping.** The non-money fields
-(`converted`, durations, `duplicate`, names, `status`) are not blocked.
+plus `TestWindowWithoutTotalIsAccepted` (no `Total` header is not a shortfall — otherwise a
+fixture server would pin the integration to degraded forever),
+`TestShortfallIsDegradedNotError`, `TestWrappedShortfallIsStillDegraded`,
+`TestOrdinaryFailureIsError`, and `TestDegradedMessageNamesTheWindowAndCounts`.
 
-## 5. Open questions for the owner 🙋
+⚠️ **Honest limit.** The `degraded` *write* is proven by the migration and the CHECK constraint,
+and the *routing* by unit tests. The syncer holds a concrete `*store.IntegrationStore`, so there
+is no test that asserts the row in Postgres actually flips to `degraded` during a live tick.
+Refactoring the store to an interface for that was judged more churn than the assurance is worth.
+R2 will exercise it for real.
 
-1. **C3 migration** — approve `Nullable(Decimal)` for `revenue`/`payout`, or state that a silent 0
-   is acceptable. D mapping cannot finish either way until this is decided.
-2. **C8 account check** — ready to run: give one recent call UUID from the Retreaver web UI and I
-   will fetch it via `/api/v2/calls/{uuid}.json` and report `status`, `created_at`, `revenue` for
-   you to compare.
-3. **`pwsh`** — still not installed; the three gates cannot run, so Gate R1 cannot be met.
-4. **B1** — the key is in 1 transcript file on this machine. With rotation ruled out, confirm you
-   are content with "keep it private to this machine" as the mitigation.
+### F2 — the clock-skew variant
 
-## 6. Honest limitations
+The corrected K1 test models an update stamped at or after `window_end`. Clock skew between Calyx
+and Retreaver, or a slow walk, can instead stamp it just **before** `window_end`; the row then
+reorders to the top *inside* the frozen window and is skipped by that walk.
 
-1. **Gate R1 is not met.** C2 partial; C3 blocked; C4, C5, C6, C7 and both D items not started;
-   PowerShell gates not run.
-2. **No live Retreaver sync was run.** Everything is unit-tested against a fake API plus GET-only
-   probes. The integration stays on **Test**.
-3. **B3 cannot be satisfied as written** — R0 was never committed (the operator instructed no
-   commits at that point), so there is no R0 hash. R0 and R1 will land in one commit.
-4. **C2 is only half true today.** `Total` is used to drive paging, but a mismatch does not yet
-   retry, hold the cursor, or mark the integration degraded.
-5. **The K1 fix is proven against a fake server** that reproduces the behaviours R0.3 proved live
-   (`updated_at_end` honoured, desc-only, `Total` header). It has not met the real API.
-6. **Window splitting is unit-tested arithmetically**, not against a real oversized window.
+`TestRowUpdatedJustBeforeWindowEndIsNotLost` restamps a row to `window_end − 30s` mid-walk and
+asserts it arrives across two consecutive windows.
 
+```
+F2 [PROVEN]: a row restamped 30s before window_end is skipped by window 1
+             and collected by window 2's 15m0s overlap
+```
 
----
+**The guarantee, stated plainly.** No row is lost provided
+`walk duration + clock skew < RETREAVER_WINDOW_OVERLAP` (default 15 minutes).
 
-## 7. C4 — field-meaning table
+**Longest possible walk:** `MAX_PAGES × (1 / rate)` = 200 pages ÷ 2 req/sec ≈ **100 seconds**,
+against a 900-second overlap — a 9× margin. Two things protect it from growing: the page cap is
+what bounds the walk, and C1's window splitting means a window that would need more than 200
+pages is halved before paging rather than walked longer. With the retry in F1 the worst case is
+`attempts × 100s` ≈ 300 seconds, still inside the overlap. If either
+`RETREAVER_MAX_PAGES_PER_WINDOW` or `RETREAVER_WINDOW_RETRY_ATTEMPTS` is raised substantially, or
+the rate lowered, `RETREAVER_WINDOW_OVERLAP` must be raised to match.
+
+### F3 — the C3 assumption is watched, not trusted
+
+C3 is resolved without a migration on the strength of a 100-call sample. That is an empirical
+correlation, not a documented API guarantee, so `internal/adapter/retreaver_c3_monitor.go` counts
+every mapped call that breaks it and logs one line per violation (call UUID prefix only, Rule 5):
+
+| Violation | Why it matters |
+|---|---|
+| `converted=true`, `revenue` null | the stored `0.00` stops being unambiguous |
+| `converted=false`, `revenue` non-null | an unconverted call carries money; the correlation is broken |
+| `converted=true`, `revenue` exactly `0` | the one case `null → 0.00` genuinely cannot express |
+
+Counters are reported at the end of a Retreaver sync run, and only when non-zero:
+`retreaver C3 assumption violated — revisit the Nullable(Decimal) migration`. Six tests cover
+each violation, the conforming shapes, accumulation across a page, the absent-`converted` case
+(not a violation — that is what `HasConvertedPresent` records), and the UUID-prefix rule.
+
+**If R2 sees any violation, the owner revisits the migration.**
+
+## 5. C4 — field-meaning table
 
 The dashboard shows Ringba and Retreaver side by side, so a column must mean the same thing for
 both. Retreaver returns 71 fields; the adapter mapped 9 before R1 and maps 18 now.
 
 | Calyx field | Ringba source | Retreaver source | Meaning | Note |
 |---|---|---|---|---|
-| `Revenue` | `conversionAmount` → `revenue` | `revenue` | what the buyer pays | Retreaver sends `null` when unconverted — see C3 |
+| `Revenue` | `conversionAmount` → `revenue` | `revenue` | what the buyer pays | Retreaver sends `null` when unconverted — C3 / F3 |
 | `Payout` | `payoutAmount` → `payout` | `payout` | what the publisher is paid | same null behaviour |
 | `ProfitGross` | `profitGross` | `profit_gross` | gross margin | Retreaver always populates it, even unconverted (negative = telco cost) |
 | `HasConverted` | `hasConverted` | **`converted`** | platform says the call converted | both booleans; Retreaver always present |
-| `HasConvertedPresent` | presence of `hasConverted` | presence of `converted` | distinguishes "false" from "never asked" | works around `UInt8 DEFAULT 0` (F038/K8) |
+| `HasConvertedPresent` | presence of `hasConverted` | presence of `converted` | distinguishes "false" from "never asked" | ⚠️ **inert** — see F4 item 3 |
 | `HasConnected` | `hasConnected` | `connected` | the call actually connected | |
-| **`DurationSeconds`** | connected duration | **`dialed_call_duration`** | **connected talk time** | ⚠️ the close call — see below |
+| **`DurationSeconds`** | connected duration | **`dialed_call_duration`** | **connected talk time** | ⚠️ the one approximate mapping |
 | **`CallLengthSeconds`** | call duration | **`total_duration`** | **whole call incl. IVR/hold** | |
 | `PlatformDuplicate` | `isDuplicate` | **`duplicate`** | platform says the *lead* is a repeat | rule (b): out of revenue, in call counts |
 | `TargetName` | target name | `target_name` | the buyer | |
 | `PublisherName` | publisher name | **`affiliate_name`** | the traffic source | Retreaver says "affiliate" for the same concept |
-| `EventType` | event | `status` | call outcome | Retreaver: `finished`, `forwarded`, … |
+| `EventType` | event | `status` | call outcome | `finished`, `forwarded`, … — **predates R1**, see F4 item 2 |
 | `OccurredAt` | `callDt` | `created_at` | when the call happened | |
 | `UpdatedAt` | n/a | `updated_at` | last modification | Ringba has no last-modified — the reason it needed day-slicing |
 
-### The one genuinely approximate mapping
-
-**`DurationSeconds` (connected talk time).** Retreaver offers `total_duration`,
-`dialed_call_duration`, `billable_minutes`, `hold_duration`, `ivr_duration` and
-`time_to_connect_in_seconds`. Ringba's "connected duration" is time on the phone with the buyer.
-
-`dialed_call_duration` is the closest: it measures the dialed leg, i.e. buyer-connected time,
-whereas `total_duration` includes IVR and hold before the buyer answered. In the R0.3 sample
-`total_duration=14` with `dialed_call_duration=10`, and `total_duration=30` with
-`dialed_call_duration=30` — consistent with total ≥ dialed.
-
-Labelled `[INFERRED]`: it is a reasoned choice from field semantics and observed values, **not**
-confirmed against Retreaver documentation. If R2's reconciliation shows duration drift against the
+**The one genuinely approximate mapping.** `DurationSeconds` (connected talk time).
+`dialed_call_duration` is the closest to Ringba's "connected duration": it measures the dialed
+leg, i.e. buyer-connected time, whereas `total_duration` includes IVR and hold before the buyer
+answered. In the R0.3 sample `total_duration=14` with `dialed_call_duration=10`, and
+`total_duration=30` with `dialed_call_duration=30` — consistent with total ≥ dialed.
+Labelled `[INFERRED]`: reasoned from field semantics and observed values, **not** confirmed
+against Retreaver documentation. If R2's reconciliation shows duration drift against the
 Retreaver UI, this is the first mapping to re-examine.
 
-### Deliberately not mapped
+**Deliberately not mapped.** `CallKey` (webhook only — never returned by the API, asserted by an
+existing test), `BuyerID`/`BuyerName` (Retreaver models the buyer as the target), `HasRecording`,
+`WasConversionAdjusted`, `WasPayoutAdjusted` (no Retreaver equivalent found), and
+`RequiredDurationSeconds` (**no Retreaver equivalent exists**, so the duration half of the
+"should have converted" rule can never fire for Retreaver; it degrades to
+`revenue > 0 AND !converted`, which is correct but narrower than for Ringba).
 
-`CallKey` (never returned by the API — webhook only, asserted by an existing test),
-`BuyerID`/`BuyerName` (Retreaver models the buyer as the target),
-`HasRecording`, `WasConversionAdjusted`, `WasPayoutAdjusted` (no Retreaver equivalent found),
-`RequiredDurationSeconds` (**no Retreaver equivalent exists** — so the duration half of the
-"should have converted" rule can never fire for Retreaver; it degrades to `revenue > 0 AND
-!converted`, which is correct but narrower than for Ringba).
+## 6. F4 — the three behaviour changes, traced
 
-## 8. C3 resolved — by evidence, not by a migration
+The owner asked which spec item authorised three changes nobody requested. The honest answer is
+that **none of the three originated in R1**, and the R1 report was wrong to present them as its
+own. Each is traced to its commit below.
 
-R0 reported `revenue`/`payout` as `null` from a **3-call** sample and concluded a
-`Nullable(Decimal)` migration was required. The operator pushed back — the UI was showing revenue.
+### 6.1 `GET /pings` collapse with `?raw=true` — **introduced in `c4e3c5d`, not R1**
 
-He was right to push, and the 3-call sample was too small. A 100-call sample settles it:
+`git log -S` on `services/api/src/pings/` returns `c4e3c5d` ("feat: add conversion state handling
+and UI updates") for the collapse, and `1b6acf3` for an earlier unrelated `raw` usage. `c4e3c5d`
+added `PING_SELECT_COLLAPSED`, the `argMax(..., received_at)` projection, `sync_count`, and the
+`raw` query parameter. **R1's only change to `pings.service.ts` was adding the
+`conversion_reported` field** — confirmed by reading `git show 61f4941 -- services/api/src/pings/`.
 
-| field | null | zero | non-zero |
-|---|---|---|---|
-| `revenue` | 60 | **0** | 40 |
-| `payout` | 60 | **0** | 40 |
-| `converted` | — | 60 false | 40 true |
+So this belongs to `convert-cancel-screen`, which is still awaiting its own review. It is
+recorded here because the R1 report announced it as a behaviour change and the owner reasonably
+read that as R1's doing.
 
-The correlation is exact: **`revenue = null` ⟺ `converted = false`**, and never once `0`.
+**Consumers**, all reading the collapsed view by default:
 
-So "not reported" and "zero" are not ambiguous for Retreaver once `converted` is mapped beside the
-amount. Mapping `null → 0.00` alongside `converted` loses nothing:
+| Consumer | Effect |
+|---|---|
+| `GET /pings` list | one row per call; `sync_count` badge when > 1 |
+| CSV export (`pings.service.ts`) | exports the collapsed row, with `sync_count` |
+| Stage 3 list and conversion filter | filters apply to the collapsed row |
+| `PingsTable.tsx` | renders the `sync_count` "×N" badge |
+| `verify-ingestion-slice.ps1` | deliberately passes `raw=true` — it asserts the event-stream contract |
+| Dashboard KPIs, Coverage | `analytics.service.ts` and `coverage.service.ts` run their own aggregates |
+| Live feed | unaffected — streams Kafka events, not this query |
 
-| `converted` | stored `revenue` | meaning |
+**Dashboard totals, before and after, same data** (measured directly in ClickHouse):
+
+| Mode | Rows | Revenue |
 |---|---|---|
-| false | 0.00 | not converted, no money — correct |
-| true | 37.50 | converted, real money |
+| raw (pre-collapse) | 153 | $2,000.75 |
+| collapsed (current) | 151 | $1,986.25 |
 
-**No migration is needed.** Labelled `[PROVEN on a 100-call sample]` — a strong empirical
-correlation, not a documented API guarantee. The only case it could not express is "converted for
-exactly $0", which does not occur in the sample. 🙋 The owner can overrule this and take the
-migration if he wants the schema to be unambiguous by construction.
+The difference is two Ringba rows that had been re-synced with a changed revenue. The collapse
+**removed $14.50 of double-counted re-sync revenue** — it corrected an over-count rather than
+hiding data. `[PROVEN]` on this database.
 
-*(The revenue visible in the Ping Feed during this discussion was **mock**: 43 `apisync-retreaver-*`
-rows, all exactly $11.25 — one distinct value — generated by our own Test-mode adapter. There are
-still **zero real Retreaver rows** in ClickHouse.)*
+### 6.2 `EventType ← Retreaver status` — **predates `c4e3c5d` too**
 
-## 9. C6 proof — Ringba unchanged, false positives gone
+Present on `main` at `ba9c825`, `retreaver_adapter.go:233-237,250`, identical logic:
+`eventType := "incoming"`, overridden by `row.Status` when non-empty. R1 did not touch it.
+R0.1's field inventory listed nine mapped fields and omitted `EventType`, which is why it looked
+new in the R1 diff. **That was an R0 reporting error, corrected here.**
 
-`should_convert` counts, `show_demo=true`, before and after:
+**No consumer expects a fixed set.** `rg` for any SQL predicate on `event_type` across
+`services/`, `web/src`, and `db/` returns **zero** matches. Specifically:
 
-| platform | before | after | |
+| Consumer | Behaviour with `finished` / `forwarded` |
+|---|---|
+| ClickHouse `pings.event_type` | `LowCardinality(String) DEFAULT 'incoming'` — free-form, no enum |
+| `PingsTable.tsx:92` | renders `{p.event_type}` capitalised; any string works |
+| `use-hybrid-ping-feed.ts:56` | coerces a non-string to `'incoming'`; a string passes through |
+| `kafka-live-consumer.service.ts:126` | same coercion |
+| `StatusPill.tsx` `liveEventLabel` | a `switch` **on the live-feed event type**, a different field; unknown values fall through to `default` and are returned unchanged |
+| Analytics / Coverage / compliance | aggregate by platform, state and time — never by `event_type` |
+
+`[PROVEN]` by search: no filter, badge, or aggregate constrains the value.
+
+### 6.3 `HasConvertedPresent` — pre-existing field, and it is **inert**
+
+The field was added for Ringba in `5838d80` and lives on `models.RemoteCall` (`models.go:52`).
+R1 added the Retreaver assignment (`retreaver_adapter.go:407`, `row.Converted != nil`).
+
+**Where is it stored? Nowhere.** Tracing it out of the adapter:
+
+- **Not in the content hash** — `pingdedup.Content` carries `HasConverted`, not the presence flag.
+- **Not published** — `remoteCallContent` and the Kafka payload in `syncer.go:388-410` copy
+  `HasConverted` and never `HasConvertedPresent`.
+- **Not a column** — `rg has_converted_present db/ services/ packages/ shared/` returns zero.
+
+Its only readers are a Ringba debug probe (`cmd/probe-ringba-1b-lookup`) and the R1 mapping test.
+
+So the C4 row claiming it "works around `UInt8 DEFAULT 0` (F038/K8)" **overstated it**, and that
+row is now marked ⚠️ inert. The mechanism the API actually uses for `conversion_reported` is the
+static platform list in `services/api/src/common/platform-capabilities.ts`, exactly as C6
+required — not this field.
+
+**Verdict: keep, do not revert.** It costs one pointer comparison, it is consistent with Ringba,
+and it is the natural place to read from if the presence distinction is ever stored. It is
+documented as inert so nobody assumes it is load-bearing.
+
+### 6.4 One change that **is** R1's, and was not asked for
+
+R1 added the `reportsConversionStateSql()` guard to the **`converted` and `unconverted`** filters,
+not only to `should_convert`. C6 asked for the badge and the "should have converted" filter.
+
+The owner reviewed this and chose **keep**: `has_converted = 0` means "not converted" for a
+platform that reports conversion state and "we never asked" for one that does not, so
+"Not converted" was quietly wrong for TrackDrive and CallGrid. Recorded here as a deliberate
+extension of C6 rather than an accident.
+
+## 7. C6 proof — Ringba unchanged, false positives gone
+
+`should_convert` counts on the current database, with and without the C6 guard:
+
+| platform | without guard | with guard | |
 |---|---|---|---|
-| ringba | 25 | **25** | ✅ identical, as C6 requires |
-| retreaver | 57 | **57** | ✅ identical |
-| trackdrive | 5 | **0** | ✅ no longer flagged |
-| callgrid | 5 | **0** | ✅ no longer flagged |
+| ringba | 50 | **50** | ✅ identical, as C6 requires |
+| retreaver | 98 | **98** | ✅ identical |
+| trackdrive | 9 | **0** | ✅ no longer flagged |
+| callgrid | 9 | **0** | ✅ no longer flagged |
 | callloom-native | 8 | **0** | ✅ no longer flagged |
-| **all** | 100 | **82** | 18 false positives removed |
+| **all** | 174 | **148** | 26 false positives removed |
+
+(Counts are higher than the 25/57/18 in the first R1 draft because the fixture database has
+grown with each gate run since. The property that matters — Ringba and Retreaver identical
+before and after, non-reporting platforms zeroed — holds either way.)
 
 One source of truth: `services/api/src/common/platform-capabilities.ts`. The API stamps
-`conversion_reported` onto every ping row, and the web reads that field — the UI holds no platform
-list of its own, so badge and filter cannot drift. Rows from non-reporting platforms render `n/a`
-rather than a truthful-looking "Review".
+`conversion_reported` onto every ping row and the web reads that field, so the UI holds no
+platform list of its own and badge and filter cannot drift. Rows from non-reporting platforms
+render `n/a` rather than a truthful-looking "Review".
 
-## 10. D — sweeps and backfill are now shared
+## 8. Remaining work and open questions 🙋
 
-`RunWindow` and the sweeps were gated on `strings.EqualFold(item.Platform, "ringba")`, and
-`Registry.FetchRange` type-asserted `*RingbaAdapter`. Both are replaced by a capability:
+1. **C8 — account check, PENDING.** Ready to run and unchanged since R1: the owner picks one
+   recent call in the Retreaver web UI and sends its UUID; the adapter fetches it through the
+   stored integration (`/api/v2/calls/{uuid}.json`) and reports `status`, `created_at` and
+   `revenue` for him to compare. **No UUID has been provided, so this could not be run.**
+   Rule 7 currently rests on the company-ID last 4 (`5270`) alone.
+2. **Rule 10 — still open.** Before R2 makes this integration Live, confirm no other environment
+   is live-syncing the same Retreaver account. `Total` reported 96,747 calls for a 1-year window.
+3. **Migration `000028` is new.** The owner approved adding `degraded` rather than reusing
+   `error`. It must run before the new `platform-sync` image on the server (§10).
+4. **Branch order.** `stage4/retreaver` must not merge before `convert-cancel-screen` (`c4e3c5d`)
+   is reviewed and merged on its own (amendments A6). F4 item 6.1 gives that review one more
+   thing to look at: the `/pings` collapse originated there.
 
-```go
-type RangeFetcher interface {
-    FetchRange(ctx, creds, start, end) (PageResult, error)
-}
-```
+## 9. Changes and commit
 
-Ringba and Retreaver implement it; TrackDrive and CallGrid do not and keep the plain incremental
-path. Sweep tiers are per-platform env vars so the two vendors' very different rate budgets can be
-tuned independently.
-
-## 11. Tests added in R1
-
-| File | Covers |
+| File | Type |
 |---|---|
-| `retreaver_redaction_test.go` | B2(3) — 4 tests; found the real leak |
-| `retreaver_k1_paging_test.go` | K1 fixed across two windows; window is bounded |
-| `retreaver_window_test.go` | C1 splitting, window construction, C9 throttle (6 tests) |
-| `retreaver_mapping_test.go` | D mapping, C3 null semantics, C5 hash both directions |
-| `retreaver_resilience_test.go` | C7 downtime, C7 long call, crash resume |
+| `db/postgres/migrations/000028_sync_status_degraded.{up,down}.sql` | **new** — F1 |
+| `services/platform-sync/internal/adapter/retreaver_window.go` | shortfall error, bounded retry, shared window walk |
+| `services/platform-sync/internal/adapter/retreaver_adapter.go` | cursor `collected`, incremental shortfall, C3 monitor hook |
+| `services/platform-sync/internal/adapter/retreaver_c3_monitor.go` | **new** — F3 |
+| `services/platform-sync/internal/adapter/mock.go` | F6 |
+| `services/platform-sync/internal/syncer/syncer.go` | `classifySyncFailure`, degraded status, C3 reporting |
+| `web/src/components/settings/IntegrationsList.tsx` | F1 — the one permitted UI change |
+| `scripts/verify-presentation.ps1` | F5 |
+| `README.md` | F5 — macOS `pwsh-preview` note |
+| `services/platform-sync/internal/adapter/retreaver_shortfall_test.go` | **new** — F1, F2 |
+| `services/platform-sync/internal/adapter/retreaver_c3_monitor_test.go` | **new** — F3 |
+| `services/platform-sync/internal/adapter/mock_conversion_test.go` | **new** — F6 |
+| `services/platform-sync/internal/syncer/sync_status_test.go` | **new** — F1 |
+| `docs/retreaver-r1-fix.md` | the owner's review, brought onto the branch |
+| `docs/retreaver-stage4-report.md` | this rewrite (F7) |
 
-**Verification:** platform-sync `go test ./...` **all ok** · `packages/pingdedup` ok ·
-`golang:1.25.14-alpine` **exit 0** (C10) · `check-smoke-call-id-prefix` PASS (328 files) ·
-`check-ws-origin` PASS · API `tsc --noEmit` clean · secret scan of every changed file clean.
+R0, R1 and this fix land in **one commit** on `stage4/retreaver` — R0 was never committed
+separately (B3), so there is no earlier hash to quote. Commit hash in §12.
 
-## 12. What is still not done
+**Secret scan before commit:** every file above scanned for the company-ID last 4, `api_key=`,
+`company_id=`, bearer tokens and 32+ character hex/alphanumeric runs. **0 matches.**
 
-1. **The three PowerShell gates — `pwsh` is not installed.** This alone means Gate R1 is not met.
-2. **C2 is partial.** `FetchRange` refuses to advance when a window returns fewer rows than
-   `Total`, and `Total` drives `hasMore` on the incremental path. Not built: bounded retry with
-   backoff, and marking the integration's sync status *degraded* on repeated mismatch.
-3. **No live Retreaver sync.** Everything is unit-tested against a fake API that reproduces the
-   behaviours R0.3 proved live. The integration stays on **Test**; ClickHouse still holds zero real
-   Retreaver rows. R2 is where this meets reality.
-4. **`DurationSeconds` is `[INFERRED]`** — see §7.
-5. **Window splitting is unit-tested arithmetically**, never against a real oversized window.
-6. **C8 not run** — needs a call UUID from the owner.
+## 10. Server deploy note
 
-
----
-
-## 13. Gate E — the three PowerShell gates
-
-```
-SYSTEM VERIFY PASS            Docker 15/15 · Healthz 11/11 · LiveStatus PASS · API 20/20
-                              Web routes 13/13 · WebSocket PASS · SmokePrefix PASS
-                              BrowserCSP PASS · Unit tests PASS · Web build PASS · Pipeline 4/4
-INGESTION SLICE VERIFY PASS
-PRESENTATION VERIFY PASS      20/20
-```
-
-`pwsh` installed as **PowerShell 7.7.0-preview.5**. Note the binary is **`pwsh-preview`**, not
-`pwsh` — the plain `powershell` cask no longer exists, and the preview cask does not create a
-`pwsh` symlink. `Makefile` targets that call `powershell`/`pwsh` will not find it on macOS
-without an alias.
-
-### Worth recording: the previously-failing WebSocket check now passes
-
-`s1a-followup-report.md` item 4 recorded `verify-system` = **FAIL (WS)**. It now reports
-`LiveStatus: PASS` with `group=calyx-api-live-feed is_group_member=True status=ok
-recreate_count=0`, and `WebSocket: PASS`. Not fixed by this phase — recorded as an observation
-`[PROVEN]`, since that FAIL was the outstanding blemish on the "checks pass" claim.
-
-### Six script fixes were required — all Windows-only assumptions
-
-None of these are product changes. Rule: *adapt the scripts, never weaken the product.*
-
-| Script | Problem | Fix |
-|---|---|---|
-| `verify-ingestion-slice.ps1` | `[Environment]::GetEnvironmentVariable("Path","Machine")` returns **$null** on macOS, blanking `$env:Path` so every `docker`/`go` call afterwards fails | guarded with `if ($IsWindows)` |
-| `demo-seed.ps1` | same line | same guard |
-| `verify-system.ps1` | health-checked port **3000** — the container-internal port, never published since the 3100/3101/9100 remap | now checks **3100** |
-| `verify-system.ps1` | shelled out to `powershell`, a Windows-only binary name | re-invokes its own host via `(Get-Process -Id $PID).Path` |
-| `check-dashboard-browser.mjs` | hardcoded `C:\Program Files\Google\Chrome\...`, so the browser gate could only ever run on Windows | platform-aware resolution, falling back to Playwright's bundled Chromium |
-| `verify-presentation.ps1` | asserted `/pings` total > 0 **without** `show_demo`, which cannot pass on a fixture-only database | asks for `show_demo=true` — this is enterprise-roadmap item **H** |
-
-### One failure genuinely caused by R1 — and the product was right
-
-`verify-ingestion-slice` counted rows from `/pings` expecting **2** after a revenue change. The
-Stage 4 collapse returns one row per call, so it saw 1.
-
-Checked against the database before touching the script:
-
-```
-ClickHouse     : 2 rows, revenues [42.5, 7.25]   <- both versions stored
-API collapsed  : 1 row,  revenue 42.5, syncs=2   <- latest value, correct
-API raw=true   : 2 rows, revenues [42.5, 7.25]   <- event stream, correct
-```
-
-The stored data and both views are correct; the gate was reading the wrong one. It asserts the
-**event-stream** contract ("an unchanged re-send adds no row, a changed re-send adds one"), so it
-now passes `raw=true`. `[PROVEN]`
-
-### Two environment fixes (not code)
-
-- `web/node_modules` was absent, so the gate's `next build` and the Playwright check could not
-  run. `npm ci` — 398 packages.
-- Restarted the five Chapter-2 services stopped earlier for load. With all 18 containers running
-  the host load is **2.70** — the earlier thrashing was the API crash-loop, not raw capacity.
-
-## 14. Server deploy note
-
-- **Rebuild:** `platform-sync` (adapter, throttle, syncer) and `api` (pings filter/service,
-  platform-capabilities) and `web` (badge + `conversion_reported`).
-- **Migrations:** none.
+- **Rebuild:** `platform-sync`, `api`, `web`.
+- **Migration:** 🔴 **`000028_sync_status_degraded` — run it before starting the new
+  `platform-sync` image.** Without it, an incomplete window makes `platform-sync` attempt
+  `sync_status = 'degraded'`, which the old CHECK constraint rejects. *This supersedes the
+  earlier R1 note of "Migrations: none".*
 - **New env vars, all with working defaults** — nothing must be set for current behaviour:
 
 | Variable | Default |
 |---|---|
 | `RETREAVER_WINDOW_OVERLAP` | `15m` |
 | `RETREAVER_MAX_PAGES_PER_WINDOW` | `200` |
+| `RETREAVER_WINDOW_RETRY_ATTEMPTS` | `3` |
+| `RETREAVER_WINDOW_RETRY_BACKOFF` | `2s` |
 | `RETREAVER_SWEEP_DAYS` / `RETREAVER_SWEEP_INTERVAL` | `7` / `60m` |
 | `RETREAVER_DEEP_SWEEP_DAYS` / `RETREAVER_DEEP_SWEEP_INTERVAL` | `30` / `24h` |
 | `RETREAVER_RATE_PER_SEC` / `RETREAVER_RATE_PER_MIN` | `2` / `60` |
 
 - **One-off commands:** none.
-- ⚠️ **Behaviour change to announce:** `GET /pings` now returns one row per call by default;
+- ⚠️ **Behaviour change to announce:** `GET /pings` returns one row per call by default;
   `?raw=true` restores the event stream. Any external consumer counting rows must be checked.
-- Reminder: Retreaver live sync must run from **one place only** (Rule 10), and this branch must
-  not merge before `convert-cancel-screen` is reviewed and merged (amendments A6).
+  Note this originates in `c4e3c5d`, not Stage 4 (F4 item 6.1).
+- ⚠️ **New UI state:** Settings → Connected Platforms can now show **Degraded — sync held**.
+- Retreaver live sync must run from **one place only** (Rule 10), and this branch must not merge
+  before `convert-cancel-screen` is reviewed and merged (A6).
+
+## 11. Proof — everything that was run
+
+| Check | Result |
+|---|---|
+| `verify-system.ps1` | **PASS** — Docker 15/15 · Healthz 11/11 · LiveStatus PASS · API 20/20 · Web routes 13/13 · WebSocket PASS · SmokePrefix PASS · BrowserCSP PASS · Unit tests PASS · Web build PASS · Pipeline 4/4 |
+| `verify-ingestion-slice.ps1` | **PASS** — includes the content-hash suppress/republish pair and the Retreaver `call_key` ciphertext check |
+| `verify-presentation.ps1` | **PASS 20/20** — both F5 paths, below |
+| platform-sync `go test ./...` | **ok** — adapter 93.3s, syncer, writeback, redact, state |
+| `packages/pingdedup` `go test ./...` | **ok** |
+| `golang:1.25.14-alpine go test ./...` | **exit 0** (C10) |
+| API `tsc --noEmit` | clean |
+| API Jest | **15/15** |
+| Secret scan of every changed file | **0 matches** |
+
+### F5 — both paths shown `[PROVEN]`
+
+Real rows absent (this database):
+
+```
+PASS DEMO-ONLY fixture pings total > 0 (161) - no real rows in this database
+NOTE DEMO-ONLY: this gate did not exercise real data. Re-run after a live sync to assert on real rows.
+```
+
+One real (non-prefixed) row temporarily inserted into ClickHouse, gate re-run, row then deleted
+and the database verified back to 0 real rows:
+
+```
+PASS pings total > 0 on real (non-demo) rows (1)
+```
+
+So the gate asserts on real data whenever real data exists, and says `DEMO-ONLY` loudly when it
+does not — it can no longer pass on demo rows while silently ignoring an empty real dataset.
+
+### Rule 8 — Ringba no regression `[PROVEN]`
+
+Full platform-sync suite green, including every Ringba adapter, windowing and writeback test.
+C6 counts for Ringba identical with and without the guard (§7). No Ringba integration was made
+Live; per Rule 8, Ringba is proven by unit tests plus the gates, and this phase changed no
+Ringba-specific code — only shared code, which the Ringba tests cover.
+
+### Gate E note — the previously-failing WebSocket check still passes
+
+`s1a-followup-report.md` item 4 recorded `verify-system` = FAIL (WS). It reports
+`LiveStatus: PASS` and `WebSocket: PASS`. Not fixed by this phase; recorded as an observation
+`[PROVEN]`, since that FAIL was the outstanding blemish on the "checks pass" claim.
+
+### The six script portability fixes (accepted in the amendments, listed for the record)
+
+All Windows-only assumptions. Rule: *adapt the scripts, never weaken the product.*
+
+| Script | Problem | Fix |
+|---|---|---|
+| `verify-ingestion-slice.ps1` | `[Environment]::GetEnvironmentVariable("Path","Machine")` returns `$null` on macOS, blanking `$env:Path` | guarded with `if ($IsWindows)` |
+| `demo-seed.ps1` | same line | same guard |
+| `verify-system.ps1` | health-checked port **3000**, the container-internal port, never published since the 3100/3101/9100 remap | now checks **3100** |
+| `verify-system.ps1` | shelled out to `powershell`, a Windows-only binary name | re-invokes its own host via `(Get-Process -Id $PID).Path` |
+| `check-dashboard-browser.mjs` | hardcoded `C:\Program Files\Google\Chrome\...` | platform-aware resolution, falling back to Playwright's bundled Chromium |
+| `verify-presentation.ps1` | asserted `/pings` total > 0 without `show_demo`, impossible on a fixture-only database | **superseded by F5** — real rows first, `DEMO-ONLY` fallback second |
+
+One gate failure was genuinely caused by R1, and the product was right:
+`verify-ingestion-slice` counted rows from `/pings` expecting 2 after a revenue change, but the
+collapse returns one row per call. ClickHouse held both versions, the collapsed view showed the
+latest with `syncs=2`, and `raw=true` showed both. The gate asserts the **event-stream**
+contract, so it now passes `raw=true`. `[PROVEN]`
+
+## 12. Honest limitations
+
+1. **No live Retreaver sync has been run.** Everything is unit-tested against fake servers that
+   reproduce the behaviours R0.3 proved live (`updated_at_end` honoured, desc-only, `Total`
+   header). The integration stays on **Test**; ClickHouse holds **zero real Retreaver rows**.
+   R2 is where this meets reality.
+2. **C8 was not run** — no call UUID from the owner. Rule 7 rests on the company-ID last 4.
+3. **The `degraded` Postgres write is not integration-tested** — migration and routing are
+   proven, the live transition is not (§4).
+4. **`DurationSeconds` is `[INFERRED]`** — `dialed_call_duration` is a reasoned choice from field
+   semantics, not confirmed against Retreaver documentation (§5).
+5. **Window splitting is unit-tested arithmetically**, never against a real oversized window.
+6. **C3 rests on a 100-call sample**, not a documented API guarantee. F3 now makes a break
+   visible, but only once R2 runs against real data.
+7. **The throttle default (2/sec · 60/min) is a judgement call**, not a measured ceiling.
+   Retreaver publishes no number; 3 req/s was observed clean over only 20 requests.
+8. **`Total` = 96,747 is for a 1-year `updated_at` window**, not necessarily the whole account
+   history. Full-history scale is still `[UNKNOWN]`.
+9. **The F5 real-data path was proven with one synthetic row** inserted and removed, not with a
+   genuine synced call.
+10. **Local dev machine, not the staging server.**
+
+---
+
+**Gate R1 re-check: F1–F8 complete, C8 pending the owner's UUID. STOP — waiting for `GO R2`.**
