@@ -1080,7 +1080,10 @@ render `n/a` rather than a truthful-looking "Review".
 1. **C8 — account check, DONE.** *Superseded: R1 and the first fix pass both recorded this as
    pending for want of a UUID.* The owner supplied `efb37d8a`, which is only the first segment
    of a UUID; `/api/v2/calls/efb37d8a.json` returns **403**, and the call is not among the 25
-   most recent (Retreaver caps `per_page` at 25). Since the check is about the *account*, not
+   most recent. *Correction: an earlier draft of this line said Retreaver "caps `per_page` at
+   25". It does not — R0.3 Q4 proved the max is **100**, and anything above 100 silently falls
+   back to 25. The probe asked for 250 and got 25, which is the fallback, not a cap. The search
+   therefore covered the newest 25 calls, and could have covered 100.* Since the check is about the *account*, not
    any particular call, it was run against three real calls instead, via
    `cmd/verify-retreaver-call` using the stored integration decrypted in-process:
 
@@ -1276,4 +1279,194 @@ contract, so it now passes `raw=true`. `[PROVEN]`
 
 ---
 
-**Gate R1 re-check: F1–F8 complete and C8 done. STOP — waiting for `GO R2`.**
+**Gate R1 re-check: F1–F8 complete and C8 done. R1 accepted in `docs/retreaver-r2-go.md`.**
+
+---
+
+# PHASE R2 — pre-flight
+
+Against `docs/retreaver-r2-go.md`. The Live switch and the backfill have **not** been started;
+this section records the pre-flight only.
+
+| Item | Owner of the answer | Result |
+|---|---|---|
+| **P1** commit hash + remote branch | me | **PASS** |
+| **P2** 🔴 `degraded` schedules like `error` | me | **PASS** — no status filter anywhere |
+| **P3** API and UI accept `degraded` at runtime | me | **PASS** — no validator constrains it |
+| **P4** C8 compared in the Retreaver UI | owner | **MATCH** — owner confirms all three calls |
+| **P5** Rule 10 | owner | **CONFIRMED** — Retreaver sync is off; see the caveat below |
+| **P6** backfill range | owner | **Last 30 days (UTC)** |
+
+## P1 — commit and push
+
+```
+$ git rev-parse HEAD
+54650bafef36e13c10cd5e83194ab954653b423d
+$ git log origin/stage4/retreaver -1 --oneline
+54650ba docs(stage4-r1): complete C8 against the live account
+```
+
+Local `HEAD` and `origin/stage4/retreaver` are the same commit, so nothing is unpushed. The
+branch is `stage4/retreaver`; `main` was never pushed to. Commits on the branch above `main`:
+
+```
+54650ba docs(stage4-r1): complete C8 against the live account
+fe4bc8d docs(stage4-r1): make the secret-scan claim precise
+2e3bb71 docs(stage4-r1): complete F4's event_type consumer list
+b7cf15d fix(stage4-r1): finish C2 as F1 degraded status, monitor C3, trace F4, one-truth report
+61f4941 feat: Implement Retreaver integration with comprehensive tests
+c4e3c5d feat: add conversion state handling and UI updates
+```
+
+`[PROVEN]`
+
+## P2 🔴 — `degraded` is scheduled exactly like `error`
+
+### The selection queries — checked live, not from the migration files
+
+This mattered. Migration `000025` redefines `get_api_sync_integration_any`, so reading
+`000023` alone would have been guesswork about what is actually installed. Dumped from the
+running database with `pg_get_functiondef`:
+
+| Function | `WHERE` clause | `sync_status` filter? |
+|---|---|---|
+| `list_api_sync_integrations()` | `connection_mode='api_sync' AND is_active=TRUE AND api_credentials_blob IS NOT NULL` | **none** |
+| `get_api_sync_integration()` | the same, plus `id` and `tenant_id` | **none** |
+| `get_api_sync_integration_any()` | the same, minus `is_active` | **none** |
+
+Migration `000028` alters only the `integrations_sync_status_check` constraint. It defines no
+function and touches no query. `[PROVEN]`
+
+### One selector serves all three paths
+
+There is no separate sweep query to audit:
+
+| Path | Entry point | Selection |
+|---|---|---|
+| Tick | `syncer.go:54` `RunAll` | `s.store.ListAPISync` |
+| Hourly sweep | `syncer.go:77` `RunAllSweeps` → `:103` `runSweeps` | `s.store.ListAPISync` |
+| Deep sweep | `syncer.go:82` `RunAllDeepSweeps` → `:103` `runSweeps` | `s.store.ListAPISync` |
+
+`ListAPISync` (`store/integrations.go:21`) is a bare `SELECT * FROM list_api_sync_integrations()`.
+The only filter `runSweeps` adds in Go is `SupportsRange(platform, syncMode)` at `syncer.go:112`
+— a capability check, not a status check. `[PROVEN]`
+
+### The Go side never reads the stored status
+
+Every occurrence of `item.SyncStatus` in non-test Go:
+
+```
+store/integrations.go:63   item.SyncStatus = *syncStatus   (assignment, scanning a row)
+store/integrations.go:162  item.SyncStatus = *syncStatus   (assignment, scanning a row)
+```
+
+Both are writes into the struct while scanning. The field is **never read** anywhere, so no
+branch can skip on it. The only other `sync_status` in Go is the write helper
+`UpdateSyncStatus` (`store/integrations.go:192`). `classifySyncFailure` (`syncer.go:501`)
+compares a status it has just computed for the *current* failure, never the stored one.
+`[PROVEN]` by exhaustive search.
+
+### The test
+
+`scripts/verify-degraded-scheduling.sql`. The rule lives in SQL, so a Go unit test with a fake
+store would prove nothing about it; this runs against the real database inside a transaction
+that is rolled back, leaving no residue.
+
+```
+PASS sync_status=idle is scheduled
+PASS sync_status=syncing is scheduled
+PASS sync_status=ok is scheduled
+PASS sync_status=error is scheduled
+PASS sync_status=degraded is scheduled
+PASS get_api_sync_integration() returns a degraded integration
+PASS a successful walk clears degraded and its error, with no operator action
+PASS control — is_active=false does deschedule, so the selector is not inert
+ALL PASS: degraded is scheduled exactly like error
+```
+
+The control matters: without it, every other assertion would also pass if the selector filtered
+nothing at all. `is_active=false` does deschedule, so the selector is discriminating and the
+`degraded` result is meaningful. `[PROVEN]`
+
+`internal/store/scheduling_test.go` carries the same four cases as Go tests for CI. They
+**skip** on this machine: the `callloom_sync` role holds `EXECUTE` on the `SECURITY DEFINER`
+functions but no table privileges, so the test cannot seed a row. That is correct
+least-privilege design, and the SQL test above is the one that actually runs here. Stated
+plainly rather than reported as a pass.
+
+## P3 — the API and UI accept `degraded` at runtime
+
+### Nothing validates the value
+
+| Layer | What was checked | Finding |
+|---|---|---|
+| API Zod | every schema in `integrations.controller.ts:25-56` | validates **request bodies only** — `platform`, `connection_mode`, `sync_mode`, credentials. `sync_status` is never in a schema |
+| API types | `integrations.service.ts:41,86,550,564,579,588` | `sync_status: string` — no union, no enum, no DTO decorator |
+| API default | `integrations.service.ts:618` | `row.sync_status ?? 'idle'` — passes any string through |
+| API behaviour | `integrations.service.ts:357` | the one read: `=== 'syncing'` blocks a backfill mid-sync. `degraded` does not match, so a degraded integration **stays retryable** — which is the desired behaviour |
+| Global pipes | `main.ts`, `app.module.ts` | no `ClassSerializerInterceptor`, no response `ValidationPipe` |
+| Web type | `web/src/lib/api.ts:147` | `sync_status: string` |
+| Web styling | `IntegrationsList.tsx:36` | `switch` with a `default:` branch → unknown values render muted, never throw |
+| Web label | `IntegrationsList.tsx:51` | returns the raw string unless it is `degraded` |
+
+`[PROVEN]` by search: no runtime validator anywhere constrains `sync_status`.
+
+### Shown live
+
+`My test` was set to `degraded` by SQL, with `platform-sync` stopped first so no tick could
+overwrite it mid-check, then restored. Settings rendered:
+
+![Settings showing the degraded pill](evidence/r2-preflight/p3-degraded-settings.png)
+
+```
+rowsRendered   5
+pillText       "Degraded — sync held"
+tooltip        "retreaver: window [2026-09-28T00:00:00Z, 2026-09-29T00:00:00Z)
+                returned 187 of 214 rows after 3 attempts — cursor held"
+colour         rgb(251, 191, 36)        background  rgba(245, 158, 11, 0.15)
+tooltipLeaksKey  false
+pageErrored      false
+```
+
+The page loaded with no error and no console failure, and the tooltip carries no credentials.
+`[PROVEN]`
+
+⚠️ **The pill only renders for `api_sync` integrations** (`IntegrationsList.tsx:237`); webhook
+rows show `—`. That is correct, since webhooks never sync, but it means a webhook integration
+cannot be used to demonstrate this.
+
+## P4, P5, P6 — the owner's answers
+
+- **P4 — MATCH.** The owner compared `d8858bae…`, `97818024…` and `3e0d7343…` in the Retreaver
+  web UI and confirms `status`, `created_at` and `revenue` agree with §8.1.
+- **P5 — Rule 10.** The owner confirms the Retreaver sync is off. 🙋 *Caveat, stated honestly:
+  this was verified for **this machine** — `My test` is `is_active = false`, no tick has run
+  since `2026-09-30T22:26:58Z`. Whether the staging server holds a Live Retreaver integration
+  for company `…5270` has not been checked from here and rests on the owner's word.*
+- **P6 — last 30 days (UTC)**, matching Ringba's S1 decision and the 30-day deep sweep.
+
+## Correction carried into §8.1
+
+The owner was right. §8.1 claimed Retreaver "caps `per_page` at 25". R0.3 Q4 had already proven
+the max is **100**, with anything above silently falling back to 25 — the probe asked for 250,
+hit the fallback, and the wrong conclusion was drawn from it. §8.1 now records this.
+
+## State of the machine at the end of the pre-flight
+
+| Integration | Mode | Active | Status |
+|---|---|---|---|
+| `My test` (retreaver) | `api_sync`, Test | **false — sync off** | `ok`, no error |
+| `Retreaver Dev Postback` | webhook | true | `idle` |
+| Ringba / TrackDrive / CallGrid dev | webhook | true | `idle` |
+
+Every temporary change made during the pre-flight was reverted, and `platform-sync` is running
+again.
+
+⚠️ **Pausing an integration hides it from Settings.** The list endpoint is
+`WHERE is_active = TRUE` (`integrations.service.ts:110`), so `My test` currently does not appear
+in the UI at all. It is not deleted — credentials, cursor and lookback are intact — but anyone
+looking at Settings right now will not see a Retreaver API integration. It must be re-activated
+as part of the Live switch.
+
+**Pre-flight P1–P6 complete. STOP — awaiting the owner's go-ahead for the Live switch and the
+30-day backfill. R2 itself has not been started.**
