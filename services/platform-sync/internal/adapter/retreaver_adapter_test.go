@@ -203,19 +203,38 @@ func TestRetreaverCursorRoundTrip(t *testing.T) {
 	if out.Page != 2 {
 		t.Fatalf("page %d", out.Page)
 	}
-	if out.UpdatedAtStart != "2026-01-01T00:00:00Z" {
-		t.Fatalf("updated_at_start %s", out.UpdatedAtStart)
+	// R1: the cursor now carries the frozen window; a legacy value migrates into WindowStart.
+	out.normalize()
+	if out.WindowStart != "2026-01-01T00:00:00Z" {
+		t.Fatalf("window_start %s", out.WindowStart)
 	}
 }
 
+// R1 C1: both legacy cursor shapes must migrate into the frozen-window cursor without losing
+// their position — an in-flight sync upgrading to R1 must not silently restart its lookback.
 func TestRetreaverCursorMigratesLegacyCreatedAt(t *testing.T) {
 	cs := retreaverCursor{CreatedAtStart: "2026-06-01T00:00:00Z", Page: 1}
 	cs.normalize()
-	if cs.UpdatedAtStart != "2026-06-01T00:00:00Z" {
-		t.Fatalf("migrated updated_at_start=%q", cs.UpdatedAtStart)
+	if cs.WindowStart != "2026-06-01T00:00:00Z" {
+		t.Fatalf("migrated window_start=%q", cs.WindowStart)
 	}
-	if cs.CreatedAtStart != "" {
-		t.Fatalf("legacy created_at_start should clear, got %q", cs.CreatedAtStart)
+	if cs.CreatedAtStart != "" || cs.UpdatedAtStart != "" {
+		t.Fatalf("legacy fields should clear, got created=%q updated=%q", cs.CreatedAtStart, cs.UpdatedAtStart)
+	}
+	if cs.inProgress() {
+		t.Fatalf("a migrated legacy cursor has no frozen end yet, so it must not look in-progress")
+	}
+}
+
+// The R0-era cursor {updated_at_start, page} must migrate the same way.
+func TestRetreaverCursorMigratesR0Shape(t *testing.T) {
+	cs := retreaverCursor{UpdatedAtStart: "2026-07-02T03:04:05Z", Page: 4}
+	cs.normalize()
+	if cs.WindowStart != "2026-07-02T03:04:05Z" {
+		t.Fatalf("migrated window_start=%q", cs.WindowStart)
+	}
+	if cs.Page != 4 {
+		t.Fatalf("page should survive migration, got %d", cs.Page)
 	}
 }
 

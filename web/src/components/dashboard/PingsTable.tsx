@@ -33,6 +33,15 @@ function formatTime(iso: string): string {
  * filter via the shared `shouldHaveConverted` helper, so badge and filter cannot drift apart.
  */
 function ConversionCell({ ping }: { ping: PingRecord }): JSX.Element {
+  // C6: this platform never reports conversion state, so neither "Converted" nor "Review"
+  // would be a truthful claim.
+  if (ping.conversion_reported === false) {
+    return (
+      <span className="text-calyx-muted" title="This platform does not report conversion state">
+        n/a
+      </span>
+    );
+  }
   if (ping.has_converted) {
     return <Badge variant="teal">Converted</Badge>;
   }

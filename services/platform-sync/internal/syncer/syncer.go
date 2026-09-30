@@ -72,27 +72,47 @@ func (s *Service) RunAll(ctx context.Context) error {
 	return nil
 }
 
-// RunAllSweeps re-fetches the hourly sweep window for every Ringba API-sync integration.
+// RunAllSweeps re-fetches the hourly sweep window for every API-sync integration whose adapter
+// supports windowed fetch (Stage 4 R1 / D — was Ringba-only).
 func (s *Service) RunAllSweeps(ctx context.Context) error {
-	return s.runRingbaSweeps(ctx, adapter.RingbaSweepDays(), "sweep")
+	return s.runSweeps(ctx, "sweep")
 }
 
-// RunAllDeepSweeps re-fetches the deep (dispute-window) sweep for every Ringba API-sync integration.
+// RunAllDeepSweeps re-fetches the deep (dispute-window) sweep for the same set.
 func (s *Service) RunAllDeepSweeps(ctx context.Context) error {
-	return s.runRingbaSweeps(ctx, adapter.RingbaDeepSweepDays(), "deep_sweep")
+	return s.runSweeps(ctx, "deep_sweep")
 }
 
-func (s *Service) runRingbaSweeps(ctx context.Context, days int, reason string) error {
+// sweepDaysFor returns the platform's sweep window. The tiers are the same shape for every
+// platform (hourly/7d, daily/30d) but each keeps its own env vars so they can be tuned per
+// vendor — Retreaver and Ringba have very different rate budgets.
+func sweepDaysFor(platform, reason string) int {
+	deep := reason == "deep_sweep"
+	if strings.EqualFold(platform, "retreaver") {
+		if deep {
+			return adapter.RetreaverDeepSweepDays()
+		}
+		return adapter.RetreaverSweepDays()
+	}
+	if deep {
+		return adapter.RingbaDeepSweepDays()
+	}
+	return adapter.RingbaSweepDays()
+}
+
+func (s *Service) runSweeps(ctx context.Context, reason string) error {
 	items, err := s.store.ListAPISync(ctx)
 	if err != nil {
 		return err
 	}
 	now := time.Now().UTC()
-	start, end := adapter.BuildRingbaSweepWindow(now, days)
 	for _, item := range items {
-		if !strings.EqualFold(item.Platform, "ringba") {
+		// Capability, not a platform name: any adapter that can fetch an explicit window gets
+		// sweeps. TrackDrive and CallGrid do not implement RangeFetcher and are skipped.
+		if !s.adapter.SupportsRange(item.Platform, item.SyncMode) {
 			continue
 		}
+		start, end := adapter.BuildRingbaSweepWindow(now, sweepDaysFor(item.Platform, reason))
 		if err := s.RunWindow(ctx, item.TenantID, item.ID, start, end, reason); err != nil {
 			if errors.Is(err, ErrAlreadyRunning) {
 				holder, _, _ := s.peekHolder(ctx, item.ID)
@@ -129,8 +149,8 @@ func (s *Service) RunWindow(ctx context.Context, tenantID, integrationID string,
 	if err != nil {
 		return fmt.Errorf("api_sync integration not found")
 	}
-	if !strings.EqualFold(item.Platform, "ringba") {
-		return fmt.Errorf("RunWindow only supported for ringba")
+	if !s.adapter.SupportsRange(item.Platform, item.SyncMode) {
+		return fmt.Errorf("windowed sync (sweeps/backfill) is not supported for %s", item.Platform)
 	}
 	return s.runWindowLocked(ctx, *item, start, end, reason)
 }

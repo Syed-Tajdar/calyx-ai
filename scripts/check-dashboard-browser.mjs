@@ -11,6 +11,7 @@
  *   CALYX_INGESTION_URL default http://127.0.0.1:8080
  *   CALYX_EVIDENCE_DIR  optional directory for screenshots + console log
  */
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
@@ -55,11 +56,27 @@ function isCsp(text) {
   );
 }
 
+/**
+ * Resolve a Chrome to drive. The default used to be a hardcoded Windows path, so this gate
+ * could only ever run on Windows. Now: honour PLAYWRIGHT_CHROME_PATH, else the platform's usual
+ * install location, else fall back to Playwright's bundled Chromium (executablePath undefined).
+ */
+function resolveChromePath() {
+  if (process.env.PLAYWRIGHT_CHROME_PATH) return process.env.PLAYWRIGHT_CHROME_PATH;
+  const candidates =
+    process.platform === 'win32'
+      ? ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe']
+      : process.platform === 'darwin'
+        ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
+        : ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+  return candidates.find((c) => existsSync(c));
+}
+
+const chromePath = resolveChromePath();
 const browser = await chromium.launch({
   headless: true,
-  executablePath:
-    process.env.PLAYWRIGHT_CHROME_PATH ||
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  // undefined => Playwright's own Chromium, if it has been installed.
+  executablePath: chromePath,
   args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
 });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });

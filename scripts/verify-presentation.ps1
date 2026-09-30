@@ -99,7 +99,10 @@ try {
 # Fixture data check
 $total++
 try {
-  $pingCheck = Invoke-RestMethod -Uri "$base/pings?limit=1" -Headers $h
+  # The fixture rows carry demo-/apisync- prefixes, which default KPI reads deliberately
+  # exclude (the C3 credibility fix). Checking "did the fixture load" therefore has to ask for
+  # them explicitly, or this assertion can never pass on a fixture-only database.
+  $pingCheck = Invoke-RestMethod -Uri "$base/pings?limit=1&show_demo=true" -Headers $h
   if ([int]$pingCheck.total -gt 0) {
     Write-Host "  PASS fixture pings total > 0 ($($pingCheck.total))"
     $passed++

@@ -94,3 +94,46 @@ func (r *RingbaAccountLimiters) ForAccount(accountID string) *DualWindowLimiter 
 
 // Shared across RingbaAdapter instances in-process.
 var ringbaLimiters = NewRingbaAccountLimiters()
+
+// RetreaverAccountLimiters holds per-company_id dual-window limiters.
+//
+// Stage 4 R1 / C9. Retreaver publishes **no numeric rate limit** — only a documented 429 and
+// "Highly concurrent requests are frowned upon"
+// (https://retreaver.github.io/core-api-docs/#introduction). R0.3 observed 20 sequential GETs at
+// ~3.0 req/s with zero 429s.
+//
+// The defaults below are therefore a deliberate conservative choice, not a measured ceiling:
+// 2/sec and 60/min, keyed on company_id so two integrations on the same Retreaver account share
+// one limiter and cannot together exceed it. Because the published guidance is about
+// concurrency rather than rate, requests are also serialised per account by the limiter's lock.
+type RetreaverAccountLimiters struct {
+	mu   sync.Mutex
+	byID map[string]*DualWindowLimiter
+}
+
+func NewRetreaverAccountLimiters() *RetreaverAccountLimiters {
+	return &RetreaverAccountLimiters{byID: map[string]*DualWindowLimiter{}}
+}
+
+// RetreaverRatePerSec — `RETREAVER_RATE_PER_SEC` (default 2).
+func RetreaverRatePerSec() int { return envInt("RETREAVER_RATE_PER_SEC", 2) }
+
+// RetreaverRatePerMin — `RETREAVER_RATE_PER_MIN` (default 60).
+func RetreaverRatePerMin() int { return envInt("RETREAVER_RATE_PER_MIN", 60) }
+
+func (r *RetreaverAccountLimiters) ForAccount(companyID string) *DualWindowLimiter {
+	if companyID == "" {
+		companyID = "_unknown"
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if lim, ok := r.byID[companyID]; ok {
+		return lim
+	}
+	lim := NewDualWindowLimiter(RetreaverRatePerSec(), RetreaverRatePerMin())
+	r.byID[companyID] = lim
+	return lim
+}
+
+// Shared across RetreaverAdapter instances in-process.
+var retreaverLimiters = NewRetreaverAccountLimiters()

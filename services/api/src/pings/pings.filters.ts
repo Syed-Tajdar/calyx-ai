@@ -1,5 +1,6 @@
 import { EVENT_AT_EXPR } from '../common/ping-event-time';
 import { apiSyncExclusionSql } from '../common/demo-rows';
+import { reportsConversionStateSql } from '../common/platform-capabilities';
 
 /**
  * Conversion state filter for the call list.
@@ -66,12 +67,15 @@ export function buildPingWhereClause(filters: PingListFilters): {
     params.to = filters.to;
   }
   if (filters.conversion === 'converted') {
-    parts.push('AND has_converted = 1');
+    parts.push(`AND ${reportsConversionStateSql()} AND has_converted = 1`);
   } else if (filters.conversion === 'unconverted') {
-    parts.push('AND has_converted = 0');
+    parts.push(`AND ${reportsConversionStateSql()} AND has_converted = 0`);
   } else if (filters.conversion === 'should_convert') {
     // D1 "either condition": unconverted AND (earned revenue OR met the buyer's duration threshold).
-    parts.push(`AND has_converted = 0
+    // C6: only for platforms that actually report conversion state — elsewhere has_converted = 0
+    // means "never asked", not "not converted", which flagged whole platforms falsely.
+    parts.push(`AND ${reportsConversionStateSql()}
+          AND has_converted = 0
           AND (
             revenue > 0
             OR (

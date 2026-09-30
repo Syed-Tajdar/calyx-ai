@@ -77,7 +77,9 @@ try {
 }
 
 Write-Section "Service health endpoints"
-$healthPorts = @(8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 3000, 8088)
+# 3100 is the API's published host port; 3000 is only the container-internal port and was
+# never reachable from the host after the 3100/3101/9100 remap.
+$healthPorts = @(8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 3100, 8088)
 foreach ($port in $healthPorts) {
   $summary.HealthEndpoints.Total++
   if (Test-HttpStatus ":$port/healthz" "http://localhost:$port/healthz") {
@@ -108,7 +110,10 @@ try {
 
 Write-Section "API presentation verification"
 $verifyScript = Join-Path $repoRoot "scripts\verify-presentation.ps1"
-& powershell -ExecutionPolicy Bypass -File $verifyScript
+# Re-invoke with the same PowerShell host running this script: "powershell" is the Windows
+# binary name and does not exist on macOS/Linux, where the host is pwsh.
+$pwshExe = (Get-Process -Id $PID).Path
+& $pwshExe -ExecutionPolicy Bypass -File $verifyScript
 $apiExit = $LASTEXITCODE
 $summary.ApiPresentation = if ($apiExit -eq 0) { "PASS (20/20)" } else { "FAIL" }
 
@@ -149,7 +154,8 @@ $summary.BrowserCsp = if ($browserExit -eq 0) { "PASS" } else { "FAIL" }
 
 Write-Section "Pipeline smoke (multi-platform 4/4)"
 $smokeScript = Join-Path $repoRoot "scripts\smoke-test-all-platforms.ps1"
-& powershell -ExecutionPolicy Bypass -File $smokeScript
+$pwshExe = (Get-Process -Id $PID).Path
+& $pwshExe -ExecutionPolicy Bypass -File $smokeScript
 $smokeExit = $LASTEXITCODE
 $summary.PipelineSmoke = if ($smokeExit -eq 0) { "PASS (4/4)" } else { "FAIL" }
 

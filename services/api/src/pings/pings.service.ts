@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
 import { EVENT_AT_EXPR } from '../common/ping-event-time';
 import { buildPingWhereClause, PingListFilters } from './pings.filters';
+import { reportsConversionState } from '../common/platform-capabilities';
 
 export interface PingRecord {
   tenant_id: string;
@@ -28,6 +29,11 @@ export interface PingRecord {
   required_duration_seconds: number | null;
   /** How many times this call has been written (re-syncs). 1 in raw mode. */
   sync_count: number;
+  /**
+   * Whether this platform reports conversion state at all (C6). When false, `has_converted`
+   * is "never asked", not "not converted" — the UI must not infer a missed conversion from it.
+   */
+  conversion_reported: boolean;
   /** Ingestion timestamp (when Calyx received the ping). */
   received_at: string;
   /**
@@ -94,7 +100,7 @@ const PING_SELECT_COLLAPSED = `
 interface PingRecordRow
   extends Omit<
     PingRecord,
-    'received_at' | 'occurred_at' | 'has_converted' | 'sync_count'
+    'received_at' | 'occurred_at' | 'has_converted' | 'sync_count' | 'conversion_reported'
   > {
   /** ClickHouse `UInt8` — 1 when the platform reported the call converted. */
   has_converted: number;
@@ -110,6 +116,7 @@ function mapPingRow(row: PingRecordRow): PingRecord {
     ...rest,
     has_converted: Number(has_converted ?? 0) === 1,
     sync_count: Number(sync_count ?? 1),
+    conversion_reported: reportsConversionState(rest.platform),
     received_at: received_at_iso,
     occurred_at: occurred_at_iso,
   };
