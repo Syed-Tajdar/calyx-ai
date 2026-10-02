@@ -81,6 +81,12 @@ Each was found during write-back and pre-Phase-2 work. Do not deploy with any un
 
 ## Migrations
 
+- [ ] **Postgres, in order:** `000028` → `000029` → `000030` → `000031`.
+      Run the inactive-integration query in Feature flags **before** `000029`.
+      `000030` allows write-back audit outcome `rejected`. `000031` keeps a
+      deleted integration off the sweep even if `is_active` is still true.
+- [ ] **Rebuild `api`, `web`, and `platform-sync`** after those migrations.
+      `WRITEBACK_ENABLED` stays `false` on the server.
 - [x] **ClickHouse `000012_pings_has_converted`** down migration added
       (`000012_pings_has_converted.down.sql`).
 

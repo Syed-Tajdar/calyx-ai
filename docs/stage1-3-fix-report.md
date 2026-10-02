@@ -172,3 +172,157 @@ Prefix `fix(stage1-3)`, oldest first:
 - `5922819841a10357ab1c0309b45e592528629fab` pause and resume
 - `c7f2dd5b33572551ede9cb4e5754b9d23686414e` sweep log platform name
 - `9460b62f1368ff23ccb18274f94fc7cbd518e403` certification v1 scope
+
+---
+
+# Round 2
+
+**Input:** `docs/stage1-3-fix2-spec.md` (owner review of the first fix round).
+**Date:** 2026-10-03
+**Branch:** `stage4/retreaver`
+**Gates binary:** `/usr/local/bin/pwsh-preview` (PowerShell 7.7.0-preview.5)
+
+Part E stays **CAN'T VERIFY (live)**. It is not a merge blocker. No live Convert or Cancel was sent. `WRITEBACK_ENABLED` stays `false` on the server. Local compose was put back to `true` after the R2-1 proof (`printenv` on `api` and `platform-sync` both print `true`).
+
+## Scoreboard
+
+| Item | Status | Proof |
+|---|---|---|
+| R2-1 Kill switch with the token set | DONE | File:line below. Live convert and void with the flag off returned 403 `writeback: write-back is disabled`, wrote `rejected` audit rows, and made no Ringba call. `69cd0b9f55e2acbdacacb8d28d12aaaff27cec51` [PROVEN] |
+| R2-2 Pause, delete, and the server list | DONE for code. Server rows are a decision. | Rolled-back SQL: four PASS notices. Read-only query is in the deploy note. No `deleted_at` was written on an existing row. `852693959eeb832f2f555c57ee83c3e84dec1d09` [PROVEN] |
+| R2-3 Platform filter on KPIs, chart, coverage | DONE | Window of four `smoke-r2plat-` rows: All = Ringba + Retreaver. ClickHouse matches. Rows deleted. Default view stayed 3,652 / $33,143.85. `6d8ecb65f4b77fdea3fd8d05adf537e5d0583cb8` [PROVEN] |
+| R2-4 Hide transcript and enrichment | DONE | Call `cf878cec-b6db-4e59-9138-414350e9c1b8` shows Ping and Enrich. Transcript and Audience Enrichment are absent. `322d1fed6cfe4c8a7aa5193a299b1b3edb2b91c8` [PROVEN] |
+| R2-5 Minute budget 75, test clock | DONE | Ten runs under load, admit max 80 against a limiter built at 80. Production default is 75. `6e5309b3deb3d386a4102264927b0e162bfc3781` [PROVEN] |
+| R2-6 Gates in v1 and full mode | DONE | All three exit 0 in both modes. See below. `67710e1d9b8250736f9e375633a06cc3fa25d611` [PROVEN] |
+| R2-7 Converted · $0 chip | DONE | 1017 + 119 + 2516 = 3652. The chip lists 119 calls. `0de8ea2e3bd4ed23b01c4b826d1660c8bb92747e` and `2b57a4d99b2180611797c3d4c731a98376961ab1` [PROVEN] |
+
+## R2-1 — where the flag is read
+
+The API mounts convert and void whenever the process is up. It does not read `WRITEBACK_ENABLED`.
+
+- `services/api/src/integrations/integrations.controller.ts:105` `@Post(':id/writeback/convert')`
+- `services/api/src/integrations/integrations.controller.ts:126` `@Post(':id/writeback/void')`
+- `services/api/src/integrations/integrations.service.ts:267-271` `callWriteback` forwards when `WRITEBACK_INTERNAL_TOKEN` is set
+
+platform-sync reads the flag and applies it before any Ringba call:
+
+- `services/platform-sync/internal/config/config.go:68` `WRITEBACK_ENABLED` is true only for `true` or `1`
+- `services/platform-sync/cmd/server/main.go:153` `wb.SetGlobalEnabled(cfg.WritebackEnabled)` when the token is non-empty
+- `services/platform-sync/internal/writeback/convert.go:177` `run` calls `reject` with `ErrGloballyDisabled` first
+- `convert.go:154-162` a failed audit insert is returned with the refusal, so a swallowed insert cannot look like success
+
+Migration `000030_writeback_audit_rejected` allows outcome `rejected`. Schema is version **31**, dirty false.
+
+Live proof, flag false and token set, admin cookie session, CSRF, fake call id `r2-killswitch-do-not-fire`, real integration id: convert and void both HTTP 403 with `writeback: write-back is disabled`. `writeback_audit` has one `convert`/`rejected` row and one `void`/`rejected` row with that message. platform-sync logs for that window contain no `api.ringba.com` call. `TestAuditRowForEveryEarlyRejection` covers `SetGlobalEnabled(false)` for convert and void and asserts zero Ringba fires. [PROVEN]
+
+## R2-2 — sweeps, resume, and the server list
+
+`scripts/verify-pause-scheduling.sql` runs in a transaction and rolls back. This pass printed:
+
+- PASS paused (`is_active=false`) is not in `list_api_sync_integrations()`
+- PASS deleted (`deleted_at` set) is not scheduled even if `is_active` is true
+- PASS resume matches 0 rows when `deleted_at` is set
+- PASS pause and resume audit rows record who, when, integration, action
+
+Then `ROLLBACK`. [PROVEN]
+
+The list query is `deleted_at IS NULL`, so a deleted row is not on the Settings screen and Resume is not offered. The resume `UPDATE` also requires `deleted_at IS NULL`, so a direct call changes 0 rows and the API returns 404. [PROVEN] by the SQL. The UI path is the same filter. [INFERRED]
+
+**Server decision, still open.** Do not guess which old `is_active=false` rows are deletes. Run this on the server **before** `000029`. It returns tenant, platform, name, and `updated_at` only:
+
+```sql
+SELECT t.name AS tenant, i.platform, i.name, i.updated_at
+FROM integrations i
+JOIN tenants t ON t.id = i.tenant_id
+WHERE NOT i.is_active
+ORDER BY i.updated_at;
+```
+
+On this machine the same query returns one row: Demo Tenant, retreaver, “My test”, `2026-10-02 16:33:05.125366+00`. That row is the paused mock. It stays `sync_mode=mock` and `is_active=false`. No existing row was given a `deleted_at`. The owner decides which server rows get `deleted_at`.
+
+## R2-3 — platform filter
+
+`GET /analytics/metrics` and `GET /analytics/ping-series` take `platform` and apply `AND platform = {platform:String}` inside the deduped call query. The dashboard passes `filters.platform`. Coverage already passed `platform` through to the heatmap; that path was left as it was and checked below.
+
+Proof used four `smoke-r2plat-` rows on 2020-01-15 (two Ringba, revenue 10 and 5.50; two Retreaver, revenue 3 and 0), queried with `show_demo=true` and that day as the period, then deleted. `mutations_sync` left zero of those ids.
+
+| Surface | All | Ringba | Retreaver |
+|---|---|---|---|
+| `/analytics/metrics` calls / revenue | 4 / 18.50 | 2 / 15.50 | 2 / 3.00 |
+| ping-series sum | 4 | 2 | 2 |
+| `/coverage/heatmap` total | 4 (TX 2, CA 2) | 2 (TX) | 2 (CA) |
+
+All equals Ringba plus Retreaver. ClickHouse `argMax` over those ids: ringba 2 / 15.5, retreaver 2 / 3. [PROVEN]
+
+Default view with the smoke rows still present: 3,652 calls and revenue 33,143.85. Ringba with the smoke prefix excluded: 0. After delete, the same default numbers. [PROVEN]
+
+## R2-4 — transcript and enrichment
+
+`TranscriptPanel` and `EnrichmentPanel` render only when `SHOW_MOCK_PANELS` is on (`NEXT_PUBLIC_V1_ONLY !== 'false'`). The rebuilt web image leaves that unset, so the flag is off. Call `cf878cec-b6db-4e59-9138-414350e9c1b8`: page text has Ping and Enrich, and has neither “Transcript” nor “Audience Enrichment”. The journey has no Score step. Screenshot `/tmp/calyx-r2-call-detail.png`. [PROVEN]
+
+## R2-5 — 81 versus 80
+
+The limiter records the admit time under the lock and returns that time. It appends a hit only when the count inside the window is still under the cap, so it cannot store an 81st admit. The failing run stamped `time.Now()` **after** `Wait` returned. Under load that later stamp pulled one already-expired limiter hit into the test’s inclusive 60s window, and the test reported 81. That is a test clock, not an extra Ringba call. [PROVEN] by the admit-versus-observed log in `ratelimit_test.go` and by the limiter refusing to append at the cap (`ratelimit.go`).
+
+The test still builds the limiter at 80 so the cap itself is what gets measured. Ten runs with a CPU busy-loop, each `admit_max=80` and `observed_after_wait_max=80`. The max rolling admit count across the ten runs is **80**.
+
+Real Ringba traffic uses `RingbaRatePerMin()` (`ratelimit.go:125`), env `RINGBA_RATE_PER_MIN`, default **75**. `ForAccount` builds the limiter with that value.
+
+## R2-6 and the merge-gate runs
+
+`-V1` skips the six intelligence containers, their health ports, and `POST /ask`. `INTELLIGENCE_SCALE=0` selects the same mode. Full mode is unchanged.
+
+v1, intelligence containers stopped:
+
+| Gate | Result |
+|---|---|
+| `verify-system.ps1 -V1` | **SYSTEM VERIFY PASS** exit 0. Docker 9/9, healthz 5/5, live status PASS, API PASS (v1), web routes 13/13, WebSocket PASS, smoke prefix PASS, browser CSP 21/21, unit tests PASS, web build PASS, pipeline 4/4. |
+| `verify-ingestion-slice.ps1` | **INGESTION SLICE VERIFY PASS** exit 0. Default view stayed 3652. |
+| `verify-presentation.ps1 -V1` | **PRESENTATION VERIFY PASS** exit 0. API checks 19/19. Log line: `SKIP POST /ask (v1 mode)`. |
+
+`GET /scoring/scores`, `/compliance/exposure`, `/compliance/risk-scores`, and `/attribution/status` returned 200 with those containers stopped, so v1 mode left them in the gate. [PROVEN]
+
+Full mode, those containers running:
+
+| Gate | Result |
+|---|---|
+| `verify-system.ps1` | **SYSTEM VERIFY PASS** exit 0. Docker 15/15, healthz 11/11, API PASS (20/20), browser CSP 21/21, pipeline 4/4, unit tests PASS, web build PASS. |
+| `verify-ingestion-slice.ps1` | **INGESTION SLICE VERIFY PASS** exit 0. Default view stayed 3652. |
+| `verify-presentation.ps1` | **PRESENTATION VERIFY PASS** exit 0. API checks 20/20, including `POST /ask`. |
+
+After both passes, `GET /analytics/metrics` and `?platform=retreaver` are **3,652** calls and revenue **33143.85**. [PROVEN]
+
+## R2-7 — where the $0 conversions are
+
+A separate chip, **Converted · $0** (`converted_zero`). Folding those calls into Converted would count a flag with amount 0 as converted, which is the opposite of the A2 rule (flag and amount > 0).
+
+Latest Retreaver rows, `distinct_total`:
+
+| Filter | Calls | Sample state |
+|---|---|---|
+| (none) | 3652 | |
+| converted | 1017 | `converted` |
+| converted_zero | 119 | `converted_zero` |
+| unconverted | 2516 | `not_converted` |
+
+1017 + 119 + 2516 = 3652. [PROVEN]
+
+The call list was 500ing on these filters: ClickHouse treats `argMax(has_converted, received_at) AS has_converted` in the SELECT as nested inside the same `argMax` in the HAVING (code 184). `SETTINGS prefer_column_name_to_alias = 1` on the collapsed list and export queries stops that. After the API rebuild, the Ping Feed with All time and the chip selected shows **119 calls**, revenue $0.00, status “Converted · $0”. Screenshot `/tmp/calyx-r2-converted-zero.png`. [PROVEN]
+
+## Server deploy note
+
+1. Run the R2-2 query **before** `000029`. The owner marks which rows are old deletes. This pass does not set `deleted_at` for them.
+2. Apply Postgres in order: `000028` → `000029` → `000030` → `000031`.
+3. Rebuild `api`, `web`, and `platform-sync`.
+4. Set `WRITEBACK_SETTLE_SECONDS` (default 20 when unset) and `RINGBA_RATE_PER_MIN` (default **75**).
+5. `WRITEBACK_ENABLED` stays `false` on the server.
+
+The same notes are in `docs/deploy-checklist.md`.
+
+## Secret scan
+
+`git log -p b5f3dc4..HEAD` was scanned for live secret-key prefixes, cloud access-key ids, and private-key blocks. The only hits are the existing local `WRITEBACK_INTERNAL_TOKEN` placeholder in `.env.example` and `deploy/docker-compose.yml`, which the checklist already says to replace before production. No new credential was added. `docs/evidence/s2-csp-fix/` was not committed.
+
+## Merge recommendation
+
+Round 2 is complete on `stage4/retreaver`. The owner says merge. This session pushes the branch only. It does not merge to `main`. R3 does not start. Part E remains the gate for turning write-back on, later, on the Ringba sandbox call, from one machine, after the owner approves it.
