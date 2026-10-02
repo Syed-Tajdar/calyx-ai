@@ -1468,5 +1468,492 @@ in the UI at all. It is not deleted — credentials, cursor and lookback are int
 looking at Settings right now will not see a Retreaver API integration. It must be re-activated
 as part of the Live switch.
 
-**Pre-flight P1–P6 complete. STOP — awaiting the owner's go-ahead for the Live switch and the
-30-day backfill. R2 itself has not been started.**
+## Live-switch audit — was Retreaver ever switched to Live?
+
+The owner asked directly. Answered from evidence, not memory.
+
+**Before the pre-flight: no. Never.** The integration was created
+`2026-09-29T23:07:00Z` and was on **Test** for its entire life up to the pre-flight.
+
+**After the pre-flight: yes, once, for under two minutes, with the sync service stopped and
+zero rows ingested.** Details below.
+
+### The one occurrence
+
+| | |
+|---|---|
+| **When** | `2026-09-30T23:00:38Z` → reverted before `2026-09-30T23:02:32Z` |
+| **How long** | **≤ 1 min 54 s**, bounded by the two timestamps above |
+| **Rows to ClickHouse** | **0** |
+| **API requests to Retreaver** | **0** — `platform-sync` was stopped for the whole window |
+| **Code version** | image built `2026-09-30T17:21:28Z`, the R1 tree that became `b7cf15d` |
+| **Switched back?** | **Yes** — `sync_mode = mock`, `is_active = false` |
+
+Sequence, each step with its own evidence:
+
+```
+23:00:06Z  platform-sync STOPPED        docker inspect .State.FinishedAt
+23:00:38Z  Live click landed            integrations.updated_at
+  ≤23:02:32Z  reverted to mock + paused   raw SQL (see note on updated_at)
+23:02:32Z  platform-sync STARTED        docker inspect .State.StartedAt
+```
+
+The revert is bounded rather than exact because it was done with raw SQL, which does not touch
+`updated_at`. That same fact is what makes `23:00:38Z` trustworthy as the Live moment: the
+`integrations` table has **no triggers** (`pg_trigger` → 0 non-internal), so `updated_at` moves
+only when a statement sets it explicitly. The API's `updateSyncMode` does
+(`integrations.service.ts:401`); the raw SQL used here does not. So `updated_at = 23:00:38Z` can
+only have been written by the **Live button in Settings**.
+
+Because `platform-sync` was down from `23:00:06Z` to `23:02:32Z`, the flag was never observed by
+anything. No tick ran, no backfill was triggered, and the integration was already back on `mock`
+before the service came up.
+
+**Why this happened:** the owner's `GO R2` was read as authorisation to proceed to the Live
+switch. It was reverted immediately on his instruction. Recorded here rather than left out.
+
+### Evidence that it was never Live before that
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Every Retreaver `external_call_id` shape ever stored | `apisync-` 136 rows · `demo-` 10 · `smoke-` 6. **Zero UUID-shaped rows** |
+| 2 | Deletions from `pings`, all time (`system.mutations`) | only 2, `demo-call-1` and `f5proof-realpath-0001`. **Neither is a real call** |
+| 3 | Every Retreaver sync in retained logs | 52 completions, **all `"requests":0`** |
+| 4 | Prior phase docs | `retreaver-account-reset-report.md`: "Do **not** flip Live until STEP 7"; STEP 7 **PENDING** |
+
+Check 1 is the decisive one. A real Retreaver call carries a UUID
+(`d8858bae-e409-416d-bdc0-9e9aa9555054`); the mock adapter emits `apisync-retreaver-<date>-<hex>`.
+No UUID-shaped row has ever existed in the table, across all 152 rows spanning
+`2026-09-23` → `2026-09-30`.
+
+Check 2 closes the obvious hole — that real rows arrived and were later removed. Only two
+deletions have ever run against `pings`, and neither touched a real Retreaver call.
+
+Check 3 is independent of storage: the Test adapter performs no HTTP at all, so a real sync
+would necessarily report `requests ≥ 1`. Every one of the 52 reports `0`.
+
+⚠️ **The gap in check 3, stated plainly.** `platform-sync` logs are only retained from
+`2026-09-30T17:22:43Z`, while the integration was created `2026-09-29T23:07:00Z` — roughly
+**18 hours with no log coverage**. Checks 1 and 2 cover that window instead: any real sync
+during it would have written UUID-shaped rows, and those rows were never deleted. The
+conclusion rests on the stored data, not on the logs.
+
+### Code version, precisely
+
+The running image was built `2026-09-30T17:21:28Z`, about 11 minutes **before** `b7cf15d` was
+committed (`17:32:31Z`) — it was built from the working tree that became that commit. The R1
+symbols are present in the binary (`WindowShortfallError`, `walkWindowWithRetry`,
+`recordRetreaverC3`, `cursor held`), and `git diff b7cf15d..HEAD -- '*.go'` excluding tests is
+**empty**, so the running binary is functionally identical to `HEAD`. `[PROVEN]`
+
+---
+
+**Pre-flight P1–P6 complete.** The owner then approved the Live switch (after the live-switch
+audit below) with a 30-day UTC backfill. PHASE R2 execution follows.
+
+---
+
+# PHASE R2 — live backfill and re-certify
+
+**Date:** 2026-09-30 → 2026-10-01 (UTC)
+**Branch / HEAD at run:** `stage4/retreaver` @ `86bbd7a`
+**Sync during this write-up:** **off** (`is_active = false`, `sync_mode = real`) — paused after
+the first backfill on the owner's instruction. Not committed until he asks.
+
+## 0. Scoreboard
+
+| Item | Result |
+|---|---|
+| Images from `86bbd7a`+ / migration `000028` | **PASS** |
+| Live switch via Settings (API path) | **PASS** — `is_active` re-enable still has no API route (SQL, recorded) |
+| 30-day UTC backfill | **PASS** — 3,493 real calls, 0 429s, 0 degraded windows |
+| Duration mapping (List 2, 10 calls) | **PASS** — `CallLengthSeconds = total_duration`, `DurationSeconds = dialed_call_duration` on all 10 |
+| UI duration labels | **PASS** (recorded, **no UI change**) |
+| OccurredAt vs Retreaver UI clock | **PASS** (recorded, **no UI change**) |
+| Window Total vs ingested | **PASS** — 3,493 at ingest; live re-read 3,484; 9 leavers explained call by call |
+| Per UTC day (ingested set) | **PASS** — 0 missing / 0 extra / 0 field diffs on the 3,484 still in-window |
+| C3 monitor | **PASS** — 0 revenue-without-conversion; 119 converted-at-$0 (benign) |
+| `uniqExact(event_type)` | **PASS** — Retreaver 7 values |
+| Degraded, live | **PASS** — no window went degraded |
+| D9 in ClickHouse (`sync_count > 1`) | **NONE YET** — sync was paused before a second write. API AFTER exists; UUID below. 🙋 |
+| Sweep proof, live | **`[UNKNOWN]` live** — pointer to R1 tests |
+| UI check | **PASS** |
+| Soft-delete / no pause route | **Open issue — later, not Stage 4** |
+| Certification doc | written here; `docs/platform-certification.md` **not** updated (🙋) |
+
+---
+
+## 1. Duration check — List 2
+
+Owner's finding on call **#8** `8d679c45-b787-4fd5-94a7-8576b64e79da`: Retreaver UI Total
+Duration **4:58 (298 s)**, Calyx `DurationSeconds` **293 s**. Revenue **$21.25** and payout
+**$17.00** match.
+
+List 2 is the ten most recent real calls with `duration_seconds ≥ 6` as of the backfill
+(`occurred_at` desc). #8 in that order is `8d679c45…`. API fields from
+`GET /api/v2/calls/{uuid}.json` (company `…5270`). Calyx from ClickHouse.
+
+| # | UUID | API `total_duration` | API `dialed_call_duration` | Calyx `CallLengthSeconds` | Calyx `DurationSeconds` | Flag |
+|---|---|---:|---:|---:|---:|---|
+| 1 | `fccb7cbb-aa33-483d-a2e2-f52fa6271314` | 20 | 20 | 20 | 20 | — |
+| 2 | `e4f5249c-084f-402a-9693-bb9d253fb426` | 53 | 51 | 53 | 51 | — |
+| 3 | `064be640-b7c8-4364-b807-00648c5e5060` | 122 | 117 | 122 | 117 | — |
+| 4 | `47504e73-61a3-4e61-b0d4-b14d4c0552b0` | 301 | 296 | 301 | 296 | — |
+| 5 | `7596d57e-755a-4b22-94b9-f5a62c4cb1d9` | 94 | 94 | 94 | 94 | — |
+| 6 | `bcaaed66-59bb-46a1-af1e-c3e9296df08e` | 254 | 242 | 254 | 242 | — |
+| 7 | `0dd6038f-62d8-452b-ba6c-746013829f95` | 21 | 21 | 21 | 21 | — |
+| 8 | `8d679c45-b787-4fd5-94a7-8576b64e79da` | **298** | **293** | **298** | **293** | — |
+| 9 | `e6406495-7c5e-4b19-a97a-4d0ac4f8ef63` | 25 | 20 | 25 | 20 | — |
+| 10 | `dc6f0ce3-4c80-45a7-831a-f156d3caf65e` | 11 | 6 | 11 | 6 | — |
+
+**No row breaks the mapping.** `[PROVEN]`
+
+C4's `[INFERRED]` choice is confirmed on these 10: Retreaver UI "Total Duration" is
+`total_duration` → Calyx `CallLengthSeconds`. The 293 s the owner saw in Calyx is
+`dialed_call_duration` (talk time), not a drift.
+
+#8 also matches revenue $21.25 / payout $17.00 on both sides.
+
+### What the Calyx UI currently shows (no change in R2)
+
+| Surface | Duration field | Label |
+|---|---|---|
+| **Ping list** (`PingsTable.tsx`) | **none** — columns are Time, Platform, Call ID, State, Event, Revenue, Status, Syncs | — |
+| **Call detail** (`CallDeepViewPanel.tsx:187-204`) | `duration_seconds` | **"Connected length"** |
+| **Call detail** (same) | `call_length_seconds` | **"Total call length"** |
+
+So the number the owner compared to Retreaver's Total Duration (298 s) is **not** the one
+currently on the primary duration label. Call detail does already show both values; the
+talk-time field is labelled "Connected length" (Ringba vocabulary) and the total is "Total
+call length".
+
+**Proposal, not done in R2:** keep both values on call detail; relabel to **"Total duration"**
+(matches the Retreaver UI, = `CallLengthSeconds` / `total_duration`) and **"Talk time"**
+(= `DurationSeconds` / `dialed_call_duration`). Ping list stays without a duration column
+unless the owner asks.
+
+### Timestamp — call #8
+
+| Source | Value (UTC) |
+|---|---|
+| Retreaver UI (owner) | **20:04:14** |
+| API `start_time` | **2026-09-30T20:04:14.637Z** |
+| API `created_at` | 2026-09-30T20:04:05.413Z |
+| Calyx `OccurredAt` / `occurred_at` | **2026-09-30 20:04:05** |
+
+The Retreaver UI clock is **`start_time`**. Calyx `OccurredAt` uses **`created_at`**, which is
+the C4 mapping (`retreaver_adapter.go:405`) — "when the call happened" as the row's create
+timestamp, ~9 s before the connected start on this call. Same pattern as R0.3 Q5
+(`created_at` 23:03:07, `start_time` 23:03:12). **No change in R2.** `[PROVEN]`
+
+---
+
+## 2. D9 — live change after the first sync
+
+ClickHouse has **no** Retreaver call with `sync_count > 1`. Every one of the 3,493 real IDs
+has exactly one row. The second write never happened because the sync was paused at
+00:14:46Z on 2026-10-01, before any later tick or sweep could republish.
+
+The change **does** exist on the Retreaver side. Re-reading the backfill window
+`[2026-08-31T23:38:52Z, 2026-09-30T23:38:52Z)` on 2026-10-01 returned **3,484** (`Total`
+header = collected, 0 shortfall). The **9** UUIDs still in ClickHouse but gone from that
+window all have `updated_at` on **2026-10-01** (after the window end). Those are real
+post-sync edits.
+
+**UUID for the owner to check in the Retreaver UI:**
+`1c037735-0b5c-404a-962c-e03539fc5f04`
+
+| | ClickHouse BEFORE (ingested 2026-09-30 23:39:24Z) | Retreaver API AFTER (read 2026-10-01) |
+|---|---|---|
+| status | `finished` | `finished` |
+| converted | **false** (`has_converted=0`) | **true** |
+| revenue | **0** | **34.13** |
+| payout | 0 | null |
+| created_at / occurred_at | 2026-09-28 16:00:28 | 2026-09-28T16:00:28.962Z |
+| updated_at | (not stored) | 2026-10-01T20:50:51.715Z |
+
+This is the D9 shape (unconverted $0 → converted with revenue). There is **no AFTER row in
+ClickHouse** until the sync is turned back on. Ask when to re-enable; the next tick/sweep
+should write the second row and bump `sync_count` to 2.
+
+The other eight leavers also changed (seven look like voids: CH revenue > 0 → API
+`revenue=null`; one revenue 21 → 57). Listed in §3. Not used as the D9 pick.
+
+---
+
+## 3. Reconciliation — exact backfill window
+
+Window the backfill actually walked: **`updated_at` `[2026-08-31T23:38:52Z, 2026-09-30T23:38:52Z)`**.
+`OccurredAt` is Retreaver `created_at`, so ClickHouse day buckets include older created days
+whose `updated_at` fell inside the window. That is expected.
+
+### Window denominator
+
+| | Count |
+|---|---:|
+| ClickHouse distinct real calls after backfill | **3,493** |
+| API `Total` header on the same window, re-read 2026-10-01 | **3,484** |
+| Pages × `per_page=100` collected | **3,484** (35 pages, `collected − Total = 0`) |
+| In API, not in ClickHouse | **0** |
+| In ClickHouse, not in the live window | **9** |
+
+Frozen-window paging held: `Total` matched the walk. `[PROVEN]`
+
+The 9 are not ingest misses. Each has `updated_at` **after** `window_end`, so they left the
+frozen window when Retreaver later modified them:
+
+| UUID | CH status / conv / rev / pay | API now (status / rev / pay) | API `updated_at` |
+|---|---|---|---|
+| `1c037735-0b5c-404a-962c-e03539fc5f04` | finished / 0 / 0 / 0 | finished / **34.13** / null | 2026-10-01T20:50:51Z |
+| `22f31ab8-f13d-442f-a19b-08e74240ee7b` | finished / 1 / 21 / 16.8 | finished / **57** / 16.8 | 2026-10-01T21:01:04Z |
+| `351c2d80-b736-48cc-9ceb-92ebcaf191d3` | finished / 1 / 13.77 / 11.016 | finished / **null** / null | 2026-10-01T16:40:34Z |
+| `52770c26-3b9f-4251-8ea3-87915e632811` | finished / 1 / 25.2 / 20.16 | finished / **null** / null | 2026-10-01T20:54:23Z |
+| `8506873e-513f-4649-8a16-47ddf1e31354` | finished / 1 / 27.9 / 22.32 | finished / **null** / null | 2026-10-01T20:51:59Z |
+| `ccd68efa-46b1-48de-acd7-3d9e96fc6b38` | finished / 1 / 24 / 19.2 | finished / **null** / null | 2026-10-01T19:40:45Z |
+| `ddf3339b-aad5-4361-9129-1cddeb04b049` | finished / 1 / 21.266 / 17.0128 | finished / **null** / null | 2026-10-01T19:50:37Z |
+| `ec483995-6ef3-47f7-ab35-4a269ed349c1` | finished / 1 / 24.08 / 19.264 | finished / **null** / null | 2026-10-01T20:58:37Z |
+| `ee5962ab-ebc1-4251-ad39-5a11c5d93089` | finished / 1 / 45 / 36 | finished / **null** / null | 2026-10-01T20:53:22Z |
+
+At ingest time those 9 were inside the window (they have `received_at` 23:39–23:42Z on
+2026-09-30). The live `Total` is 9 lower because they moved. **0 missing, 0 extra** against
+the set that still belongs to the window.
+
+### Per UTC day — ingested set vs ClickHouse `occurred_at`
+
+Bucketed the 3,484 UUIDs still in the live window by API `created_at` date, added the 9
+leavers back on their created days, compared to ClickHouse `toDate(occurred_at)`.
+
+**Every day: delta 0.** `[PROVEN]`
+
+| day (UTC) | CH distinct | API window dump | leavers | dump+leavers | delta |
+|---|---:|---:|---:|---:|---:|
+| 2026-07-01 | 1 | 1 | 0 | 1 | 0 |
+| 2026-07-16 | 3 | 3 | 0 | 3 | 0 |
+| 2026-07-17 | 3 | 3 | 0 | 3 | 0 |
+| 2026-07-21 | 2 | 2 | 0 | 2 | 0 |
+| 2026-07-23 | 3 | 3 | 0 | 3 | 0 |
+| 2026-08-03 | 1 | 1 | 0 | 1 | 0 |
+| 2026-08-06 | 1 | 1 | 0 | 1 | 0 |
+| 2026-08-12 | 1 | 1 | 0 | 1 | 0 |
+| 2026-08-17 | 5 | 5 | 0 | 5 | 0 |
+| 2026-08-18 | 2 | 2 | 0 | 2 | 0 |
+| 2026-08-19 | 2 | 2 | 0 | 2 | 0 |
+| 2026-08-20 | 4 | 4 | 0 | 4 | 0 |
+| 2026-08-21 | 1 | 1 | 0 | 1 | 0 |
+| 2026-08-24 | 2 | 2 | 0 | 2 | 0 |
+| 2026-08-25 | 1 | 1 | 0 | 1 | 0 |
+| 2026-08-26 | 1 | 1 | 0 | 1 | 0 |
+| 2026-08-27 | 2 | 2 | 0 | 2 | 0 |
+| 2026-08-28 | 1 | 1 | 0 | 1 | 0 |
+| 2026-08-30 | 1 | 1 | 0 | 1 | 0 |
+| 2026-08-31 | 12 | 12 | 0 | 12 | 0 |
+| 2026-09-01 | 394 | 394 | 0 | 394 | 0 |
+| 2026-09-02 | 236 | 236 | 0 | 236 | 0 |
+| 2026-09-03 | 230 | 229 | 1 | 230 | 0 |
+| 2026-09-04 | 183 | 183 | 0 | 183 | 0 |
+| 2026-09-05 | 20 | 20 | 0 | 20 | 0 |
+| 2026-09-06 | 3 | 3 | 0 | 3 | 0 |
+| 2026-09-07 | 23 | 23 | 0 | 23 | 0 |
+| 2026-09-08 | 243 | 243 | 0 | 243 | 0 |
+| 2026-09-09 | 233 | 233 | 0 | 233 | 0 |
+| 2026-09-10 | 199 | 199 | 0 | 199 | 0 |
+| 2026-09-11 | 206 | 206 | 0 | 206 | 0 |
+| 2026-09-12 | 67 | 67 | 0 | 67 | 0 |
+| 2026-09-13 | 32 | 32 | 0 | 32 | 0 |
+| 2026-09-14 | 233 | 233 | 0 | 233 | 0 |
+| 2026-09-15 | 160 | 160 | 0 | 160 | 0 |
+| 2026-09-16 | 57 | 57 | 0 | 57 | 0 |
+| 2026-09-17 | 102 | 101 | 1 | 102 | 0 |
+| 2026-09-18 | 99 | 99 | 0 | 99 | 0 |
+| 2026-09-21 | 59 | 58 | 1 | 59 | 0 |
+| 2026-09-22 | 116 | 115 | 1 | 116 | 0 |
+| 2026-09-23 | 90 | 90 | 0 | 90 | 0 |
+| 2026-09-24 | 117 | 117 | 0 | 117 | 0 |
+| 2026-09-25 | 85 | 85 | 0 | 85 | 0 |
+| 2026-09-26 | 3 | 3 | 0 | 3 | 0 |
+| 2026-09-28 | 94 | 92 | 2 | 94 | 0 |
+| 2026-09-29 | 95 | 94 | 1 | 95 | 0 |
+| 2026-09-30 | 65 | 63 | 2 | 65 | 0 |
+
+Sep 19, 20, 27: API `updated_at` day Totals were 0 and ClickHouse has no `occurred_at` those
+days. Omitted from the table (both sides empty).
+
+### Do not use unconstrained `created_at` Totals as the backfill denominator
+
+Sending `created_at_start/end` **and** the `updated_at` window together does **not** AND them.
+`created_at` only for 2026-08-31 = **376**; the same day with the extra `updated_at` params
+still **376**. ClickHouse has **12** for that created day — the ones whose `updated_at` was
+inside the backfill window. `[PROVEN]` the dual filter is ignored; Sep 1–30 unconstrained
+`created_at` Totals happen to match ClickHouse because those days sit inside the lookback.
+
+Per-`updated_at` UTC day Totals (clamped to the window) count a different axis than
+`occurred_at` and are not compared to ClickHouse (ClickHouse does not store `updated_at`).
+
+### Field diffs on the 3,484 still in-window
+
+status, converted, revenue, payout, campaign_id, target_id, created_at vs `occurred_at`:
+**0 differences.**
+
+**One** caller-state difference: `0b6e59cd…` API `caller_state = Tamil Nadu`, Calyx `state = ''`.
+`NormalizeState` (`state.go:62`) allowlists US+CA only and drops anything else. Expected, not a
+mapping bug.
+
+---
+
+## 4. C3, event types, degraded, load
+
+C3 monitor (platform-sync log at 2026-09-30T23:54:34Z) and ClickHouse agree:
+
+| Counter | Monitor | ClickHouse (3,493 real) |
+|---|---:|---:|
+| revenue without conversion | **0** | **0** |
+| converted without revenue key | **0** | — |
+| converted with $0 | **119** | **119** |
+
+The 119 are the benign direction (C3 / F3). Non-zero revenue still implies converted across
+the whole backfill. `[PROVEN]`
+
+`uniqExact(event_type)` after the backfill:
+
+| platform | n | values |
+|---|---:|---|
+| retreaver | **7** | `busy`, `incoming`, `no-target`, `blocked`, `finished`, `no-answer`, `not-open` |
+| ringba | 1 | `incoming` |
+| trackdrive | 2 | `incoming`, `buyer_converted` |
+| callgrid / callloom-native | 1 | `incoming` |
+
+R0.3 only saw three statuses on a small sample. Live data has six non-`incoming` values;
+revenue is non-zero only on `finished`.
+
+**Degraded, live:** no window went `degraded` during the backfill. 0 shortfall retries in the
+retained logs, 0 429s. Do not fake one.
+
+**Load (from the backfill run):** window 30d, 41 API requests, 6 ticks (4 productive:
+1100/1100/1100/593 calls), ~6 minutes, 0 429s, 0 errors. Cursor then
+`{"window_start":"2026-09-30T23:33:33Z","page":1}`.
+
+---
+
+## 5. Sweep proof
+
+**`[UNKNOWN]` live.** After the backfill the integration was paused, then Docker Desktop was
+restarted on 2026-10-01 and the earlier `platform-sync` logs were lost. No hourly sweep had
+run against a Live Retreaver integration while it was active (the productive window was ~36
+minutes of ticks + backfill, then `is_active=false`).
+
+R1 coverage that stands in:
+
+- `TestRetreaverSweepDefaults` — 7-day hourly / 30-day deep.
+- `syncer.go:75-127` `RunAllSweeps` / `RunAllDeepSweeps` → `ListAPISync` + `SupportsRange`
+  (capability, not a Ringba name check). Same selector as the tick; `degraded` is not skipped
+  (P2).
+
+A live sweep line needs the sync on for at least one hourly tick.
+
+---
+
+## 6. Soft-delete / pause — open issue (not Stage 4)
+
+`DELETE /integrations/:id` is `softDelete`: `SET is_active = FALSE` (`integrations.service.ts:429`).
+The list endpoint is `WHERE is_active = TRUE`, so a paused integration **vanishes from
+Settings**. There is **no** PATCH/POST to set `is_active` back to true and **no** pause-as-
+distinct-from-delete route. Re-enable is raw SQL.
+
+Confirmed live: after the pause, Settings "Connected Platforms" shows only the four webhook
+rows. `My test` is still in Postgres (`sync_mode=real`, credentials intact) but not on the
+page.
+
+**Open issue for later. No fix in Stage 4.**
+
+---
+
+## 7. P5 caveat — staging server
+
+P5 for **this machine** is confirmed: Retreaver `My test` is `is_active=false`. Whether the
+**staging server** holds a Live Retreaver API integration for company `…5270` is **not**
+checked from here.
+
+The owner will confirm that separately. Recorded as **pending his word**, not assumed.
+
+---
+
+## 8. UI check
+
+All time, platform = Retreaver, Show demo off.
+
+![Dashboard Retreaver all-time](evidence/r2/dashboard-retreaver-all.png)
+
+| Surface | Shown | ClickHouse |
+|---|---|---|
+| Dashboard Total Pings | **3,493** (100% unique) | 3,493 distinct |
+| Dashboard Total Revenue | **$31,692.28** | `sumIf(revenue, platform_duplicate=0)` = 31,692.28 (raw sum 32,010.94 includes duplicate leads, correctly excluded from revenue) |
+| Ping Feed headline | **3,493 calls** | same |
+| Ping list duration column | **none** | — |
+| "Should have converted" | **0 calls** | 0 rows with `revenue>0 AND has_converted=0` |
+
+![Ping Feed Retreaver](evidence/r2/pings-retreaver-all.png)
+
+![Should have converted empty](evidence/r2/pings-should-convert-empty.png)
+
+Call detail `#8` `8d679c45-…`:
+
+![Call detail #8](evidence/r2/call-detail-8d679c45.png)
+
+| Label | Shown | Mapping |
+|---|---|---|
+| Call time | Oct 01, 2026, 01:04:05 AM GMT+5 | `created_at` 20:04:05 UTC |
+| Connected length | **4m 53s** (293 s) | `DurationSeconds` / `dialed_call_duration` |
+| Total call length | **4m 58s** (298 s) | `CallLengthSeconds` / `total_duration` — matches Retreaver UI |
+| Revenue / Payout / Converted | $21.25 / $17.00 / Yes | match |
+
+`[PROVEN]` live. No UI change in R2.
+
+---
+
+## 9. Certification summary (report only)
+
+Same columns as `docs/platform-certification.md`. **Do not update that file until the owner
+approves** 🙋.
+
+| | This R2 run |
+|---|---|
+| Research / fixture / conformance | already ✅ from prior cert + Stage 4 R0–R1 |
+| occurred_at | ✅ `created_at` (UI clock is `start_time` — labelled, not changed) |
+| Redaction | ✅ key in query string; tool never prints URL / key / caller |
+| D9 SQL | ⬜ no second ClickHouse row yet (sync off) |
+| D9 API | ✅ `1c037735-…` 0 → **34.13**, converted false → true |
+| Update mechanism | ✅ `updated_at` window; the 9 leavers prove a later `updated_at` drops them from a frozen window |
+| Initial backfill | ✅ 30 days UTC as approved |
+| Certified | **not yet** — D9 CH AFTER and live sweep still open |
+
+---
+
+## 10. Open questions 🙋
+
+1. Re-enable sync so D9 writes the AFTER row for `1c037735-…` (and the seven voids)?
+2. Approve the call-detail relabel (Total duration / Talk time) for a later slice?
+3. Staging server: no Retreaver API integration for `…5270`?
+4. Approve updating `docs/platform-certification.md` after D9 CH lands?
+5. Commit + push `stage4/retreaver` when ready — **not done**.
+
+---
+
+## 11. Honest limitations
+
+1. D9 AFTER is API-only until the next sync.
+2. Sweep not observed live.
+3. ClickHouse does not store `updated_at`, so per-day `updated_at` Totals cannot be joined
+   to CH without the API dump.
+4. `created_at` + `updated_at` together on `/calls.json` does not AND; unconstrained
+   `created_at` Totals are the wrong denominator for this backfill.
+5. One non-US caller state blanked by `NormalizeState`.
+6. Docker Desktop restarted during this write-up; backfill logs from 2026-09-30 are gone.
+   Counts above are from ClickHouse + a fresh API re-read, not from those logs.
+7. Probe tool now uses `get_api_sync_integration_any` so it works while paused. Read-only.
+
+---
+
+**Gate R2:** not closed. D9 AFTER is not in ClickHouse yet (sync off) and the hourly sweep was
+not observed live. Everything else in this section is done. **R3 not started.** Sync stays
+**off** until the owner says otherwise. Nothing committed.
+
