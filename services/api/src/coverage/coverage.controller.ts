@@ -14,6 +14,7 @@ const heatmapQuerySchema = z.object({
   // Same period semantics as /analytics/metrics so the map and the dashboard agree.
   from: optionalIsoDate,
   to: optionalIsoDate,
+  platform: z.string().optional(),
 });
 
 @Controller('coverage')
@@ -32,6 +33,7 @@ export class CoverageController {
       parsed.show_demo,
       parsed.from,
       parsed.to,
+      parsed.platform,
     );
   }
 }

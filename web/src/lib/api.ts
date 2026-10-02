@@ -670,12 +670,13 @@ export async function updateIntegrationSyncMode(
 
 export async function fetchCoverageHeatmap(
   token: string,
-  options: { show_demo?: boolean; from?: string; to?: string } = {},
+  options: { show_demo?: boolean; from?: string; to?: string; platform?: string } = {},
 ): Promise<HeatmapResult> {
   const params = new URLSearchParams();
   if (options.show_demo) params.set('show_demo', 'true');
   if (options.from) params.set('from', options.from);
   if (options.to) params.set('to', options.to);
+  if (options.platform) params.set('platform', options.platform);
   const qs = params.toString();
   return fetchWithAuth<HeatmapResult>(token, `/coverage/heatmap${qs ? `?${qs}` : ''}`);
 }

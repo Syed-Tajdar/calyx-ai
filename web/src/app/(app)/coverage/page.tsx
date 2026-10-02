@@ -16,10 +16,12 @@ import { getToken } from '@/lib/auth';
 import { countryForRegion } from '@/lib/na-regions';
 import { useDateFilter } from '@/lib/date-filter';
 import { FilterBar } from '@/components/ui/FilterBar';
+import { usePlatformOptions } from '@/lib/use-platform-options';
 
 export default function CoveragePage(): JSX.Element {
   const router = useRouter();
-  const { showDemo, startDate } = useDateFilter();
+  const { showDemo, startDate, platform } = useDateFilter();
+  const platforms = usePlatformOptions();
   const [rows, setRows] = useState<HeatmapStateRow[]>([]);
   const [totalPings, setTotalPings] = useState(0);
   const [usRegions, setUsRegions] = useState(0);
@@ -38,6 +40,7 @@ export default function CoveragePage(): JSX.Element {
     fetchCoverageHeatmap(token, {
       show_demo: showDemo || undefined,
       from: startDate?.toISOString(),
+      platform: platform || undefined,
     })
       .then((res) => {
         setRows(res.data);
@@ -53,7 +56,7 @@ export default function CoveragePage(): JSX.Element {
         setError('Failed to load coverage heatmap');
       })
       .finally(() => setLoading(false));
-  }, [router, showDemo, startDate]);
+  }, [router, showDemo, startDate, platform]);
 
   const visibleRows = useMemo(() => {
     if (countryFilter === 'all') return rows;
@@ -124,7 +127,7 @@ export default function CoveragePage(): JSX.Element {
       />
 
       {/* Period filter added so the map agrees with the dashboard (enterprise-roadmap Gap C). */}
-      <FilterBar showDemoToggle />
+      <FilterBar showPlatform platforms={platforms} showDemoToggle />
 
       {loading && <PageLoader />}
       {error && <ErrorBanner message={error} />}

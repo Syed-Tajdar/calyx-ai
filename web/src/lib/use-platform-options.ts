@@ -6,6 +6,7 @@ import { ApiError, fetchPlatformMix } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
 import { KNOWN_PLATFORMS, mergePlatformOptions } from '@/lib/platform-options';
+import { platformsForV1 } from '@/lib/v1-features';
 
 export function usePlatformOptions(): string[] {
   const router = useRouter();
@@ -30,5 +31,5 @@ export function usePlatformOptions(): string[] {
       });
   }, [router, dateFilters.from]);
 
-  return platforms;
+  return platformsForV1(platforms);
 }

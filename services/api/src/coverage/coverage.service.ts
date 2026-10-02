@@ -35,6 +35,7 @@ export class CoverageService {
     showDemo?: boolean,
     from?: string,
     to?: string,
+    platform?: string,
   ): Promise<HeatmapResult> {
     const demo = apiSyncExclusionSql('external_call_id', showDemo);
     const params: Record<string, string> = { tenant_id: tenantId };
@@ -46,6 +47,10 @@ export class CoverageService {
     if (to) {
       period += `\n            AND ${EVENT_AT_EXPR} < parseDateTimeBestEffort({to:String})`;
       params.to = to;
+    }
+    if (platform) {
+      period += `\n            AND platform = {platform:String}`;
+      params.platform = platform;
     }
     const result = await this.clickhouse.getClient().query({
       query: `

@@ -40,3 +40,16 @@ export function isRouteVisible(href: string): boolean {
  *   so it shows invented revenue even when the rest of the dashboard says "No pings yet"
  */
 export const SHOW_MOCK_PANELS = !V1_ONLY;
+
+/** v1 connects and filters Ringba and Retreaver. Other platform code stays in the build. */
+export const V1_PLATFORMS = ['ringba', 'retreaver'] as const;
+
+export function platformsForV1(
+  platforms: readonly string[],
+  v1Only: boolean = V1_ONLY,
+): string[] {
+  if (!v1Only) return [...platforms];
+  return platforms.filter((platform) =>
+    (V1_PLATFORMS as readonly string[]).includes(platform),
+  );
+}
