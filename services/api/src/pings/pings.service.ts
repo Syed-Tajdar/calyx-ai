@@ -205,6 +205,9 @@ export class PingsService {
     const total = Number(countRows[0]?.total ?? 0);
     const distinctTotal = Number(countRows[0]?.distinct_total ?? 0);
 
+    // HAVING repeats argMax(has_converted) while the SELECT aliases that same
+    // expression AS has_converted. ClickHouse then nests the alias inside the
+    // HAVING aggregate (code 184) and the call list 500s. Prefer the column.
     const dataResult = await this.clickhouse.getClient().query({
       query: filters.raw
         ? `
@@ -230,6 +233,7 @@ export class PingsService {
         ORDER BY event_at DESC
         LIMIT {limit:UInt32}
         OFFSET {offset:UInt32}
+        SETTINGS prefer_column_name_to_alias = 1
       `,
       query_params: params,
       format: 'JSONEachRow',
@@ -282,6 +286,7 @@ export class PingsService {
         ${latestConversion ? `HAVING ${latestConversion}` : ''}
         ORDER BY event_at DESC
         LIMIT {limit:UInt32}
+        SETTINGS prefer_column_name_to_alias = 1
       `,
       query_params: params,
       format: 'JSONEachRow',
