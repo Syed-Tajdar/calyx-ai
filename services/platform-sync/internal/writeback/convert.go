@@ -67,6 +67,9 @@ type Service struct {
 	lock          Locker
 	settleWindow  time.Duration
 	settleEvery   time.Duration
+	// globalEnabled is WRITEBACK_ENABLED. NewService defaults it on so existing callers
+	// keep working; main turns it off when the process flag is false.
+	globalEnabled bool
 }
 
 func NewService(
@@ -76,7 +79,13 @@ func NewService(
 	ringba RingbaAPI,
 	lock Locker,
 ) *Service {
-	return &Service{store: st, audit: audit, decryptor: dec, ringba: ringba, lock: lock}
+	return &Service{store: st, audit: audit, decryptor: dec, ringba: ringba, lock: lock, globalEnabled: true}
+}
+
+// SetGlobalEnabled records WRITEBACK_ENABLED. A request that still reaches the service
+// while this is false is audited and refused before the lock.
+func (s *Service) SetGlobalEnabled(on bool) {
+	s.globalEnabled = on
 }
 
 func ValidateAmount(amount float64) error {
@@ -125,52 +134,67 @@ func (s *Service) Void(ctx context.Context, req ConvertRequest) (Result, error) 
 	return s.run(ctx, req, "void")
 }
 
+func (s *Service) reject(ctx context.Context, req ConvertRequest, action string, amount float64, err error) (Result, error) {
+	id, _ := s.writeAudit(ctx, req, action, amount, "rejected", "", "", err.Error(), "absent")
+	return Result{
+		Outcome:       "rejected",
+		InboundCallID: req.InboundCallID,
+		Amount:        amount,
+		AuditID:       id,
+		Message:       err.Error(),
+	}, err
+}
+
 func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (res Result, err error) {
 	req.InboundCallID = strings.TrimSpace(req.InboundCallID)
+	amount := req.Amount
+	if !s.globalEnabled {
+		return s.reject(ctx, req, action, amount, ErrGloballyDisabled)
+	}
 	if req.InboundCallID == "" {
-		return Result{}, fmt.Errorf("inbound_call_id required")
+		return s.reject(ctx, req, action, amount, fmt.Errorf("inbound_call_id required"))
 	}
 	if action == "convert" {
 		if err := ValidateAmount(req.Amount); err != nil {
-			return Result{}, err
+			return s.reject(ctx, req, action, amount, err)
 		}
 	}
 
 	item, err := s.store.GetAPISyncAny(ctx, req.TenantID, req.IntegrationID)
 	if err != nil {
-		return Result{}, fmt.Errorf("%w", ErrIntegrationMissing)
+		return s.reject(ctx, req, action, amount, ErrIntegrationMissing)
 	}
 	if item.TenantID != "" && item.TenantID != req.TenantID {
-		return Result{}, ErrAccountMismatch
+		return s.reject(ctx, req, action, amount, ErrAccountMismatch)
 	}
 	if !item.WritebackEnabled {
-		return Result{}, ErrTenantDisabled
+		return s.reject(ctx, req, action, amount, ErrTenantDisabled)
 	}
 	if !strings.EqualFold(item.Platform, "ringba") {
-		return Result{}, ErrNotRingba
+		return s.reject(ctx, req, action, amount, ErrNotRingba)
 	}
 	if item.SyncMode != "real" {
-		return Result{}, ErrNotLive
+		return s.reject(ctx, req, action, amount, ErrNotLive)
 	}
 
 	creds, err := s.decryptor.DecryptMap(item.APICredentialsBlob)
 	if err != nil {
-		return Result{}, fmt.Errorf("decrypt credentials: %w", err)
+		return s.reject(ctx, req, action, amount, fmt.Errorf("decrypt credentials: %w", err))
 	}
 	accountID := strings.TrimSpace(creds["account_id"])
 	if accountID == "" {
-		return Result{}, fmt.Errorf("writeback: Ringba account_id missing on this tenant's credentials")
+		return s.reject(ctx, req, action, amount, fmt.Errorf("writeback: Ringba account_id missing on this tenant's credentials"))
 	}
 
 	gotLock, err := s.lock.Acquire(ctx, req.TenantID, action, req.InboundCallID)
 	if err != nil {
-		return Result{}, err
+		return s.reject(ctx, req, action, amount, err)
 	}
 	if !gotLock {
 		if action == "void" {
-			return Result{}, ErrAlreadyVoiding
+			return s.reject(ctx, req, action, amount, ErrAlreadyVoiding)
 		}
-		return Result{}, ErrAlreadyProcessing
+		return s.reject(ctx, req, action, amount, ErrAlreadyProcessing)
 	}
 	release := true
 	defer func() {

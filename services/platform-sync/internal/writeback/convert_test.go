@@ -296,6 +296,88 @@ func TestVoidConfirmed(t *testing.T) {
 	}
 }
 
+type errLocker struct{ err error }
+
+func (e errLocker) Acquire(context.Context, string, string, string) (bool, error) {
+	return false, e.err
+}
+func (errLocker) Release(context.Context, string, string, string) error { return nil }
+func (errLocker) MarkPending(context.Context, string, string, string) error { return nil }
+
+func TestAuditRowForEveryEarlyRejection(t *testing.T) {
+	t.Run("invalid amount", func(t *testing.T) {
+		audit := &memAudit{}
+		req := baseReq()
+		req.Amount = 0
+		_, err := testSvc(&fakeStore{item: enabledItem()}, &fakeRingba{}, NewMemoryLocker(), audit).Convert(context.Background(), req)
+		if !errors.Is(err, ErrInvalidAmount) || len(audit.rows) != 1 || audit.rows[0].Outcome != "rejected" {
+			t.Fatalf("err=%v rows=%d", err, len(audit.rows))
+		}
+	})
+
+	t.Run("integration not found", func(t *testing.T) {
+		audit := &memAudit{}
+		_, err := testSvc(&fakeStore{err: fmt.Errorf("integration not found")}, &fakeRingba{}, NewMemoryLocker(), audit).Convert(context.Background(), baseReq())
+		if !errors.Is(err, ErrIntegrationMissing) || len(audit.rows) != 1 {
+			t.Fatalf("err=%v rows=%d", err, len(audit.rows))
+		}
+	})
+
+	t.Run("tenant disabled", func(t *testing.T) {
+		audit := &memAudit{}
+		item := enabledItem()
+		item.WritebackEnabled = false
+		_, err := testSvc(&fakeStore{item: item}, &fakeRingba{}, NewMemoryLocker(), audit).Convert(context.Background(), baseReq())
+		if !errors.Is(err, ErrTenantDisabled) || len(audit.rows) != 1 || audit.rows[0].Outcome != "rejected" {
+			t.Fatalf("err=%v rows=%d", err, len(audit.rows))
+		}
+	})
+
+	t.Run("globally disabled", func(t *testing.T) {
+		audit := &memAudit{}
+		svc := testSvc(&fakeStore{item: enabledItem()}, &fakeRingba{}, NewMemoryLocker(), audit)
+		svc.SetGlobalEnabled(false)
+		_, err := svc.Convert(context.Background(), baseReq())
+		if !errors.Is(err, ErrGloballyDisabled) || len(audit.rows) != 1 || audit.rows[0].Message != ErrGloballyDisabled.Error() {
+			t.Fatalf("err=%v rows=%+v", err, audit.rows)
+		}
+	})
+
+	t.Run("not live", func(t *testing.T) {
+		audit := &memAudit{}
+		item := enabledItem()
+		item.SyncMode = "mock"
+		_, err := testSvc(&fakeStore{item: item}, &fakeRingba{}, NewMemoryLocker(), audit).Convert(context.Background(), baseReq())
+		if !errors.Is(err, ErrNotLive) || len(audit.rows) != 1 {
+			t.Fatalf("err=%v rows=%d", err, len(audit.rows))
+		}
+	})
+
+	t.Run("already in progress", func(t *testing.T) {
+		audit := &memAudit{}
+		lock := NewMemoryLocker()
+		ok, err := lock.Acquire(context.Background(), "ten-a", "convert", "RGBTEST01")
+		if err != nil || !ok {
+			t.Fatal(err, ok)
+		}
+		_, err = testSvc(&fakeStore{item: enabledItem()}, &fakeRingba{}, lock, audit).Convert(context.Background(), baseReq())
+		if !errors.Is(err, ErrAlreadyProcessing) || len(audit.rows) != 1 || audit.rows[0].Outcome != "rejected" {
+			t.Fatalf("err=%v rows=%d", err, len(audit.rows))
+		}
+		if HTTPStatus(err) != 409 {
+			t.Fatalf("status %d", HTTPStatus(err))
+		}
+	})
+
+	t.Run("lock error", func(t *testing.T) {
+		audit := &memAudit{}
+		_, err := testSvc(&fakeStore{item: enabledItem()}, &fakeRingba{}, errLocker{err: fmt.Errorf("redis down")}, audit).Convert(context.Background(), baseReq())
+		if err == nil || len(audit.rows) != 1 || audit.rows[0].Outcome != "rejected" {
+			t.Fatalf("err=%v rows=%d", err, len(audit.rows))
+		}
+	})
+}
+
 func TestPickConversionWebhookPrefersMyWebhook(t *testing.T) {
 	got, err := pickConversionWebhook([]adapter.RingbaConversionWebhook{
 		{ID: "WH1", Name: "fdgf"},

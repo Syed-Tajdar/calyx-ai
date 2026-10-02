@@ -17,6 +17,7 @@ var (
 	ErrCallNotFound       = errors.New("writeback: call not found on this tenant's Ringba account")
 	ErrAccountMismatch    = errors.New("writeback: call does not belong to this tenant's Ringba account")
 	ErrIntegrationMissing = errors.New("writeback: integration not found")
+	ErrGloballyDisabled   = errors.New("writeback: write-back is disabled")
 	ErrFireRejected       = errors.New("writeback: Ringba rejected the fire")
 )
 
@@ -32,8 +33,8 @@ func HTTPStatus(err error) int {
 	case errors.Is(err, ErrAlreadyConverted), errors.Is(err, ErrAlreadyProcessing),
 		errors.Is(err, ErrAlreadyVoiding), errors.Is(err, ErrNotConverted):
 		return 409
-	case errors.Is(err, ErrTenantDisabled), errors.Is(err, ErrNotLive), errors.Is(err, ErrNotRingba),
-		errors.Is(err, ErrAccountMismatch):
+	case errors.Is(err, ErrTenantDisabled), errors.Is(err, ErrGloballyDisabled), errors.Is(err, ErrNotLive),
+		errors.Is(err, ErrNotRingba), errors.Is(err, ErrAccountMismatch):
 		return 403
 	case errors.Is(err, ErrCallNotFound), errors.Is(err, ErrIntegrationMissing):
 		return 404
