@@ -16,6 +16,7 @@ const PRESETS: { value: DateRangePreset; label: string }[] = [
 const CONVERSIONS: { value: ConversionSelection; label: string; title?: string }[] = [
   { value: '', label: 'All' },
   { value: 'converted', label: 'Converted' },
+  { value: 'converted_zero', label: 'Converted · $0' },
   { value: 'unconverted', label: 'Not converted' },
   {
     value: 'should_convert',

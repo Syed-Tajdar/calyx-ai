@@ -11,6 +11,7 @@ import { conversionFilterSql } from '../common/platform-capabilities';
  */
 export const PING_CONVERSION_FILTERS = [
   'converted',
+  'converted_zero',
   'unconverted',
   'should_convert',
 ] as const;

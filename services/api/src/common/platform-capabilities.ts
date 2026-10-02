@@ -65,7 +65,7 @@ export function conversionState(input: {
  * `should_convert` is not a fifth state: it is `not_converted` plus revenue or duration.
  */
 export function conversionFilterSql(
-  filter: 'converted' | 'unconverted' | 'should_convert',
+  filter: 'converted' | 'converted_zero' | 'unconverted' | 'should_convert',
   mode: 'raw' | 'latest',
 ): string {
   const platform = reportsConversionStateSql('platform');
@@ -78,6 +78,9 @@ export function conversionFilterSql(
       : 'required_duration_seconds';
   if (filter === 'converted') {
     return `${platform} AND ${hc} = 1 AND ${rev} > 0`;
+  }
+  if (filter === 'converted_zero') {
+    return `${platform} AND ${hc} = 1 AND ${rev} = 0`;
   }
   if (filter === 'unconverted') {
     return `${platform} AND ${hc} = 0`;

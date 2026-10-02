@@ -43,6 +43,12 @@ describe('conversionFilterSql', () => {
     expect(sql).toContain("platform IN ('ringba', 'retreaver')");
   });
 
+  it('Converted · $0 is the flag with revenue = 0, so those calls can be listed', () => {
+    const sql = conversionFilterSql('converted_zero', 'latest');
+    expect(sql).toContain('argMax(has_converted, received_at) = 1');
+    expect(sql).toContain('argMax(revenue, received_at) = 0');
+  });
+
   it('Not converted is the flag false, so $0 conversions stay out of that filter', () => {
     const sql = conversionFilterSql('unconverted', 'raw');
     expect(sql).toContain('has_converted = 0');
