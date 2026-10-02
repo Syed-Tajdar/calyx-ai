@@ -256,7 +256,7 @@
       NOTIFICATION_CHANNEL: mock
       CREDENTIAL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       PLATFORM_SYNC_URL: http://platform-sync:8088
-      WRITEBACK_ENABLED: "true"
+      WRITEBACK_ENABLED: ${WRITEBACK_ENABLED:-false}
       WRITEBACK_INTERNAL_TOKEN: "dev_writeback_internal_token_change_me"
       APP_ENV: "development"
       WEB_ORIGINS: ${WEB_ORIGINS:-http://localhost:3101,http://127.0.0.1:3101}
@@ -433,7 +433,7 @@
       ANI_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       MOCK_MODE: "true"
       MOCK_DEDUP_PROOF: "0"
-      WRITEBACK_ENABLED: "true"
+      WRITEBACK_ENABLED: ${WRITEBACK_ENABLED:-false}
       WRITEBACK_SETTLE_SECONDS: "20"
       WRITEBACK_INTERNAL_TOKEN: "dev_writeback_internal_token_change_me"
       SYNC_INTERVAL_SEC: "120"

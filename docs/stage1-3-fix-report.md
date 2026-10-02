@@ -86,7 +86,7 @@ Migrations, in order:
 
 New env on platform-sync: **`WRITEBACK_SETTLE_SECONDS`**. Empty or invalid keeps the default **20**. Local compose sets `"20"`.
 
-**`WRITEBACK_ENABLED` stays `false` on the server.** Local compose currently sets it `"true"` on api and platform-sync so this machine can exercise the route. Do not copy that `true` to the server.
+**`WRITEBACK_ENABLED` stays `false` on the server.** Committed compose uses `${WRITEBACK_ENABLED:-false}` on api and platform-sync. A git-ignored local `.env` may set `true` for this machine. Do not copy that value to the server.
 
 ---
 
@@ -315,7 +315,7 @@ The call list was 500ing on these filters: ClickHouse treats `argMax(has_convert
 2. Apply Postgres in order: `000028` → `000029` → `000030` → `000031`.
 3. Rebuild `api`, `web`, and `platform-sync`.
 4. Set `WRITEBACK_SETTLE_SECONDS` (default 20 when unset) and `RINGBA_RATE_PER_MIN` (default **75**).
-5. `WRITEBACK_ENABLED` stays `false` on the server.
+5. `WRITEBACK_ENABLED` stays `false` on the server. Committed compose defaults it with `${WRITEBACK_ENABLED:-false}` on api and platform-sync. This machine’s git-ignored `.env` sets `true`. `INTELLIGENCE_SCALE` is not a compose setting. `NEXT_PUBLIC_V1_ONLY` is unset in compose, and the web treats that as v1.
 
 The same notes are in `docs/deploy-checklist.md`.
 

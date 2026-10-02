@@ -17,9 +17,10 @@ Each was found during write-back and pre-Phase-2 work. Do not deploy with any un
 
 ## Feature flags
 
-- [ ] **`WRITEBACK_ENABLED`** — set explicitly in production. Local compose sets `true` for
-      testing; the code default is `false`. Do not copy the compose value. Leave it `false`
-      on the server until a live write is approved.
+- [ ] **`WRITEBACK_ENABLED`** — compose default is `false`
+      (`${WRITEBACK_ENABLED:-false}` on api and platform-sync). Leave it unset or `false`
+      on the server until a live write is approved. A git-ignored local `.env` may set
+      `true` for this machine only.
 - [ ] **`WRITEBACK_SETTLE_SECONDS`** — seconds platform-sync waits for Ringba to confirm a
       convert or cancel. Default **20** when unset. 12 was tight against an observed ~10.4s
       read-back.
