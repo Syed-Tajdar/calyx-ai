@@ -186,7 +186,7 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
             {((ping.profit_gross ?? 0) !== 0 || syncPath === 'api_sync') ? (
               <Field label="Profit (gross)">${(ping.profit_gross ?? 0).toFixed(2)}</Field>
             ) : null}
-            <Field label="Connected length">
+            <Field label="Talk time">
               {(ping.duration_seconds ?? 0) > 0 ? (
                 formatSeconds(ping.duration_seconds ?? 0)
               ) : syncPath === 'webhook' ? (
@@ -195,7 +195,7 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
                 '—'
               )}
             </Field>
-            <Field label="Total call length">
+            <Field label="Total duration">
               {(ping.call_length_seconds ?? 0) > 0 ? (
                 formatSeconds(ping.call_length_seconds ?? 0)
               ) : syncPath === 'webhook' ? (
