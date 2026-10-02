@@ -1869,6 +1869,11 @@ page.
 
 **Open issue for later. No fix in Stage 4.**
 
+Two more, recorded after the owner accepted R2. **No fix now.**
+
+1. The live sweep log line is `"ringba window fetch completed"` even for this Retreaver integration. The label is hardcoded in the shared window-fetch log. The sweep itself ran; only the name is wrong.
+2. `docs/platform-certification.md` still opens with the 2026-07-20 Ringba header, and its closing line says "TrackDrive Phase 3 may start". TrackDrive is out of v1 scope. The Retreaver row in that file was updated; the header and that sentence were not.
+
 ---
 
 ## 7. P5 caveat — staging server
@@ -1980,7 +1985,7 @@ Re-enable had no Settings control while `is_active=false` (the row is hidden). `
 | P5 staging | **Confirmed with Aryan.** No Retreaver API integration for `…5270` on the staging server. None was created. |
 | Call-detail labels | **"Total duration" / "Talk time" approved for a later UI slice.** No UI change in R2. |
 | `docs/platform-certification.md` | Updated **after** the D9 AFTER row and the live sweep, below. |
-| D9 UI match | The relay named `1c037735…` as checked and did not state match or mismatch. Calyx AFTER matches the API read: `converted=true`, revenue **34.13**. |
+| D9 UI match | **Match.** Owner opened `https://retreaver.com/calls/1c037735-0b5c-404a-962c-e03539fc5f04` directly: converted, revenue **$34.13**. Same as the ClickHouse AFTER row. |
 
 ## 1. D9 AFTER — `1c037735-0b5c-404a-962c-e03539fc5f04`
 
@@ -1994,6 +1999,11 @@ First tick `15:22:13Z` (`calls=255`, `published=155`).
 | payout | 0 | 0 |
 
 `sync_count=2`. Collapsed `GET /pings?search=1c037735…`: **one row**, `has_converted=true`, `revenue=34.13`, `sync_count=2`. `[PROVEN]`
+
+**Owner UI check = match.** The owner opened that call by its direct URL
+(`https://retreaver.com/calls/1c037735-0b5c-404a-962c-e03539fc5f04`): converted, revenue **$34.13**.
+Retreaver Call Log 1.0 search by UUID returned no results because of its default date filter.
+The direct call URL is the reliable way to open a call by UUID. `[owner]`
 
 ## 2. Voids
 
@@ -2079,6 +2089,6 @@ All-time Dashboard after the hold, Retreaver, Show demo off:
 
 ---
 
-**Gate R2 closed.** D9 AFTER and the hourly sweep are proven. Certification doc updated. Sync is off and back on Test. **STOP. Do not start R3.**
+**Gate R2 closed. Owner accepted Stage 4 R2.** D9 AFTER, the owner UI match, and the hourly sweep are proven. Certification doc updated. Sync is off and back on Test. The two doc/log issues above are recorded and not fixed. **R3 not started.**
 
 
