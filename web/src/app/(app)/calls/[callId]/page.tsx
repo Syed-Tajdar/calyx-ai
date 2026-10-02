@@ -221,7 +221,7 @@ function CallDetailContent(): JSX.Element {
       {!loading && !error && (
         <div className="space-y-8">
           <CallJourneyTimeline steps={journeySteps} />
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className={SHOW_MOCK_PANELS ? 'grid gap-6 lg:grid-cols-2' : 'space-y-4'}>
             <div className="space-y-4">
               <ConversionActions
                 callId={callId}
@@ -233,16 +233,18 @@ function CallDetailContent(): JSX.Element {
               <CallDeepViewPanel view={deepView} />
               {SHOW_MOCK_PANELS && <ScoreCard score={displayScore} />}
             </div>
-            <div className="space-y-4">
-              <TranscriptPanel transcript={transcript} />
-              {aniHash ? (
-                <EnrichmentPanel aniHash={aniHash} />
-              ) : (
-                <div className="calyx-card p-4 text-sm text-calyx-muted">
-                  No enrichment available for this call yet.
-                </div>
-              )}
-            </div>
+            {SHOW_MOCK_PANELS && (
+              <div className="space-y-4">
+                <TranscriptPanel transcript={transcript} />
+                {aniHash ? (
+                  <EnrichmentPanel aniHash={aniHash} />
+                ) : (
+                  <div className="calyx-card p-4 text-sm text-calyx-muted">
+                    No enrichment available for this call yet.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
