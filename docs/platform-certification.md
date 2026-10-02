@@ -5,7 +5,7 @@ Updated after **Ringba live certification** (`docs/phase2-ringba-live-certified.
 
 | Platform | Research | Fixture | Conformance | occurred_at | Redaction | A1 proof | D9 SQL | D9 API | Update mechanism | Initial backfill | D8b | Certified |
 |----------|----------|---------|-------------|-------------|-----------|----------|--------|--------|------------------|------------------|-----|-----------|
-| Retreaver | ✅ | real-account | ✅ | ✅ | ✅ | ✅ | ✅ | **YES** (0→13.51 live) | `updated_at` + 15m safety delta; revenue bumps `updated_at` **observed YES** | default **30 days**, per-integration + Settings UI + Backfill | ✅ Case A (truncated list / full detail+URL); exact+prefix search; deep link | **YES** |
+| Retreaver | ✅ | real-account | ✅ | ✅ `created_at` (UI clock is `start_time`) | ✅ | ✅ | ✅ | **YES** — earlier `c525ed11-…` 0→13.51; Stage 4 R2 `1c037735…` 0→**34.13**, `sync_count` 2 | `updated_at` + 15m safety delta; revenue bumps `updated_at` **observed YES**; hourly 7-day sweep **proven live** 2026-10-02 | default **30 days** (Stage 4: 30 days UTC, 3,493 then incremental) | ✅ Case A (truncated list / full detail+URL); exact+prefix search; deep link | **YES** — Stage 4 R2 re-proven, then returned to Test |
 | Ringba | ✅ Phase 2.A | docs + live | ✅ | ✅ `callDt` | ✅ `Token` header | ✅ live Get Call Log exact id (`…/calllogs/details` **404** on host) | ✅ | **YES** (0→**34.75** live) | **overlap 2h + content-hash** (A3=NO last-mod) | default **30 days** + Settings lookback | ✅ Case A (`inboundCallId`); two-way ID **operator-confirmed**; deep link = **report-level** (no per-call URL) | **YES** |
 | TrackDrive | ⬜ Phase 3 | docs | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | pending (likely overlap) | pending | ⬜ | ⬜ |
 | CallGrid | ⬜ | docs | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | pending (likely overlap) | pending | ⬜ | ⬜ |
@@ -15,7 +15,7 @@ Updated after **Ringba live certification** (`docs/phase2-ringba-live-certified.
 
 | Platform | Level | Status |
 |----------|-------|--------|
-| Retreaver | API-level 0→nonzero | ✅ **YES** — `c525ed11-…` 0→**13.51** |
+| Retreaver | API-level 0→nonzero | ✅ **YES** — Stage 4 R2 `1c037735-…` 0→**34.13**, collapsed `/pings` `syncs=2`. Earlier `c525ed11-…` 0→**13.51** stands |
 | Ringba | API-level 0→nonzero | ✅ **YES** — `RGB6044D6A54…RGB9B02` 0→**34.75**; `argMax` + distinct=1 |
 
 ### Observed: does revenue bump last-mod?
@@ -54,7 +54,15 @@ During **initial backfill**, the sync cursor walks pages forward on a wide windo
 | 2.C / Live Ringba DoD | **DONE** — **CERTIFIED YES** (`docs/phase2-ringba-live-certified.md`) |
 | Enterprise risks (PART 3) | **REPORTED** investigate-only |
 
-Retreaver **CERTIFIED**. Ringba **CERTIFIED YES**. **TrackDrive Phase 3 may start.**
+Retreaver **CERTIFIED** (Stage 4 R2, 2026-10-02, then returned to Test and paused). Ringba **CERTIFIED YES**. **TrackDrive Phase 3 may start.**
+
+### Stage 4 R2 close (2026-10-02)
+
+- Backfill window `[2026-08-31T23:38:52Z, 2026-09-30T23:38:52Z)` re-read: API `Total` 3,477, revenue sum **$31,722.09**, ClickHouse latest on the same UUIDs **$31,722.09** (sub-cent float residue $0.0001).
+- Dashboard All time / Retreaver: **$33,143.85** and **3,652** calls. That is latest revenue with `platform_duplicate=0`. Duplicate-lead revenue **$420.53** is excluded. The rest of the gap vs the frozen window is 175 calls whose `updated_at` is outside that window (the D9/void/adjustment rows plus calls ingested after the backfill).
+- Hourly sweep proven: `reason=sweep`, window `2026-09-25T15:27:58Z` → `2026-10-02T15:27:58Z`, 471 calls, 470 unchanged, 1 published (`2b73929f…`, status `forwarded`).
+- Seven voids: API `converted=false` and `revenue=null`. ClickHouse latest `has_converted=0`, revenue 0. Not a C3 violation. R3 must not assume Retreaver keeps `converted=true` after a void; the earning signal is `converted AND revenue > 0`.
+- Integration returned to **Test** (`sync_mode=mock`) and **paused** (`is_active=false`). Staging has no Retreaver API integration for company `…5270`.
 
 ### Ringba live notes (2026-07-20)
 

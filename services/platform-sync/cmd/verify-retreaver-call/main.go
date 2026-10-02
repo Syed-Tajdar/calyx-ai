@@ -179,6 +179,10 @@ func walkWindow(ctx context.Context, client *http.Client, apiKey, companyID, sta
 	fmt.Printf("page1_http=%d\n", status)
 	fmt.Printf("per_page_header=%d\n", perPage)
 	fmt.Printf("page1_rows=%d\n", len(page1))
+	if status0 != 200 {
+		total = atoi(hdr.Get("Total"))
+		fmt.Printf("total_header_from_page1=%d\n", total)
+	}
 
 	all := append([]callFields{}, page1...)
 	page := 1

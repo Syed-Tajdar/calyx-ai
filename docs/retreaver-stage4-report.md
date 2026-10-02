@@ -1575,11 +1575,13 @@ the first backfill on the owner's instruction. Not committed until he asks.
 | C3 monitor | **PASS** — 0 revenue-without-conversion; 119 converted-at-$0 (benign) |
 | `uniqExact(event_type)` | **PASS** — Retreaver 7 values |
 | Degraded, live | **PASS** — no window went degraded |
-| D9 in ClickHouse (`sync_count > 1`) | **NONE YET** — sync was paused before a second write. API AFTER exists; UUID below. 🙋 |
-| Sweep proof, live | **`[UNKNOWN]` live** — pointer to R1 tests |
+| D9 in ClickHouse (`sync_count > 1`) | **PASS** — `1c037735…` sync_count 2, revenue 0 → 34.13 |
+| Sweep proof, live | **PASS** `[PROVEN]` — hourly sweep at 15:28:43Z |
 | UI check | **PASS** |
 | Soft-delete / no pause route | **Open issue — later, not Stage 4** |
-| Certification doc | written here; `docs/platform-certification.md` **not** updated (🙋) |
+| Certification doc | **updated** after D9 and the sweep |
+| Void behaviour / C3 | **PASS** — voids cleared `converted`; C3 stayed quiet |
+| Revenue vs Dashboard | **PASS** — $33,143.85 explained to the cent |
 
 ---
 
@@ -1836,10 +1838,12 @@ retained logs, 0 429s. Do not fake one.
 
 ## 5. Sweep proof
 
-**`[UNKNOWN]` live.** After the backfill the integration was paused, then Docker Desktop was
+**`[UNKNOWN]` live at this point in the write-up.** After the backfill the integration was paused, then Docker Desktop was
 restarted on 2026-10-01 and the earlier `platform-sync` logs were lost. No hourly sweep had
 run against a Live Retreaver integration while it was active (the productive window was ~36
 minutes of ticks + backfill, then `is_active=false`).
+
+**Superseded by the close-out:** one live sweep tick was logged on 2026-10-02 at 15:28:43Z. `[PROVEN]` there.
 
 R1 coverage that stands in:
 
@@ -1869,11 +1873,11 @@ page.
 
 ## 7. P5 caveat — staging server
 
-P5 for **this machine** is confirmed: Retreaver `My test` is `is_active=false`. Whether the
-**staging server** holds a Live Retreaver API integration for company `…5270` is **not**
-checked from here.
+P5 for **this machine** is confirmed: after the close-out below, Retreaver `My test` is
+`sync_mode=mock` and `is_active=false`.
 
-The owner will confirm that separately. Recorded as **pending his word**, not assumed.
+**Staging server: confirmed.** Aryan confirmed there is **no** Retreaver API integration for
+company `…5270` on the staging server. Nothing was created there. `[owner]`
 
 ---
 
@@ -1912,8 +1916,9 @@ Call detail `#8` `8d679c45-…`:
 
 ## 9. Certification summary (report only)
 
-Same columns as `docs/platform-certification.md`. **Do not update that file until the owner
-approves** 🙋.
+This table is the state **before** the live hold. The close-out below supersedes D9, the
+sweep, and the certification line. `docs/platform-certification.md` was updated after both
+were proven.
 
 | | This R2 run |
 |---|---|
@@ -1930,18 +1935,22 @@ approves** 🙋.
 
 ## 10. Open questions 🙋
 
-1. Re-enable sync so D9 writes the AFTER row for `1c037735-…` (and the seven voids)?
-2. Approve the call-detail relabel (Total duration / Talk time) for a later slice?
-3. Staging server: no Retreaver API integration for `…5270`?
-4. Approve updating `docs/platform-certification.md` after D9 CH lands?
-5. Commit + push `stage4/retreaver` when ready — **not done**.
+These were open before the hold. Answers are in the close-out:
+
+1. Re-enable sync so D9 writes the AFTER row — **done**, then sync turned back off.
+2. Call-detail relabel (Total duration / Talk time) — **approved for a later slice**, not done here.
+3. Staging server has no Retreaver API integration for `…5270` — **confirmed by Aryan**.
+4. Update `docs/platform-certification.md` after D9 CH lands — **done**.
+5. Commit + push `stage4/retreaver` — this close-out is that commit.
 
 ---
 
 ## 11. Honest limitations
 
-1. D9 AFTER is API-only until the next sync.
-2. Sweep not observed live.
+Items 1 and 2 were true before the hold and are closed in the close-out. The rest stand.
+
+1. ~~D9 AFTER is API-only until the next sync.~~ Closed: ClickHouse AFTER landed.
+2. ~~Sweep not observed live.~~ Closed: one hourly sweep tick logged.
 3. ClickHouse does not store `updated_at`, so per-day `updated_at` Totals cannot be joined
    to CH without the API dump.
 4. `created_at` + `updated_at` together on `/calls.json` does not AND; unconstrained
@@ -1953,7 +1962,123 @@ approves** 🙋.
 
 ---
 
-**Gate R2:** not closed. D9 AFTER is not in ClickHouse yet (sync off) and the hourly sweep was
-not observed live. Everything else in this section is done. **R3 not started.** Sync stays
-**off** until the owner says otherwise. Nothing committed.
+**Gate R2 was still open at this point.** The close-out is the next section.
+
+---
+
+# PHASE R2 — close
+
+**Window:** sync on `2026-10-02T15:21:08Z`. Last live tick `last_sync_at=16:31:58Z`. Settings Test click, then paused `16:33:23Z`.
+**71 minutes** live. `last_sync_at` froze at `16:31:58Z`. No mock rows written after the switch.
+
+Re-enable had no Settings control while `is_active=false` (the row is hidden). `is_active` was set true by SQL; `sync_mode` was already `real`. Settings then showed **My test / Live / Active**. The switch back to Test was the Settings **Test** button (`sync_mode=mock`). Pausing again is SQL, because Delete is the only UI that clears `is_active`, and that is the open issue in §6. Zero `apisync-` rows arrived in the gap.
+
+## Owner answers
+
+| Item | Answer |
+|---|---|
+| P5 staging | **Confirmed with Aryan.** No Retreaver API integration for `…5270` on the staging server. None was created. |
+| Call-detail labels | **"Total duration" / "Talk time" approved for a later UI slice.** No UI change in R2. |
+| `docs/platform-certification.md` | Updated **after** the D9 AFTER row and the live sweep, below. |
+| D9 UI match | The relay named `1c037735…` as checked and did not state match or mismatch. Calyx AFTER matches the API read: `converted=true`, revenue **34.13**. |
+
+## 1. D9 AFTER — `1c037735-0b5c-404a-962c-e03539fc5f04`
+
+First tick `15:22:13Z` (`calls=255`, `published=155`).
+
+| | ClickHouse BEFORE `2026-09-30 23:39:24Z` | ClickHouse AFTER `2026-10-02 15:22:13Z` |
+|---|---|---|
+| status | finished | finished |
+| converted | 0 | **1** |
+| revenue | 0 | **34.13** |
+| payout | 0 | 0 |
+
+`sync_count=2`. Collapsed `GET /pings?search=1c037735…`: **one row**, `has_converted=true`, `revenue=34.13`, `sync_count=2`. `[PROVEN]`
+
+## 2. Voids
+
+API read **before** relying on the sync, all seven: `status=finished`, `revenue=null`, `payout=null`, **`converted=false`**.
+
+Retreaver did **not** leave `converted=true` after these voids. The C3 monitor did not fire (no warn line in the 71 minutes). Latest-row counts after the run: revenue-without-conversion **0**, converted-with-$0 **119** (the same benign set as the backfill, not these voids).
+
+Two in the collapsed `/pings` view:
+
+| UUID | BEFORE conv / rev | AFTER (collapsed) |
+|---|---|---|
+| `351c2d80-b736-48cc-9ceb-92ebcaf191d3` | true / 13.77 | **false / 0**, syncs **2** |
+| `52770c26-3b9f-4251-8ea3-87915e632811` | true / 25.20 | **false / 0**, syncs **2** |
+
+The other five (`8506873e`, `ccd68efa`, `ddf3339b`, `ec483995`, `ee5962ab`) landed the same way.
+
+**R3 finding.** A void here clears both the flag and the amount. A stored `converted=false, revenue=0` cannot tell a void from a call that never converted. The reliable earning signal is **`converted AND revenue > 0`** — the same lesson as Ringba's `hasConverted`, even though these seven did not reproduce Ringba's "flag stays true" shape. Do not treat that pair as a C3 data error. The 119 converted-at-$0 rows are still the case a Nullable amount would be needed for, and C3 stayed silent on this run.
+
+## 3. Adjustment — `22f31ab8-f13d-442f-a19b-08e74240ee7b`
+
+| | BEFORE | AFTER |
+|---|---|---|
+| revenue | **21** | **57** |
+| payout | 16.80 | 16.80 |
+| converted | true | true |
+| syncs | 1 | **2** |
+
+Collapsed `/pings`: `revenue=57`, `has_converted=true`, `sync_count=2`. `[PROVEN]`
+
+## 4. Sweep — `[PROVEN]`
+
+```
+2026-10-02T15:28:43Z  ringba window fetch completed
+  integration_id=53200af1-…
+  reason=sweep
+  window_start=2026-09-25T15:27:58Z
+  window_end=2026-10-02T15:27:58Z
+  requests=5  calls=471  published=1  unchanged=470
+  last_sync_at_unchanged=true
+```
+
+Seven-day window. The one publish is `2b73929f-4a5e-4e5d-a…`, `event_type=forwarded`, revenue 0. That is the first live `forwarded` row; the backfill had not stored that status. The 15:27 tick was skipped because the sweep held the lock (`lock_holder=sweep`).
+
+## 5. Revenue vs Dashboard
+
+Re-read of the backfill window at 15:26Z: `Total=3477` (was 3484 the day before; seven more calls had their `updated_at` move past the window end). Collected 3477, shortfall 0.
+
+| | Amount |
+|---|---:|
+| API `sum(revenue)` on those 3,477 | **$31,722.0948** |
+| ClickHouse latest revenue, same UUIDs | **$31,722.0947** |
+| Difference | **$0.0001** (sub-cent; Decimal vs float) |
+| of which duplicate-lead | **$318.65** |
+| of which not duplicate | **$31,403.44** |
+
+All-time Dashboard after the hold, Retreaver, Show demo off:
+
+![Dashboard final](evidence/r2/dashboard-retreaver-final.png)
+
+**$33,143.85** and **3,652** calls.
+
+| Piece | Revenue |
+|---|---:|
+| In-window, not a duplicate lead | $31,403.4425 |
+| Outside the frozen window, not a duplicate lead (175 calls: D9, the adjustment, new calls, the sweep's `forwarded` row) | $1,740.4108 |
+| **Sum = Dashboard** | **$33,143.8533 → $33,143.85** |
+| Duplicate-lead revenue, excluded from the Dashboard | **$420.53** |
+| All latest revenue including duplicates | $33,564.39 |
+
+`[PROVEN]`
+
+## 6. Tamil Nadu
+
+`0b6e59cd…`: API `caller_state=Tamil Nadu`, Calyx `state=''`. `NormalizeState` allowlists US and CA only and blanks anything else. **Known limitation, by design.** Not a sync miss.
+
+## 7. State at STOP
+
+| | |
+|---|---|
+| `My test` | `sync_mode=mock`, `is_active=false`, `sync_status=ok`, `last_sync_at=2026-10-02 16:31:58Z` |
+| Staging | no Retreaver API integration |
+| R3 | **not started** |
+
+---
+
+**Gate R2 closed.** D9 AFTER and the hourly sweep are proven. Certification doc updated. Sync is off and back on Test. **STOP. Do not start R3.**
+
 
