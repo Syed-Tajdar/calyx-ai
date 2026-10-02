@@ -202,7 +202,7 @@ func (a *RingbaAdapter) fetchPageWith(ctx context.Context, creds map[string]stri
 	// https://support.ringba.com/hc/en-us/articles/31661837696023-API-Access-Tokens
 	req.Header.Set("Authorization", "Token "+token)
 	req.Header.Set("Content-Type", "application/json")
-	// Dual-window throttle: 5/sec AND 80/min, scoped per Ringba account_id (account-wide Get Logs bucket).
+	// Dual-window throttle: 5/sec AND 75/min, scoped per Ringba account_id (account-wide Get Logs bucket).
 	ringbaLimiters.ForAccount(accountID).Wait()
 
 	resp, respBody, err := a.http.Do(req)

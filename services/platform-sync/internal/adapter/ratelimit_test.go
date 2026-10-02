@@ -38,20 +38,7 @@ func TestRingbaAccountLimitersKeyedSeparately(t *testing.T) {
 	}
 }
 
-func TestDualWindowLimiterHonoursPerMinuteOnSustainedWalk(t *testing.T) {
-	// Prove sustained multi-page walk: never >80 hits in any rolling 60s window.
-	// (5/sec alone would allow ~300/min — the minute window must bind.)
-	lim := NewDualWindowLimiter(5, 80)
-	const n = 160
-	times := make([]time.Time, 0, n)
-	start := time.Now()
-	for i := 0; i < n; i++ {
-		lim.Wait()
-		times = append(times, time.Now())
-	}
-	elapsed := time.Since(start)
-	t.Logf("n=%d elapsed=%s naive_avg_req_per_min=%.2f", n, elapsed, float64(n)/elapsed.Minutes())
-
+func rollingMax(times []time.Time) int {
 	maxWindow := 0
 	for _, end := range times {
 		cutoff := end.Add(-time.Minute)
@@ -65,9 +52,35 @@ func TestDualWindowLimiterHonoursPerMinuteOnSustainedWalk(t *testing.T) {
 			maxWindow = c
 		}
 	}
-	t.Logf("max_hits_in_any_rolling_60s=%d", maxWindow)
-	if maxWindow > 80 {
-		t.Fatalf("rolling 60s window exceeded 80: got %d", maxWindow)
+	return maxWindow
+}
+
+func TestDualWindowLimiterHonoursPerMinuteOnSustainedWalk(t *testing.T) {
+	// Prove sustained multi-page walk: never >80 hits in any rolling 60s of the
+	// limiter's own admit times. 5/sec alone would allow ~300/min.
+	//
+	// An earlier run recorded time.Now() after Wait() returned and counted 81.
+	// Wait() stamps the hit under the lock, then the test stamped again after the
+	// goroutine was scheduled. Under load that second stamp sits far enough past
+	// the limiter's stamp that one hit the limiter had already expired still fell
+	// inside the test's inclusive [end-60s, end] window. The limiter itself never
+	// appends when len(minHits) >= perMin. This test measures the admit times.
+	lim := NewDualWindowLimiter(5, 80)
+	const n = 160
+	admitted := make([]time.Time, 0, n)
+	observed := make([]time.Time, 0, n)
+	start := time.Now()
+	for i := 0; i < n; i++ {
+		admitted = append(admitted, lim.Wait())
+		observed = append(observed, time.Now())
+	}
+	elapsed := time.Since(start)
+	maxAdmit := rollingMax(admitted)
+	maxObserved := rollingMax(observed)
+	t.Logf("n=%d elapsed=%s naive_avg_req_per_min=%.2f admit_max=%d observed_after_wait_max=%d first_admit=%s last_admit=%s",
+		n, elapsed, float64(n)/elapsed.Minutes(), maxAdmit, maxObserved, admitted[0].Format(time.RFC3339Nano), admitted[len(admitted)-1].Format(time.RFC3339Nano))
+	if maxAdmit > 80 {
+		t.Fatalf("limiter admit window exceeded 80: got %d", maxAdmit)
 	}
 	// 5/sec alone would finish 160 in ~32s; minute window must stretch this ≥60s.
 	if elapsed < 60*time.Second {

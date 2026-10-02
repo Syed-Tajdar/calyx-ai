@@ -21,13 +21,14 @@ func NewDualWindowLimiter(perSec, perMin int) *DualWindowLimiter {
 		perSec = 5
 	}
 	if perMin < 1 {
-		perMin = 80
+		perMin = 75
 	}
 	return &DualWindowLimiter{perSec: perSec, perMin: perMin}
 }
 
 // Wait blocks until a request is allowed under both windows.
-func (l *DualWindowLimiter) Wait() {
+// The returned time is the instant the limiter recorded the hit.
+func (l *DualWindowLimiter) Wait() time.Time {
 	for {
 		l.mu.Lock()
 		now := time.Now()
@@ -37,7 +38,7 @@ func (l *DualWindowLimiter) Wait() {
 			l.secHits = append(l.secHits, now)
 			l.minHits = append(l.minHits, now)
 			l.mu.Unlock()
-			return
+			return now
 		}
 		var sleep time.Duration
 		if len(l.secHits) >= l.perSec {
@@ -68,7 +69,9 @@ func prune(hits []time.Time, cutoff time.Time) []time.Time {
 	return append([]time.Time(nil), hits[i:]...)
 }
 
-// RingbaAccountLimiters holds per-account_id dual-window limiters (5/sec AND 80/min).
+// RingbaAccountLimiters holds per-account_id dual-window limiters (5/sec AND 75/min).
+// Ringba's account ceiling is 80/min. 75 leaves room for wall-clock jitter so a
+// rolling window cannot reach 80. Override with RINGBA_RATE_PER_MIN.
 type RingbaAccountLimiters struct {
 	mu   sync.Mutex
 	byID map[string]*DualWindowLimiter
@@ -87,7 +90,7 @@ func (r *RingbaAccountLimiters) ForAccount(accountID string) *DualWindowLimiter 
 	if lim, ok := r.byID[accountID]; ok {
 		return lim
 	}
-	lim := NewDualWindowLimiter(5, 80)
+	lim := NewDualWindowLimiter(RingbaRatePerSec(), RingbaRatePerMin())
 	r.byID[accountID] = lim
 	return lim
 }
@@ -114,6 +117,12 @@ type RetreaverAccountLimiters struct {
 func NewRetreaverAccountLimiters() *RetreaverAccountLimiters {
 	return &RetreaverAccountLimiters{byID: map[string]*DualWindowLimiter{}}
 }
+
+// RingbaRatePerSec — `RINGBA_RATE_PER_SEC` (default 5).
+func RingbaRatePerSec() int { return envInt("RINGBA_RATE_PER_SEC", 5) }
+
+// RingbaRatePerMin — `RINGBA_RATE_PER_MIN` (default 75, under Ringba's 80).
+func RingbaRatePerMin() int { return envInt("RINGBA_RATE_PER_MIN", 75) }
 
 // RetreaverRatePerSec — `RETREAVER_RATE_PER_SEC` (default 2).
 func RetreaverRatePerSec() int { return envInt("RETREAVER_RATE_PER_SEC", 2) }
