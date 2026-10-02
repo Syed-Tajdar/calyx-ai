@@ -28,18 +28,18 @@ type ConvertRequest struct {
 }
 
 type Result struct {
-	Outcome             string  `json:"outcome"`
-	InboundCallID       string  `json:"inbound_call_id"`
-	CampaignID          string  `json:"campaign_id,omitempty"`
-	WebhookName         string  `json:"webhook_name,omitempty"`
-	Amount              float64 `json:"amount"`
-	HasConverted        bool    `json:"has_converted"`
-	ConversionAmount    float64 `json:"conversion_amount"`
-	AuditID             string  `json:"audit_id,omitempty"`
-	Message             string  `json:"message,omitempty"`
-	OfflineUploaded     string  `json:"offline_conversion_uploaded"`
-	RingbaRef           string  `json:"ringba_response_ref,omitempty"`
-	VoidReversible      bool    `json:"void_reversible,omitempty"`
+	Outcome          string  `json:"outcome"`
+	InboundCallID    string  `json:"inbound_call_id"`
+	CampaignID       string  `json:"campaign_id,omitempty"`
+	WebhookName      string  `json:"webhook_name,omitempty"`
+	Amount           float64 `json:"amount"`
+	HasConverted     bool    `json:"has_converted"`
+	ConversionAmount float64 `json:"conversion_amount"`
+	AuditID          string  `json:"audit_id,omitempty"`
+	Message          string  `json:"message,omitempty"`
+	OfflineUploaded  string  `json:"offline_conversion_uploaded"`
+	RingbaRef        string  `json:"ringba_response_ref,omitempty"`
+	VoidReversible   bool    `json:"void_reversible,omitempty"`
 }
 
 type RingbaAPI interface {
@@ -62,13 +62,13 @@ type BlobDecryptor interface {
 }
 
 type Service struct {
-	store         IntegrationLoader
-	audit         AuditSink
-	decryptor     BlobDecryptor
-	ringba        RingbaAPI
-	lock          Locker
-	settleWindow  time.Duration
-	settleEvery   time.Duration
+	store        IntegrationLoader
+	audit        AuditSink
+	decryptor    BlobDecryptor
+	ringba       RingbaAPI
+	lock         Locker
+	settleWindow time.Duration
+	settleEvery  time.Duration
 	// globalEnabled is WRITEBACK_ENABLED. NewService defaults it on so existing callers
 	// keep working; main turns it off when the process flag is false.
 	globalEnabled bool
@@ -152,7 +152,15 @@ func (s *Service) Void(ctx context.Context, req ConvertRequest) (Result, error) 
 }
 
 func (s *Service) reject(ctx context.Context, req ConvertRequest, action string, amount float64, err error) (Result, error) {
-	id, _ := s.writeAudit(ctx, req, action, amount, "rejected", "", "", err.Error(), "absent")
+	id, auditErr := s.writeAudit(ctx, req, action, amount, "rejected", "", "", err.Error(), "absent")
+	if auditErr != nil {
+		return Result{
+			Outcome:       "rejected",
+			InboundCallID: req.InboundCallID,
+			Amount:        amount,
+			Message:       err.Error(),
+		}, fmt.Errorf("%w (audit: %v)", err, auditErr)
+	}
 	return Result{
 		Outcome:       "rejected",
 		InboundCallID: req.InboundCallID,

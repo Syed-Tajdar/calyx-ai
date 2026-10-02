@@ -313,7 +313,7 @@ type errLocker struct{ err error }
 func (e errLocker) Acquire(context.Context, string, string, string) (bool, error) {
 	return false, e.err
 }
-func (errLocker) Release(context.Context, string, string, string) error { return nil }
+func (errLocker) Release(context.Context, string, string, string) error     { return nil }
 func (errLocker) MarkPending(context.Context, string, string, string) error { return nil }
 
 func TestAuditRowForEveryEarlyRejection(t *testing.T) {
@@ -347,11 +347,20 @@ func TestAuditRowForEveryEarlyRejection(t *testing.T) {
 
 	t.Run("globally disabled", func(t *testing.T) {
 		audit := &memAudit{}
-		svc := testSvc(&fakeStore{item: enabledItem()}, &fakeRingba{}, NewMemoryLocker(), audit)
+		ringba := &fakeRingba{}
+		svc := testSvc(&fakeStore{item: enabledItem()}, ringba, NewMemoryLocker(), audit)
+		// Token present only mounts the route (main.go). WRITEBACK_ENABLED=false is this flag.
 		svc.SetGlobalEnabled(false)
 		_, err := svc.Convert(context.Background(), baseReq())
-		if !errors.Is(err, ErrGloballyDisabled) || len(audit.rows) != 1 || audit.rows[0].Message != ErrGloballyDisabled.Error() {
+		if !errors.Is(err, ErrGloballyDisabled) || len(audit.rows) != 1 || audit.rows[0].Outcome != "rejected" || audit.rows[0].Message != ErrGloballyDisabled.Error() {
 			t.Fatalf("err=%v rows=%+v", err, audit.rows)
+		}
+		_, err = svc.Void(context.Background(), baseReq())
+		if !errors.Is(err, ErrGloballyDisabled) || len(audit.rows) != 2 || audit.rows[1].Outcome != "rejected" {
+			t.Fatalf("void err=%v rows=%+v", err, audit.rows)
+		}
+		if ringba.fires != 0 || ringba.voids != 0 {
+			t.Fatalf("ringba was called fires=%d voids=%d", ringba.fires, ringba.voids)
 		}
 	})
 

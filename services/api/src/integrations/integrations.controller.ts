@@ -45,11 +45,6 @@ const syncModeSchema = z.object({
   initial_lookback_days: z.number().int().min(1).max(365).optional(),
 });
 
-function writebackEnabled(): boolean {
-  const v = process.env.WRITEBACK_ENABLED;
-  return v === 'true' || v === '1';
-}
-
 function parseWriteback<S extends z.ZodTypeAny>(schema: S, body: unknown): z.output<S> {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -57,21 +52,6 @@ function parseWriteback<S extends z.ZodTypeAny>(schema: S, body: unknown): z.out
     throw new BadRequestException(msg);
   }
   return parsed.data;
-}
-
-/** Registers write-back routes only when WRITEBACK_ENABLED is true/1. */
-function ConditionalWritebackConvert(): MethodDecorator {
-  if (writebackEnabled()) {
-    return Post(':id/writeback/convert');
-  }
-  return () => undefined;
-}
-
-function ConditionalWritebackVoid(): MethodDecorator {
-  if (writebackEnabled()) {
-    return Post(':id/writeback/void');
-  }
-  return () => undefined;
 }
 
 @Controller('integrations')
@@ -122,7 +102,7 @@ export class IntegrationsController {
     return this.integrationsService.triggerBackfill(tenantId, id);
   }
 
-  @ConditionalWritebackConvert()
+  @Post(':id/writeback/convert')
   @HttpCode(200)
   async convertWriteback(
     @CurrentTenant() tenantId: string,
@@ -143,7 +123,7 @@ export class IntegrationsController {
     );
   }
 
-  @ConditionalWritebackVoid()
+  @Post(':id/writeback/void')
   @HttpCode(200)
   async voidWriteback(
     @CurrentTenant() tenantId: string,

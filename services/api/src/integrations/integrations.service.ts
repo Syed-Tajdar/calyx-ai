@@ -264,25 +264,13 @@ export class IntegrationsService {
     inboundCallId: string,
     amount?: number,
   ): Promise<Record<string, unknown>> {
-    const row = await this.getRowAny(tenantId, id);
-    if (row.connection_mode !== 'api_sync') {
-      throw new BadRequestException('Write-back is only available for API key integrations');
-    }
-    if (row.platform !== 'ringba') {
-      throw new BadRequestException('Write-back currently supports Ringba only');
-    }
-    if (row.sync_mode !== 'real') {
-      throw new BadRequestException('Write-back requires Live (sync_mode=real)');
-    }
-    if (!row.writeback_enabled) {
-      throw new ForbiddenException('Write-back is not enabled for this integration');
-    }
+    // The global kill switch lives in platform-sync (WRITEBACK_ENABLED → SetGlobalEnabled).
+    // This process always forwards when the internal token is set, including when the flag
+    // is false, so the refusal is audited before any Ringba call. Local checks used to
+    // return first and the audit row was never written.
     const token = process.env.WRITEBACK_INTERNAL_TOKEN ?? '';
     if (!token) {
       throw new ServiceUnavailableException('Write-back internal token is not configured');
-    }
-    if (action === 'convert' && (amount === undefined || !(amount > 0))) {
-      throw new BadRequestException('amount must be a positive number');
     }
 
     const syncUrl = process.env.PLATFORM_SYNC_URL ?? 'http://localhost:8088';
@@ -594,28 +582,12 @@ export class IntegrationsService {
     sync_status: string;
     api_credentials_blob: Buffer | null;
   }> {
-    return this.getIntegrationRow(tenantId, id, true);
-  }
-
-  /** Includes paused (is_active=false) rows — write-back only. */
-  private async getRowAny(
-    tenantId: string,
-    id: string,
-  ): Promise<{
-    connection_mode: ConnectionMode;
-    platform: string;
-    sync_mode: SyncMode | null;
-    sync_status: string;
-    api_credentials_blob: Buffer | null;
-    writeback_enabled: boolean;
-  }> {
-    return this.getIntegrationRow(tenantId, id, false);
+    return this.getIntegrationRow(tenantId, id);
   }
 
   private async getIntegrationRow(
     tenantId: string,
     id: string,
-    activeOnly: boolean,
   ): Promise<{
     connection_mode: ConnectionMode;
     platform: string;
@@ -633,13 +605,9 @@ export class IntegrationsService {
         api_credentials_blob: Buffer | null;
         writeback_enabled: boolean;
       }>(
-        activeOnly
-          ? `SELECT connection_mode, platform, sync_mode, sync_status, api_credentials_blob,
-                    COALESCE(writeback_enabled, FALSE) AS writeback_enabled
-             FROM integrations WHERE id = $1::uuid AND is_active = TRUE`
-          : `SELECT connection_mode, platform, sync_mode, sync_status, api_credentials_blob,
-                    COALESCE(writeback_enabled, FALSE) AS writeback_enabled
-             FROM integrations WHERE id = $1::uuid`,
+        `SELECT connection_mode, platform, sync_mode, sync_status, api_credentials_blob,
+                COALESCE(writeback_enabled, FALSE) AS writeback_enabled
+         FROM integrations WHERE id = $1::uuid AND is_active = TRUE`,
         [id],
       );
       if (result.rowCount === 0) {
