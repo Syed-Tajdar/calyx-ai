@@ -124,6 +124,18 @@ func baseReq() ConvertRequest {
 	}
 }
 
+func TestParseSettleWindow(t *testing.T) {
+	if ParseSettleWindow("") != 20*time.Second {
+		t.Fatal("default")
+	}
+	if ParseSettleWindow("30") != 30*time.Second {
+		t.Fatal("override")
+	}
+	if ParseSettleWindow("nope") != 20*time.Second || ParseSettleWindow("0") != 20*time.Second {
+		t.Fatal("invalid keeps default")
+	}
+}
+
 func TestIsConvertedMatchesApiConvertedState(t *testing.T) {
 	if !isConverted(models.RemoteCall{HasConverted: true, Revenue: 1}) {
 		t.Fatal("flag and revenue > 0 is converted")

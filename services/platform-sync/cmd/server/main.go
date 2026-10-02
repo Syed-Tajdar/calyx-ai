@@ -151,6 +151,7 @@ func main() {
 	if cfg.WritebackAuthToken != "" {
 		wb := writeback.NewService(st, st, decryptor, adapter.NewRingbaAdapter(adapter.NewHTTPClient()), writeback.NewRedisLocker(redisClient))
 		wb.SetGlobalEnabled(cfg.WritebackEnabled)
+		wb.SetSettleWindow(writeback.ParseSettleWindow(os.Getenv("WRITEBACK_SETTLE_SECONDS")))
 		mux.HandleFunc("POST /writeback/convert", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
 			handleWriteback(w, r, logger, wb, "convert")
 		}))

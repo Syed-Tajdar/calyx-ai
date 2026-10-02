@@ -561,7 +561,7 @@ export async function backfillIntegration(
 
 /**
  * Outcome of a Ringba write-back. Mirrors the platform-sync `writeback.Result` struct.
- * The service re-reads the call from Ringba after writing (12s settle window), so
+ * The service re-reads the call from Ringba after writing (`WRITEBACK_SETTLE_SECONDS`, default 20s), so
  * `has_converted` / `conversion_amount` are what Ringba actually reports back — not what we sent.
  */
 export interface WritebackResult {

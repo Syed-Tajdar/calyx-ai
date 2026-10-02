@@ -434,6 +434,7 @@
       MOCK_MODE: "true"
       MOCK_DEDUP_PROOF: "0"
       WRITEBACK_ENABLED: "true"
+      WRITEBACK_SETTLE_SECONDS: "20"
       WRITEBACK_INTERNAL_TOKEN: "dev_writeback_internal_token_change_me"
       SYNC_INTERVAL_SEC: "120"
       DEDUP_TTL_HOURS: "240"

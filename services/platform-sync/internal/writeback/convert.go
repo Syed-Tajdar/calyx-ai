@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,8 +13,9 @@ import (
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/store"
 )
 
-// SettleWindow is the Phase G proven bound (~4s typical, 12s cap).
-const SettleWindow = 12 * time.Second
+// SettleWindow is the default wait for Ringba to confirm a convert or cancel.
+// WRITEBACK_SETTLE_SECONDS overrides it. 12s was tight against an observed ~10.4s read-back.
+const SettleWindow = 20 * time.Second
 const settlePoll = 2 * time.Second
 
 type ConvertRequest struct {
@@ -86,6 +88,21 @@ func NewService(
 // while this is false is audited and refused before the lock.
 func (s *Service) SetGlobalEnabled(on bool) {
 	s.globalEnabled = on
+}
+
+// ParseSettleWindow reads WRITEBACK_SETTLE_SECONDS. Empty or invalid values keep the 20s default.
+func ParseSettleWindow(raw string) time.Duration {
+	n, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || n <= 0 {
+		return SettleWindow
+	}
+	return time.Duration(n) * time.Second
+}
+
+func (s *Service) SetSettleWindow(d time.Duration) {
+	if d > 0 {
+		s.settleWindow = d
+	}
 }
 
 func ValidateAmount(amount float64) error {
@@ -263,7 +280,7 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 		}
 		res.Outcome = "pending"
 		res.Amount = req.Amount
-		res.Message = "fire accepted; not settled within 12s"
+		res.Message = fmt.Sprintf("fire accepted; not settled within %s", s.window())
 		id, _ := s.writeAudit(ctx, req, action, req.Amount, "pending", after.CampaignID, "", res.Message, off)
 		res.AuditID = id
 		_ = s.lock.MarkPending(ctx, req.TenantID, action, req.InboundCallID)
@@ -304,7 +321,7 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 		return res, nil
 	}
 	res.Outcome = "pending"
-	res.Message = "void accepted; not settled within 12s"
+	res.Message = fmt.Sprintf("void accepted; not settled within %s", s.window())
 	id, _ := s.writeAudit(ctx, req, action, voidAmt, "pending", after.CampaignID, ref, res.Message, off)
 	res.AuditID = id
 	_ = s.lock.MarkPending(ctx, req.TenantID, action, req.InboundCallID)
