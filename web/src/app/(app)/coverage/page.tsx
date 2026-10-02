@@ -26,6 +26,7 @@ export default function CoveragePage(): JSX.Element {
   const [totalPings, setTotalPings] = useState(0);
   const [usRegions, setUsRegions] = useState(0);
   const [caRegions, setCaRegions] = useState(0);
+  const [unmapped, setUnmapped] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedState, setSelectedState] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export default function CoveragePage(): JSX.Element {
         setTotalPings(res.total_pings);
         setUsRegions(res.us_regions ?? 0);
         setCaRegions(res.ca_regions ?? 0);
+        setUnmapped(res.unmapped_pings ?? 0);
       })
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -136,7 +138,8 @@ export default function CoveragePage(): JSX.Element {
         <>
           <div className="space-y-0.5">
             <p className="text-sm text-calyx-muted">
-              {totalPings.toLocaleString()} pings across {regionCount} regions · US + Canada
+              {totalPings.toLocaleString()} calls across {regionCount} regions ·{' '}
+              {unmapped.toLocaleString()} without a US/CA state
             </p>
             <p className="text-xs text-calyx-dim">
               {usRegions} US · {caRegions} CA

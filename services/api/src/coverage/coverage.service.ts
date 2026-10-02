@@ -16,6 +16,8 @@ export interface HeatmapResult {
   total_pings: number;
   us_regions: number;
   ca_regions: number;
+  /** Distinct calls in the same filter that are not on the US/CA map. */
+  unmapped_pings: number;
 }
 
 @Injectable()
@@ -107,11 +109,30 @@ export class CoverageService {
 
     const total_pings = data.reduce((sum, row) => sum + row.ping_count, 0);
 
+    const allResult = await this.clickhouse.getClient().query({
+      query: `
+        SELECT count() AS total
+        FROM (
+          SELECT platform, external_call_id
+          FROM pings
+          WHERE tenant_id = {tenant_id:UUID}
+            AND external_call_id != ''
+            ${demo}${period}
+          GROUP BY platform, external_call_id
+        )
+      `,
+      query_params: params,
+      format: 'JSONEachRow',
+    });
+    const allRows = await allResult.json<{ total: string }>();
+    const allCalls = Number(allRows[0]?.total ?? 0);
+
     return {
       data,
       total_pings,
       us_regions: usRegions,
       ca_regions: caRegions,
+      unmapped_pings: Math.max(0, allCalls - total_pings),
     };
   }
 }

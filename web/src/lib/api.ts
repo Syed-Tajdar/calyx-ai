@@ -182,6 +182,7 @@ export interface HeatmapResult {
   total_pings: number;
   us_regions: number;
   ca_regions: number;
+  unmapped_pings?: number;
 }
 
 function authHeaders(token: string, init?: RequestInit): HeadersInit {
