@@ -119,6 +119,45 @@ export class AnalyticsService {
     };
   }
 
+  /**
+   * One row per day for the same calls `getMetrics` counts, so the chart total
+   * can match Total Pings for the selected period.
+   */
+  async getPingSeries(
+    tenantId: string,
+    from?: string,
+    to?: string,
+    showDemo?: boolean,
+  ): Promise<Array<{ date: string; count: number }>> {
+    const dateClause = this.buildDateClause(from, to);
+    const demo = apiSyncExclusionSql('external_call_id', showDemo);
+    const params: Record<string, string> = { tenant_id: tenantId };
+    if (from) params.from = from;
+    if (to) params.to = to;
+    const result = await this.clickhouse.getClient().query({
+      query: `
+        SELECT
+          formatDateTime(toDate(event_at), '%Y-%m-%d') AS day,
+          count() AS count
+        FROM (
+          SELECT max(${EVENT_AT_EXPR}) AS event_at
+          FROM pings
+          WHERE tenant_id = {tenant_id:UUID}
+            AND external_call_id != ''
+            ${demo}
+            ${dateClause}
+          GROUP BY platform, external_call_id
+        )
+        GROUP BY day
+        ORDER BY day
+      `,
+      query_params: params,
+      format: 'JSONEachRow',
+    });
+    const rows = await result.json<{ day: string; count: string }>();
+    return rows.map((row) => ({ date: row.day, count: Number(row.count) }));
+  }
+
   async getPnL(
     tenantId: string,
     from?: string,

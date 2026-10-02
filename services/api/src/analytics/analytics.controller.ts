@@ -53,6 +53,20 @@ export class AnalyticsController {
     );
   }
 
+  @Get('ping-series')
+  async pingSeries(
+    @CurrentTenant() tenantId: string,
+    @Query() query: Record<string, string>,
+  ): Promise<Array<{ date: string; count: number }>> {
+    const parsed = dateQuerySchema.parse(query);
+    return this.analyticsService.getPingSeries(
+      tenantId,
+      parsed.from,
+      parsed.to,
+      parsed.show_demo,
+    );
+  }
+
   @Get('platform-mix')
   async platformMix(
     @CurrentTenant() tenantId: string,

@@ -471,6 +471,18 @@ export async function fetchAnalyticsMetrics(
   return fetchWithAuth<MetricsResult>(token, `/analytics/metrics${qs ? `?${qs}` : ''}`);
 }
 
+export async function fetchPingSeries(
+  token: string,
+  filters: { from?: string; to?: string; show_demo?: boolean } = {},
+): Promise<Array<{ date: string; count: number }>> {
+  const params = new URLSearchParams();
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
+  if (filters.show_demo) params.set('show_demo', 'true');
+  const qs = params.toString();
+  return fetchWithAuth(token, `/analytics/ping-series${qs ? `?${qs}` : ''}`);
+}
+
 export async function fetchPnL(
   token: string,
   filters: { from?: string; to?: string; show_demo?: boolean } = {},

@@ -20,11 +20,10 @@ import {
   ExposureSummary,
   fetchAnalyticsMetrics,
   fetchComplianceExposure,
-  fetchPings,
+  fetchPingSeries,
   fetchPlatformMix,
   fetchScores,
   MetricsResult,
-  PingRecord,
   PlatformMixRow,
   ScoreRecord,
 } from '@/lib/api';
@@ -35,10 +34,7 @@ import { SHOW_MOCK_PANELS } from '@/lib/v1-features';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
 import { formatPlatformLabel } from '@/lib/platform-options';
-import {
-  buildFilledPingTimeline,
-  chartFiltersForLastDays,
-} from '@/lib/ping-timeline';
+import { chartSeriesForPreset, periodBadge } from '@/lib/ping-series';
 import { useHybridPingFeed } from '@/lib/use-hybrid-ping-feed';
 import { usePlatformOptions } from '@/lib/use-platform-options';
 import { LiveActivityStrip } from '@/components/dashboard/LiveActivityStrip';
@@ -54,14 +50,9 @@ export default function DashboardPage(): JSX.Element {
   const [platformMix, setPlatformMix] = useState<PlatformMixRow[]>([]);
   const [exposure, setExposure] = useState<ExposureSummary | null>(null);
   const [scores, setScores] = useState<ScoreRecord[]>([]);
-  const [chartPings, setChartPings] = useState<PingRecord[]>([]);
+  const [chartSeries, setChartSeries] = useState<Array<{ date: string; count: number }>>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-
-  const chartFilters = useMemo(
-    () => chartFiltersForLastDays(7, platform || undefined, showDemo),
-    [platform, showDemo],
-  );
 
   const { pings, newRowKeys, isPollingFallback, connected, liveEvents } = useHybridPingFeed({
     limit: 50,
@@ -80,16 +71,20 @@ export default function DashboardPage(): JSX.Element {
       fetchPlatformMix(token, filters),
       fetchComplianceExposure(token, { show_demo: showDemo || undefined }),
       fetchScores(token, { limit: 5, offset: 0, show_demo: showDemo || undefined }),
-      fetchPings(token, 100, 0, chartFilters),
+      fetchPingSeries(token, {
+        from: filters.from,
+        to: filters.to,
+        show_demo: filters.show_demo,
+      }),
     ])
-      .then(([metricsRes, platformMixRes, exposureRes, scoresRes, chartPingsRes]) => {
+      .then(([metricsRes, platformMixRes, exposureRes, scoresRes, series]) => {
         setMetrics(metricsRes);
         setPlatformMix(platformMixRes);
         setExposure(exposureRes);
         if (scoresRes && 'data' in scoresRes) {
           setScores(scoresRes.data);
         }
-        setChartPings(chartPingsRes.data);
+        setChartSeries(series);
       })
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -105,9 +100,7 @@ export default function DashboardPage(): JSX.Element {
     filters.platform,
     filters.show_demo,
     preset,
-    chartFilters.from,
-    chartFilters.platform,
-    chartFilters.show_demo,
+    filters.to,
     showDemo,
   ]);
 
@@ -119,8 +112,8 @@ export default function DashboardPage(): JSX.Element {
   );
 
   const pingTimeline = useMemo(
-    () => buildFilledPingTimeline(chartPings, 7),
-    [chartPings],
+    () => chartSeriesForPreset(chartSeries, preset),
+    [chartSeries, preset],
   );
 
   const chartPlatformData = useMemo(
@@ -227,7 +220,7 @@ export default function DashboardPage(): JSX.Element {
           </section>
 
           <section className="grid gap-4 lg:grid-cols-2">
-            <PingChart data={pingTimeline} />
+            <PingChart data={pingTimeline} periodLabel={periodBadge(preset)} />
             <PlatformChart data={chartPlatformData} />
           </section>
 
