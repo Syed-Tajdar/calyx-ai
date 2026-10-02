@@ -10,11 +10,13 @@ import {
   ApiError,
   convertCall,
   fetchIntegrations,
+  fetchMe,
   resolveWritebackIntegration,
   voidCall,
   type IntegrationRecord,
 } from '@/lib/api';
 import { isConfirmableConvertAmount } from '@/lib/writeback-amount';
+import { canSeeWritebackActions } from '@/lib/writeback-role';
 import { getToken } from '@/lib/auth';
 import { formatPlatformLabel } from '@/lib/platform-options';
 
@@ -54,14 +56,32 @@ export function ConversionActions({
   onChanged,
 }: ConversionActionsProps): JSX.Element | null {
   const [integrations, setIntegrations] = useState<IntegrationRecord[] | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [mode, setMode] = useState<DialogMode>(null);
   const [amountText, setAmountText] = useState('');
   const [busy, setBusy] = useState(false);
 
   const supported = WRITEBACK_PLATFORMS.includes(platform);
+  const allowed = canSeeWritebackActions(role);
 
   useEffect(() => {
-    if (!supported) return;
+    const token = getToken();
+    if (!token) return;
+    let cancelled = false;
+    fetchMe(token)
+      .then((me) => {
+        if (!cancelled) setRole(me.role);
+      })
+      .catch(() => {
+        if (!cancelled) setRole(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supported || !allowed) return;
     const token = getToken();
     if (!token) return;
     let cancelled = false;
@@ -75,7 +95,7 @@ export function ConversionActions({
     return () => {
       cancelled = true;
     };
-  }, [supported]);
+  }, [supported, allowed]);
 
   const integration = useMemo(
     () => (integrations ? resolveWritebackIntegration(integrations, platform) : null),
@@ -85,7 +105,7 @@ export function ConversionActions({
   const amount = parseAmount(amountText);
   const amountInvalid = mode === 'convert' && !isConfirmableConvertAmount(amount);
 
-  if (!supported) return null;
+  if (!supported || !allowed) return null;
 
   function openConvert(): void {
     // Under the "should have converted" rule the list also contains revenue = 0 calls, and the API
