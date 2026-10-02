@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -130,8 +131,13 @@ func TestValidateAmount(t *testing.T) {
 	if err := ValidateAmount(-1); !errors.Is(err, ErrInvalidAmount) {
 		t.Fatal(err)
 	}
-	if err := ValidateAmount(250); err != nil {
-		t.Fatal("no cap", err)
+	if err := ValidateAmount(math.NaN()); !errors.Is(err, ErrInvalidAmount) {
+		t.Fatal(err)
+	}
+	for _, amount := range []float64{26, 1000, 250} {
+		if err := ValidateAmount(amount); err != nil {
+			t.Fatalf("no cap for %v: %v", amount, err)
+		}
 	}
 }
 

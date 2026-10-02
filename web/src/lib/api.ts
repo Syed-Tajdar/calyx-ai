@@ -593,9 +593,6 @@ export interface WritebackResult {
   void_reversible?: boolean;
 }
 
-/** Hard cap enforced server-side by `writeback.ValidateAmount`. Mirrored here for input validation. */
-export const WRITEBACK_MAX_AMOUNT = 25;
-
 /**
  * Mark a call converted in Ringba at `amount`.
  *

@@ -21,6 +21,7 @@ import {
   IntegrationsService,
   TestConnectionResult,
 } from './integrations.service';
+import { convertWritebackSchema, voidWritebackSchema } from './writeback.validation';
 
 const createSchema = z.object({
   platform: z.enum(['ringba', 'retreaver', 'trackdrive', 'callgrid']),
@@ -42,18 +43,6 @@ const createSchema = z.object({
 const syncModeSchema = z.object({
   sync_mode: z.enum(['mock', 'real']),
   initial_lookback_days: z.number().int().min(1).max(365).optional(),
-});
-
-const convertWritebackSchema = z.object({
-  inbound_call_id: z.string().min(8).max(128),
-  amount: z.number({
-    required_error: 'amount must be a positive number',
-    invalid_type_error: 'amount must be a positive number',
-  }).positive({ message: 'amount must be a positive number' }),
-});
-
-const voidWritebackSchema = z.object({
-  inbound_call_id: z.string().min(8).max(128),
 });
 
 function writebackEnabled(): boolean {

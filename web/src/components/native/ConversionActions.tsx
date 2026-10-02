@@ -12,9 +12,9 @@ import {
   fetchIntegrations,
   resolveWritebackIntegration,
   voidCall,
-  WRITEBACK_MAX_AMOUNT,
   type IntegrationRecord,
 } from '@/lib/api';
+import { isConfirmableConvertAmount } from '@/lib/writeback-amount';
 import { getToken } from '@/lib/auth';
 import { formatPlatformLabel } from '@/lib/platform-options';
 
@@ -83,9 +83,7 @@ export function ConversionActions({
   );
 
   const amount = parseAmount(amountText);
-  const amountInvalid =
-    mode === 'convert' &&
-    (amount === null || amount <= 0 || amount > WRITEBACK_MAX_AMOUNT);
+  const amountInvalid = mode === 'convert' && !isConfirmableConvertAmount(amount);
 
   if (!supported) return null;
 
@@ -191,11 +189,15 @@ export function ConversionActions({
         }}
         onCancel={() => setMode(null)}
       >
-        <p>
-          This writes to {formatPlatformLabel(platform)} and{' '}
-          <strong className="text-calyx-text">sets what this call is worth</strong>. The amount
-          becomes the call&apos;s conversion value and syncs back into Calyx as its revenue.
+        <p className="text-xs font-semibold uppercase tracking-wide text-calyx-muted">
+          {formatPlatformLabel(platform)} · Convert
         </p>
+        <p className="break-all font-mono text-xs text-calyx-muted">{callId}</p>
+        {isConfirmableConvertAmount(amount) && (
+          <p className="text-2xl font-semibold text-calyx-text">
+            Convert this call for ${amount.toFixed(2)}?
+          </p>
+        )}
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-calyx-text">Amount (USD)</span>
           <Input
@@ -203,7 +205,6 @@ export function ConversionActions({
             inputMode="decimal"
             step="0.01"
             min="0.01"
-            max={WRITEBACK_MAX_AMOUNT}
             value={amountText}
             autoFocus
             onChange={(e) => setAmountText(e.target.value)}
@@ -211,9 +212,7 @@ export function ConversionActions({
           />
         </label>
         {amountInvalid && amountText !== '' && (
-          <p className="text-xs text-calyx-danger">
-            Enter an amount between $0.01 and ${WRITEBACK_MAX_AMOUNT.toFixed(2)}.
-          </p>
+          <p className="text-xs text-calyx-danger">Enter an amount greater than $0.00.</p>
         )}
         {amountText === '' && revenue <= 0 && (
           <p className="text-xs text-calyx-muted">
@@ -221,7 +220,6 @@ export function ConversionActions({
             conversion is worth.
           </p>
         )}
-        <p className="break-all font-mono text-xs text-calyx-muted">{callId}</p>
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -235,11 +233,15 @@ export function ConversionActions({
         }}
         onCancel={() => setMode(null)}
       >
+        <p className="text-xs font-semibold uppercase tracking-wide text-calyx-muted">
+          {formatPlatformLabel(platform)} · Cancel
+        </p>
+        <p className="break-all font-mono text-xs text-calyx-muted">{callId}</p>
+        <p className="text-2xl font-semibold text-calyx-text">Cancel this conversion?</p>
         <p>
           This voids the conversion and its payout in {formatPlatformLabel(platform)}. It is
           reversible — the call can be converted again afterwards.
         </p>
-        <p className="break-all font-mono text-xs text-calyx-muted">{callId}</p>
       </ConfirmDialog>
     </div>
   );
