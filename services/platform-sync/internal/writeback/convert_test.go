@@ -124,6 +124,18 @@ func baseReq() ConvertRequest {
 	}
 }
 
+func TestIsConvertedMatchesApiConvertedState(t *testing.T) {
+	if !isConverted(models.RemoteCall{HasConverted: true, Revenue: 1}) {
+		t.Fatal("flag and revenue > 0 is converted")
+	}
+	if isConverted(models.RemoteCall{HasConverted: true, Revenue: 0}) {
+		t.Fatal("flag with $0 is converted_zero, not converted")
+	}
+	if isConverted(models.RemoteCall{HasConverted: false, Revenue: 5}) {
+		t.Fatal("flag false is not converted")
+	}
+}
+
 func TestValidateAmount(t *testing.T) {
 	if err := ValidateAmount(0); !errors.Is(err, ErrInvalidAmount) {
 		t.Fatal(err)

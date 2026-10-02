@@ -100,6 +100,8 @@ func (s *Service) pollEvery() time.Duration {
 	return settlePoll
 }
 
+// isConverted matches the API state `converted`: the platform flag is true and revenue is
+// greater than zero. A true flag with $0 is `converted_zero`, not a confirmed write-back.
 func isConverted(c models.RemoteCall) bool {
 	return c.HasConverted && c.Revenue > 0
 }

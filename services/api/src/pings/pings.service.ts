@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
 import { EVENT_AT_EXPR } from '../common/ping-event-time';
-import { buildPingWhereClause, PingListFilters } from './pings.filters';
-import { reportsConversionState } from '../common/platform-capabilities';
+import { buildPingWhereClause, pingConversionPredicate, PingListFilters } from './pings.filters';
+import { conversionState, ConversionState, reportsConversionState } from '../common/platform-capabilities';
 
 export interface PingRecord {
   tenant_id: string;
@@ -34,6 +34,11 @@ export interface PingRecord {
    * is "never asked", not "not converted" — the UI must not infer a missed conversion from it.
    */
   conversion_reported: boolean;
+  /**
+   * Stamped by the API from `conversionState`. The web displays this and does not recompute it.
+   * converted | converted_zero | not_converted | not_reported
+   */
+  conversion_state: ConversionState;
   /** Ingestion timestamp (when Calyx received the ping). */
   received_at: string;
   /**
@@ -100,7 +105,12 @@ const PING_SELECT_COLLAPSED = `
 interface PingRecordRow
   extends Omit<
     PingRecord,
-    'received_at' | 'occurred_at' | 'has_converted' | 'sync_count' | 'conversion_reported'
+    | 'received_at'
+    | 'occurred_at'
+    | 'has_converted'
+    | 'sync_count'
+    | 'conversion_reported'
+    | 'conversion_state'
   > {
   /** ClickHouse `UInt8` — 1 when the platform reported the call converted. */
   has_converted: number;
@@ -112,11 +122,17 @@ interface PingRecordRow
 
 function mapPingRow(row: PingRecordRow): PingRecord {
   const { received_at_iso, occurred_at_iso, has_converted, sync_count, ...rest } = row;
+  const converted = Number(has_converted ?? 0) === 1;
   return {
     ...rest,
-    has_converted: Number(has_converted ?? 0) === 1,
+    has_converted: converted,
     sync_count: Number(sync_count ?? 1),
     conversion_reported: reportsConversionState(rest.platform),
+    conversion_state: conversionState({
+      platform: rest.platform,
+      hasConverted: converted,
+      revenue: Number(rest.revenue ?? 0),
+    }),
     received_at: received_at_iso,
     occurred_at: occurred_at_iso,
   };
@@ -139,6 +155,8 @@ export class PingsService {
     const safeOffset = Math.max(offset, 0);
 
     const { clause, params: filterParams } = buildPingWhereClause(filters);
+    const rawConversion = pingConversionPredicate(filters, 'raw');
+    const latestConversion = pingConversionPredicate(filters, 'latest');
     const params: Record<string, string | number> = {
       tenant_id: tenantId,
       limit: safeLimit,
@@ -147,7 +165,32 @@ export class PingsService {
     };
 
     const countResult = await this.clickhouse.getClient().query({
-      query: `
+      query: filters.raw
+        ? `
+        SELECT
+          count() AS total,
+          uniqExactIf(external_call_id, external_call_id != '') AS distinct_total
+        FROM pings
+        WHERE tenant_id = {tenant_id:UUID}
+        ${clause}
+        ${rawConversion ? `AND ${rawConversion}` : ''}
+      `
+        : filters.conversion
+          ? `
+        SELECT count() AS total, count() AS distinct_total
+        FROM (
+          SELECT platform, external_call_id
+          FROM (
+            SELECT * FROM pings
+            WHERE tenant_id = {tenant_id:UUID}
+              AND external_call_id != ''
+            ${clause}
+          )
+          GROUP BY platform, external_call_id
+          HAVING ${latestConversion}
+        )
+      `
+          : `
         SELECT
           count() AS total,
           uniqExactIf(external_call_id, external_call_id != '') AS distinct_total
@@ -169,6 +212,7 @@ export class PingsService {
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
         ${clause}
+        ${rawConversion ? `AND ${rawConversion}` : ''}
         ORDER BY ${EVENT_AT_EXPR} DESC
         LIMIT {limit:UInt32}
         OFFSET {offset:UInt32}
@@ -182,6 +226,7 @@ export class PingsService {
           ${clause}
         )
         GROUP BY platform, external_call_id
+        ${latestConversion ? `HAVING ${latestConversion}` : ''}
         ORDER BY event_at DESC
         LIMIT {limit:UInt32}
         OFFSET {offset:UInt32}
@@ -205,6 +250,8 @@ export class PingsService {
 
   async exportCsv(tenantId: string, filters: PingListFilters = {}): Promise<string> {
     const { clause, params: filterParams } = buildPingWhereClause(filters);
+    const rawConversion = pingConversionPredicate(filters, 'raw');
+    const latestConversion = pingConversionPredicate(filters, 'latest');
     const params: Record<string, string | number> = {
       tenant_id: tenantId,
       limit: PingsService.EXPORT_MAX,
@@ -219,6 +266,7 @@ export class PingsService {
         FROM pings
         WHERE tenant_id = {tenant_id:UUID}
         ${clause}
+        ${rawConversion ? `AND ${rawConversion}` : ''}
         ORDER BY ${EVENT_AT_EXPR} DESC
         LIMIT {limit:UInt32}
       `
@@ -231,6 +279,7 @@ export class PingsService {
           ${clause}
         )
         GROUP BY platform, external_call_id
+        ${latestConversion ? `HAVING ${latestConversion}` : ''}
         ORDER BY event_at DESC
         LIMIT {limit:UInt32}
       `,
@@ -250,6 +299,7 @@ export class PingsService {
       'payout',
       'sync_count',
       'has_converted',
+      'conversion_state',
       'ani_hash',
     ];
     const lines = rows.map((row) =>
@@ -264,6 +314,7 @@ export class PingsService {
         row.payout,
         row.sync_count,
         row.has_converted ? 1 : 0,
+        row.conversion_state,
         row.ani_hash,
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)

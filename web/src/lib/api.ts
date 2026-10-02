@@ -38,6 +38,11 @@ export interface PingRecord {
    * source of truth, so the UI never re-implements the rule (Stage 4 R1 / C6).
    */
   conversion_reported?: boolean;
+  /**
+   * Stamped by the API. The UI displays this and does not recompute it.
+   * converted | converted_zero | not_converted | not_reported
+   */
+  conversion_state?: 'converted' | 'converted_zero' | 'not_converted' | 'not_reported';
   received_at: string;
   /** Source call time when known; otherwise equals received_at. Prefer for display/filters. */
   occurred_at?: string;
@@ -45,25 +50,6 @@ export interface PingRecord {
 
 /** Conversion-state filter for the call list. Mirrors the API's `conversion` query param. */
 export type PingConversionFilter = 'converted' | 'unconverted' | 'should_convert';
-
-/**
- * True when a call did not convert but looks like it should have: it either earned revenue, or
- * talked at least as long as the buyer's qualifying threshold. Mirrors the server-side
- * `should_convert` filter so the table badge and the filter never disagree.
- *
- * C6: platforms that do not report conversion state are excluded. `has_converted = false` means
- * "never asked" for them, not "not converted", and treating the two alike flagged every
- * TrackDrive and CallGrid call with revenue. The capability is decided by the API and arrives on
- * the row as `conversion_reported`; the UI deliberately holds no platform list of its own.
- */
-export function shouldHaveConverted(ping: PingRecord): boolean {
-  if (ping.conversion_reported === false) return false;
-  if (ping.has_converted) return false;
-  if (ping.revenue > 0) return true;
-  const required = ping.required_duration_seconds;
-  if (required == null) return false;
-  return (ping.duration_seconds ?? 0) >= required;
-}
 
 export interface PingListResponse {
   data: PingRecord[];
@@ -848,6 +834,8 @@ export interface CallDeepView {
     has_recording?: boolean;
     recording_known?: boolean;
     has_converted?: boolean;
+    /** Stamped by the API. Same four values as the call list. */
+    conversion_state?: 'converted' | 'converted_zero' | 'not_converted' | 'not_reported';
     ani_hash: string;
     received_at: string;
     occurred_at?: string;

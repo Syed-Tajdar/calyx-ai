@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { CallDeepView } from '@/lib/api';
+import { conversionStateLabel } from '@/lib/conversion-label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -203,7 +204,9 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
               )}
             </Field>
             <Field label="Converted">
-              {ping.has_converted ? 'Yes' : 'No'}
+              <span className={ping.conversion_state === 'converted' ? 'text-calyx-teal' : undefined}>
+                {conversionStateLabel(ping.conversion_state)}
+              </span>
             </Field>
             <Field label="Recording">
               {ping.recording_known ? (

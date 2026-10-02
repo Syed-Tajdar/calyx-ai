@@ -1,4 +1,5 @@
-import { shouldHaveConverted, type PingRecord } from '@/lib/api';
+import { type PingRecord } from '@/lib/api';
+import { conversionStateLabel } from '@/lib/conversion-label';
 import { CallIdCell } from '@/components/dashboard/CallIdCell';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
@@ -25,34 +26,24 @@ function formatTime(iso: string): string {
   });
 }
 
-/**
- * Conversion state for one call.
- *
- * `Review` is the actionable state — the platform has not marked the call converted, but it either
- * earned revenue or met the buyer's qualifying duration. Matches the server-side `should_convert`
- * filter via the shared `shouldHaveConverted` helper, so badge and filter cannot drift apart.
- */
+/** Displays the API stamp. The state itself is not computed here. */
 function ConversionCell({ ping }: { ping: PingRecord }): JSX.Element {
-  // C6: this platform never reports conversion state, so neither "Converted" nor "Review"
-  // would be a truthful claim.
-  if (ping.conversion_reported === false) {
-    return (
-      <span className="text-calyx-muted" title="This platform does not report conversion state">
-        n/a
-      </span>
-    );
+  const label = conversionStateLabel(ping.conversion_state);
+  if (ping.conversion_state === 'converted') {
+    return <Badge variant="teal">{label}</Badge>;
   }
-  if (ping.has_converted) {
-    return <Badge variant="teal">Converted</Badge>;
-  }
-  if (shouldHaveConverted(ping)) {
-    return (
-      <Badge variant="warning" title="Not converted, but it earned revenue or met the required duration">
-        Review
-      </Badge>
-    );
-  }
-  return <span className="text-calyx-muted">—</span>;
+  return (
+    <span
+      className="text-calyx-muted"
+      title={
+        ping.conversion_state === 'not_reported'
+          ? 'This platform does not report conversion state'
+          : undefined
+      }
+    >
+      {label}
+    </span>
+  );
 }
 
 export function PingsTable({

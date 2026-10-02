@@ -1,6 +1,6 @@
 import { EVENT_AT_EXPR } from '../common/ping-event-time';
 import { apiSyncExclusionSql } from '../common/demo-rows';
-import { reportsConversionStateSql } from '../common/platform-capabilities';
+import { conversionFilterSql } from '../common/platform-capabilities';
 
 /**
  * Conversion state filter for the call list.
@@ -66,24 +66,6 @@ export function buildPingWhereClause(filters: PingListFilters): {
     );
     params.to = filters.to;
   }
-  if (filters.conversion === 'converted') {
-    parts.push(`AND ${reportsConversionStateSql()} AND has_converted = 1`);
-  } else if (filters.conversion === 'unconverted') {
-    parts.push(`AND ${reportsConversionStateSql()} AND has_converted = 0`);
-  } else if (filters.conversion === 'should_convert') {
-    // D1 "either condition": unconverted AND (earned revenue OR met the buyer's duration threshold).
-    // C6: only for platforms that actually report conversion state — elsewhere has_converted = 0
-    // means "never asked", not "not converted", which flagged whole platforms falsely.
-    parts.push(`AND ${reportsConversionStateSql()}
-          AND has_converted = 0
-          AND (
-            revenue > 0
-            OR (
-              required_duration_seconds IS NOT NULL
-              AND duration_seconds >= required_duration_seconds
-            )
-          )`);
-  }
   if (filters.search) {
     // Exact match first, then prefix (Retreaver Call Log shows truncated UUID).
     parts.push(
@@ -96,4 +78,10 @@ export function buildPingWhereClause(filters: PingListFilters): {
   }
 
   return { clause: parts.join('\n        '), params };
+}
+
+/** Predicate for HAVING (latest row) or an extra AND (raw rows). Empty when no conversion filter. */
+export function pingConversionPredicate(filters: PingListFilters, mode: 'raw' | 'latest'): string {
+  if (!filters.conversion) return '';
+  return conversionFilterSql(filters.conversion, mode);
 }

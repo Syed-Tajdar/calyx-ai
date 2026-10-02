@@ -3,6 +3,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
+import { conversionState, ConversionState } from '../common/platform-capabilities';
 
 export interface CallDeepViewPing {
   platform: string;
@@ -27,6 +28,8 @@ export interface CallDeepViewPing {
   /** True when has_recording was set by API sync (distinguishes false vs not provided). */
   recording_known: boolean;
   has_converted: boolean;
+  /** Stamped by the API. Same four values as the call list. */
+  conversion_state: ConversionState;
   ani_hash: string;
   received_at: string;
   /** Platform call time when known; empty string if never set (epoch). Prefer over received_at in UI. */
@@ -287,6 +290,11 @@ export class DeepQueryService {
         has_recording: Number(row.has_recording ?? 0) === 1,
         recording_known: Number(row.recording_known ?? 0) === 1,
         has_converted: Number(row.has_converted ?? 0) === 1,
+        conversion_state: conversionState({
+          platform: row.ping_platform,
+          hasConverted: Number(row.has_converted ?? 0) === 1,
+          revenue: Number(row.ping_revenue),
+        }),
         ani_hash: row.ani_hash,
         received_at: row.ping_received_at,
         occurred_at:
