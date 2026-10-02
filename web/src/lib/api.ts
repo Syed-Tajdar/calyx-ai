@@ -966,6 +966,20 @@ export async function deleteAlertRule(token: string, id: string): Promise<void> 
   return fetchWithAuthNoContent(token, `/alerts/rules/${id}`, { method: 'DELETE' });
 }
 
+export async function pauseIntegration(
+  token: string,
+  id: string,
+): Promise<IntegrationRecord> {
+  return fetchWithAuth<IntegrationRecord>(token, `/integrations/${id}/pause`, { method: 'POST' });
+}
+
+export async function resumeIntegration(
+  token: string,
+  id: string,
+): Promise<IntegrationRecord> {
+  return fetchWithAuth<IntegrationRecord>(token, `/integrations/${id}/resume`, { method: 'POST' });
+}
+
 export async function deleteIntegration(token: string, id: string): Promise<void> {
   return fetchWithAuthNoContent(token, `/integrations/${id}`, { method: 'DELETE' });
 }

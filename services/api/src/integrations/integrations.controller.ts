@@ -178,12 +178,39 @@ export class IntegrationsController {
     );
   }
 
+  @Post(':id/pause')
+  @HttpCode(200)
+  async pause(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ): Promise<IntegrationRecord> {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Pause is admin-only');
+    }
+    return this.integrationsService.setActive(tenantId, user.sub, id, false);
+  }
+
+  @Post(':id/resume')
+  @HttpCode(200)
+  async resume(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ): Promise<IntegrationRecord> {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Resume is admin-only');
+    }
+    return this.integrationsService.setActive(tenantId, user.sub, id, true);
+  }
+
   @Delete(':id')
   @HttpCode(204)
   async remove(
     @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
   ): Promise<void> {
-    await this.integrationsService.softDelete(tenantId, id);
+    await this.integrationsService.softDelete(tenantId, id, user.sub);
   }
 }

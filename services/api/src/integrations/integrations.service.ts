@@ -107,7 +107,7 @@ export class IntegrationsService {
                 CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days,
                 COALESCE(writeback_enabled, FALSE) AS writeback_enabled
          FROM integrations
-         WHERE is_active = TRUE
+         WHERE deleted_at IS NULL
          ORDER BY created_at DESC
          LIMIT 50`,
       );
@@ -426,18 +426,62 @@ export class IntegrationsService {
     });
   }
 
-  async softDelete(tenantId: string, id: string): Promise<void> {
+  async softDelete(tenantId: string, id: string, userId?: string): Promise<void> {
     return this.postgres.withTenant(tenantId, async (client) => {
       const result = await client.query(
         `UPDATE integrations
-         SET is_active = FALSE, updated_at = NOW()
-         WHERE id = $1::uuid AND tenant_id = $2::uuid AND is_active = TRUE`,
+         SET is_active = FALSE, deleted_at = NOW(), updated_at = NOW()
+         WHERE id = $1::uuid AND tenant_id = $2::uuid AND deleted_at IS NULL`,
         [id, tenantId],
       );
       if (result.rowCount === 0) {
         throw new NotFoundException('Integration not found');
       }
+      await this.insertSettingsAudit(client, tenantId, userId, id, 'delete');
     });
+  }
+
+  /** Pause (is_active false) or resume (is_active true). Does not change sync_mode. */
+  async setActive(
+    tenantId: string,
+    userId: string,
+    id: string,
+    active: boolean,
+  ): Promise<IntegrationRecord> {
+    return this.postgres.withTenant(tenantId, async (client) => {
+      const result = await client.query<IntegrationRow>(
+        `UPDATE integrations
+         SET is_active = $3, updated_at = NOW()
+         WHERE id = $1::uuid AND tenant_id = $2::uuid AND deleted_at IS NULL
+         RETURNING id::text, platform, name, connection_mode,
+                   CASE WHEN connection_mode = 'api_sync' THEN sync_mode ELSE NULL END AS sync_mode,
+                   CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
+                   is_active, last_sync_at::text, sync_status, last_sync_error,
+                   created_at::text,
+                   CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days,
+                   COALESCE(writeback_enabled, FALSE) AS writeback_enabled`,
+        [id, tenantId, active],
+      );
+      if (result.rowCount === 0) {
+        throw new NotFoundException('Integration not found');
+      }
+      await this.insertSettingsAudit(client, tenantId, userId, id, active ? 'resume' : 'pause');
+      return this.toRecord(result.rows[0]);
+    });
+  }
+
+  private async insertSettingsAudit(
+    client: { query: (sql: string, params: unknown[]) => Promise<unknown> },
+    tenantId: string,
+    userId: string | undefined,
+    integrationId: string,
+    action: 'pause' | 'resume' | 'delete',
+  ): Promise<void> {
+    await client.query(
+      `INSERT INTO integration_settings_audit (tenant_id, user_id, integration_id, action)
+       VALUES ($1::uuid, NULLIF($2, '')::uuid, $3::uuid, $4)`,
+      [tenantId, userId ?? '', integrationId, action],
+    );
   }
 
   listPlatformOptions(): {
