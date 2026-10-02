@@ -394,7 +394,12 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 	}
 
 	// Sweeps/backfills must not touch last_sync_at (incremental ticks only).
-	s.logger.Info("ringba window fetch completed",
+	platformName := item.Platform
+	if platformName == "" {
+		platformName = "unknown"
+	}
+	s.logger.Info(platformName+" window fetch completed",
+		"platform", platformName,
 		"integration_id", item.ID,
 		"reason", reason,
 		"window_start", start.UTC().Format(time.RFC3339),
