@@ -183,9 +183,9 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
             <Field label="Payout">
               <PayoutValue payout={ping.payout} syncPath={syncPath} />
             </Field>
-            {((ping.profit_gross ?? 0) !== 0 || syncPath === 'api_sync') ? (
-              <Field label="Profit (gross)">${(ping.profit_gross ?? 0).toFixed(2)}</Field>
-            ) : null}
+            <Field label="Profit (gross)">
+              {ping.profit_gross == null ? '—' : `$${ping.profit_gross.toFixed(2)}`}
+            </Field>
             <Field label="Talk time">
               {(ping.duration_seconds ?? 0) > 0 ? (
                 formatSeconds(ping.duration_seconds ?? 0)

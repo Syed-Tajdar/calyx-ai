@@ -5,6 +5,12 @@ import {
 import { ClickhouseService } from '../database/clickhouse.service';
 import { conversionState, ConversionState } from '../common/platform-capabilities';
 
+function optionalMoney(raw: string | null | undefined): number | null {
+  if (raw == null || raw === '' || raw === '\\N') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 export interface CallDeepViewPing {
   platform: string;
   publisher_id: string;
@@ -19,7 +25,8 @@ export interface CallDeepViewPing {
   event_type: string;
   revenue: number;
   payout: number;
-  profit_gross: number;
+  /** Null when the row did not report profit. Zero is a real zero. */
+  profit_gross: number | null;
   /** Connected Call Length (talk time) from platform; 0 if unknown. */
   duration_seconds: number;
   /** Whole-call Duration including ring/IVR; 0 if unknown. */
@@ -284,7 +291,7 @@ export class DeepQueryService {
         event_type: row.event_type,
         revenue: Number(row.ping_revenue),
         payout: Number(row.ping_payout),
-        profit_gross: Number(row.profit_gross ?? 0),
+        profit_gross: optionalMoney(row.profit_gross),
         duration_seconds: Number(row.ping_duration_seconds ?? 0),
         call_length_seconds: Number(row.call_length_seconds ?? 0),
         has_recording: Number(row.has_recording ?? 0) === 1,

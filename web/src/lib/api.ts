@@ -841,7 +841,8 @@ export interface CallDeepView {
     event_type: string;
     revenue: number;
     payout: number;
-    profit_gross?: number;
+    /** Null when the platform did not report profit. A real zero is 0. */
+    profit_gross?: number | null;
     duration_seconds?: number;
     call_length_seconds?: number;
     has_recording?: boolean;
