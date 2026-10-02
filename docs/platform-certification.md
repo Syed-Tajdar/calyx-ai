@@ -1,7 +1,7 @@
 # Platform Certification Status
 
 Living status for the sequential rollout (Retreaver → Ringba → TrackDrive → CallGrid).
-Updated after **Ringba live certification** (`docs/phase2-ringba-live-certified.md`, 2026-07-20).
+Updated after **Stage 4 R2** (2026-10-02). Ringba was certified 2026-07-20 (`docs/phase2-ringba-live-certified.md`).
 
 | Platform | Research | Fixture | Conformance | occurred_at | Redaction | A1 proof | D9 SQL | D9 API | Update mechanism | Initial backfill | D8b | Certified |
 |----------|----------|---------|-------------|-------------|-----------|----------|--------|--------|------------------|------------------|-----|-----------|
@@ -54,7 +54,7 @@ During **initial backfill**, the sync cursor walks pages forward on a wide windo
 | 2.C / Live Ringba DoD | **DONE** — **CERTIFIED YES** (`docs/phase2-ringba-live-certified.md`) |
 | Enterprise risks (PART 3) | **REPORTED** investigate-only |
 
-Retreaver **CERTIFIED** (Stage 4 R2, 2026-10-02, then returned to Test and paused). Ringba **CERTIFIED YES**. **TrackDrive Phase 3 may start.**
+Retreaver **CERTIFIED** (Stage 4 R2, 2026-10-02, then returned to Test and paused). Ringba **CERTIFIED YES**. v1 is Ringba and Retreaver. TrackDrive and CallGrid are out of v1 scope.
 
 ### Stage 4 R2 close (2026-10-02)
 
