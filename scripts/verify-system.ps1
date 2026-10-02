@@ -1,4 +1,8 @@
 # Full system verification: Docker health, all microservices, API, web routes, WebSocket.
+# -V1 or INTELLIGENCE_SCALE=0 skips the intelligence containers, their health checks,
+# and the child presentation script's POST /ask. Production v1 does not run those services.
+param([switch]$V1)
+if (-not $V1 -and $env:INTELLIGENCE_SCALE -eq '0') { $V1 = $true }
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $deployDir = Join-Path $repoRoot "deploy"
@@ -49,10 +53,15 @@ try {
   $ps = docker compose ps --format json 2>&1 | Where-Object { $_ -match '^\{' }
   $rows = @($ps | ForEach-Object { $_ | ConvertFrom-Json })
   $appServices = @(
-    "ingestion", "consumer", "scoring", "enrichment", "providerconfig",
-    "compliance-intelligence", "ask-ai", "ad-attribution", "api", "web",
-    "platform-sync"
+    "ingestion", "consumer", "api", "web", "platform-sync"
   )
+  if (-not $V1) {
+    $appServices = @(
+      "ingestion", "consumer", "scoring", "enrichment", "providerconfig",
+      "compliance-intelligence", "ask-ai", "ad-attribution", "api", "web",
+      "platform-sync"
+    )
+  }
   $infraHealthy = @("postgres", "redis", "clickhouse", "redpanda")
   foreach ($name in ($appServices + $infraHealthy)) {
     $summary.DockerContainers.Total++
@@ -79,7 +88,10 @@ try {
 Write-Section "Service health endpoints"
 # 3100 is the API's published host port; 3000 is only the container-internal port and was
 # never reachable from the host after the 3100/3101/9100 remap.
-$healthPorts = @(8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 3100, 8088)
+$healthPorts = @(8080, 8081, 3100, 8088)
+if (-not $V1) {
+  $healthPorts = @(8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 3100, 8088)
+}
 foreach ($port in $healthPorts) {
   $summary.HealthEndpoints.Total++
   if (Test-HttpStatus ":$port/healthz" "http://localhost:$port/healthz") {
@@ -113,9 +125,13 @@ $verifyScript = Join-Path $repoRoot "scripts\verify-presentation.ps1"
 # Re-invoke with the same PowerShell host running this script: "powershell" is the Windows
 # binary name and does not exist on macOS/Linux, where the host is pwsh.
 $pwshExe = (Get-Process -Id $PID).Path
-& $pwshExe -ExecutionPolicy Bypass -File $verifyScript
+if ($V1) {
+  & $pwshExe -ExecutionPolicy Bypass -File $verifyScript -V1
+} else {
+  & $pwshExe -ExecutionPolicy Bypass -File $verifyScript
+}
 $apiExit = $LASTEXITCODE
-$summary.ApiPresentation = if ($apiExit -eq 0) { "PASS (20/20)" } else { "FAIL" }
+$summary.ApiPresentation = if ($apiExit -ne 0) { "FAIL" } elseif ($V1) { "PASS (v1)" } else { "PASS (20/20)" }
 
 Write-Section "Web routes ($webBase)"
 $routes = @(

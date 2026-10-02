@@ -1,4 +1,6 @@
 # Presentation verification: API health + Phase 3 endpoints (MOCK_MODE).
+# -V1 skips POST /ask. That route needs the ask-ai container, which v1 does not run.
+param([switch]$V1)
 $ErrorActionPreference = "Stop"
 
 function Test-Endpoint {
@@ -60,8 +62,12 @@ foreach ($ep in $endpoints) {
   if (Test-Endpoint $ep.Name $ep.Url $h) { $passed++ }
 }
 
-$total++
-if (Test-Endpoint "POST /ask" "$base/ask" $h "POST" '{"question":"What is my total revenue?"}') { $passed++ }
+if (-not $V1) {
+  $total++
+  if (Test-Endpoint "POST /ask" "$base/ask" $h "POST" '{"question":"What is my total revenue?"}') { $passed++ }
+} else {
+  Write-Host "  SKIP POST /ask (v1 mode)"
+}
 
 # Tenant name check
 $total++
