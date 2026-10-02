@@ -28,6 +28,7 @@ import {
 import { getToken } from '@/lib/auth';
 import { buildPlatformCallUrl, platformDeepLinkCopiesCallId } from '@/lib/platform-deep-links';
 import { formatPlatformLabel } from '@/lib/platform-options';
+import { SHOW_MOCK_PANELS } from '@/lib/v1-features';
 import { toast } from 'sonner';
 
 function CallDetailContent(): JSX.Element {
@@ -118,6 +119,7 @@ function CallDetailContent(): JSX.Element {
         hasCompliance: deepView?.compliance != null,
         complianceRisk: deepView?.compliance?.risk_score,
         hasAttribution: deepView?.attribution != null,
+        includeLaterSteps: SHOW_MOCK_PANELS,
       }),
     [deepView, score, hasEnrichment],
   );
@@ -229,7 +231,7 @@ function CallDetailContent(): JSX.Element {
                 onChanged={() => setReloadKey((k) => k + 1)}
               />
               <CallDeepViewPanel view={deepView} />
-              <ScoreCard score={displayScore} />
+              {SHOW_MOCK_PANELS && <ScoreCard score={displayScore} />}
             </div>
             <div className="space-y-4">
               <TranscriptPanel transcript={transcript} />

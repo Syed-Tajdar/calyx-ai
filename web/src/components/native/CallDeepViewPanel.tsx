@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { CallDeepView } from '@/lib/api';
 import { conversionStateLabel } from '@/lib/conversion-label';
+import { SHOW_MOCK_PANELS } from '@/lib/v1-features';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -240,7 +241,7 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
           </dl>
         </Section>
       )}
-      {view.compliance && (
+      {SHOW_MOCK_PANELS && view.compliance && (
         <Section title="TCPA Risk">
           <p className="text-2xl font-bold text-calyx-warning">{view.compliance.risk_score}</p>
           <p className="text-xs text-calyx-muted">
@@ -249,7 +250,7 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
           </p>
         </Section>
       )}
-      {view.attribution && (
+      {SHOW_MOCK_PANELS && view.attribution && (
         <Section title="Ad Attribution">
           <p className="text-sm capitalize text-calyx-text">
             {view.attribution.platform} · {view.attribution.status}
