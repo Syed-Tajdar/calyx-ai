@@ -59,8 +59,8 @@ export default function LoginPage(): JSX.Element {
           Turn every call into revenue
         </h2>
         <p className="mt-2 max-w-sm text-center text-sm leading-relaxed text-calyx-muted">
-          Pay-per-call analytics, TCPA compliance intelligence, and natural-language Ask AI —
-          one pipeline, end to end.
+          Pay-per-call analytics for Ringba and Retreaver — every call, revenue and conversion
+          in one place.
         </p>
       </div>
 
@@ -70,7 +70,8 @@ export default function LoginPage(): JSX.Element {
             <Logo className="mb-2" />
             <CardTitle className="font-heading text-xl">Sign in to Calyx AI</CardTitle>
             <CardDescription>
-              Pay-per-call analytics, TCPA compliance intelligence, and Ask AI reporting.
+              Pay-per-call analytics for Ringba and Retreaver — every call, revenue and conversion
+              in one place.
             </CardDescription>
           </CardHeader>
           <CardContent>
