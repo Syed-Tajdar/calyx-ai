@@ -49,7 +49,7 @@ export interface PingRecord {
 }
 
 /** Conversion-state filter for the call list. Mirrors the API's `conversion` query param. */
-export type PingConversionFilter = 'converted' | 'unconverted' | 'should_convert';
+export type PingConversionFilter = 'converted' | 'converted_zero' | 'unconverted' | 'should_convert';
 
 export interface PingListResponse {
   data: PingRecord[];
@@ -462,11 +462,12 @@ export async function fetchEnrichment(
 
 export async function fetchAnalyticsMetrics(
   token: string,
-  filters: { from?: string; to?: string; show_demo?: boolean } = {},
+  filters: { from?: string; to?: string; show_demo?: boolean; platform?: string } = {},
 ): Promise<MetricsResult> {
   const params = new URLSearchParams();
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
+  if (filters.platform) params.set('platform', filters.platform);
   if (filters.show_demo) params.set('show_demo', 'true');
   const qs = params.toString();
   return fetchWithAuth<MetricsResult>(token, `/analytics/metrics${qs ? `?${qs}` : ''}`);
@@ -474,11 +475,12 @@ export async function fetchAnalyticsMetrics(
 
 export async function fetchPingSeries(
   token: string,
-  filters: { from?: string; to?: string; show_demo?: boolean } = {},
+  filters: { from?: string; to?: string; show_demo?: boolean; platform?: string } = {},
 ): Promise<Array<{ date: string; count: number }>> {
   const params = new URLSearchParams();
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
+  if (filters.platform) params.set('platform', filters.platform);
   if (filters.show_demo) params.set('show_demo', 'true');
   const qs = params.toString();
   return fetchWithAuth(token, `/analytics/ping-series${qs ? `?${qs}` : ''}`);

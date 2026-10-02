@@ -30,12 +30,13 @@ export class AnalyticsController {
     @CurrentTenant() tenantId: string,
     @Query() query: Record<string, string>,
   ): Promise<MetricsResult> {
-    const parsed = dateQuerySchema.parse(query);
+    const parsed = platformMixQuerySchema.parse(query);
     return this.analyticsService.getMetrics(
       tenantId,
       parsed.from,
       parsed.to,
       parsed.show_demo,
+      parsed.platform,
     );
   }
 
@@ -58,12 +59,13 @@ export class AnalyticsController {
     @CurrentTenant() tenantId: string,
     @Query() query: Record<string, string>,
   ): Promise<Array<{ date: string; count: number }>> {
-    const parsed = dateQuerySchema.parse(query);
+    const parsed = platformMixQuerySchema.parse(query);
     return this.analyticsService.getPingSeries(
       tenantId,
       parsed.from,
       parsed.to,
       parsed.show_demo,
+      parsed.platform,
     );
   }
 

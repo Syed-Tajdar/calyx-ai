@@ -65,11 +65,14 @@ export class AnalyticsService {
     from?: string,
     to?: string,
     showDemo?: boolean,
+    platform?: string,
   ): Promise<MetricsResult> {
     const dateClause = this.buildDateClause(from, to);
+    const platformClause = platform ? 'AND platform = {platform:String}' : '';
     const params: Record<string, string> = { tenant_id: tenantId };
     if (from) params.from = from;
     if (to) params.to = to;
+    if (platform) params.platform = platform;
 
     const result = await this.clickhouse.getClient().query({
       query: `
@@ -81,6 +84,7 @@ export class AnalyticsService {
         FROM (
           ${this.dedupedCallsSubquery(showDemo)}
           ${dateClause}
+          ${platformClause}
           GROUP BY platform, external_call_id
         )
       `,
@@ -128,12 +132,15 @@ export class AnalyticsService {
     from?: string,
     to?: string,
     showDemo?: boolean,
+    platform?: string,
   ): Promise<Array<{ date: string; count: number }>> {
     const dateClause = this.buildDateClause(from, to);
+    const platformClause = platform ? 'AND platform = {platform:String}' : '';
     const demo = apiSyncExclusionSql('external_call_id', showDemo);
     const params: Record<string, string> = { tenant_id: tenantId };
     if (from) params.from = from;
     if (to) params.to = to;
+    if (platform) params.platform = platform;
     const result = await this.clickhouse.getClient().query({
       query: `
         SELECT
@@ -146,6 +153,7 @@ export class AnalyticsService {
             AND external_call_id != ''
             ${demo}
             ${dateClause}
+            ${platformClause}
           GROUP BY platform, external_call_id
         )
         GROUP BY day

@@ -74,6 +74,7 @@ export default function DashboardPage(): JSX.Element {
       fetchPingSeries(token, {
         from: filters.from,
         to: filters.to,
+        platform: filters.platform,
         show_demo: filters.show_demo,
       }),
     ])
