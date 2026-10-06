@@ -21,6 +21,7 @@ import {
   IntegrationsService,
   TestConnectionResult,
 } from './integrations.service';
+import { convertWritebackSchema, voidWritebackSchema } from './writeback.validation';
 
 const createSchema = z.object({
   platform: z.enum(['ringba', 'retreaver', 'trackdrive', 'callgrid']),
@@ -44,23 +45,6 @@ const syncModeSchema = z.object({
   initial_lookback_days: z.number().int().min(1).max(365).optional(),
 });
 
-const convertWritebackSchema = z.object({
-  inbound_call_id: z.string().min(8).max(128),
-  amount: z.number({
-    required_error: 'amount must be a positive number',
-    invalid_type_error: 'amount must be a positive number',
-  }).positive({ message: 'amount must be a positive number' }),
-});
-
-const voidWritebackSchema = z.object({
-  inbound_call_id: z.string().min(8).max(128),
-});
-
-function writebackEnabled(): boolean {
-  const v = process.env.WRITEBACK_ENABLED;
-  return v === 'true' || v === '1';
-}
-
 function parseWriteback<S extends z.ZodTypeAny>(schema: S, body: unknown): z.output<S> {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -68,21 +52,6 @@ function parseWriteback<S extends z.ZodTypeAny>(schema: S, body: unknown): z.out
     throw new BadRequestException(msg);
   }
   return parsed.data;
-}
-
-/** Registers write-back routes only when WRITEBACK_ENABLED is true/1. */
-function ConditionalWritebackConvert(): MethodDecorator {
-  if (writebackEnabled()) {
-    return Post(':id/writeback/convert');
-  }
-  return () => undefined;
-}
-
-function ConditionalWritebackVoid(): MethodDecorator {
-  if (writebackEnabled()) {
-    return Post(':id/writeback/void');
-  }
-  return () => undefined;
 }
 
 @Controller('integrations')
@@ -133,7 +102,7 @@ export class IntegrationsController {
     return this.integrationsService.triggerBackfill(tenantId, id);
   }
 
-  @ConditionalWritebackConvert()
+  @Post(':id/writeback/convert')
   @HttpCode(200)
   async convertWriteback(
     @CurrentTenant() tenantId: string,
@@ -154,7 +123,7 @@ export class IntegrationsController {
     );
   }
 
-  @ConditionalWritebackVoid()
+  @Post(':id/writeback/void')
   @HttpCode(200)
   async voidWriteback(
     @CurrentTenant() tenantId: string,
@@ -189,12 +158,39 @@ export class IntegrationsController {
     );
   }
 
+  @Post(':id/pause')
+  @HttpCode(200)
+  async pause(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ): Promise<IntegrationRecord> {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Pause is admin-only');
+    }
+    return this.integrationsService.setActive(tenantId, user.sub, id, false);
+  }
+
+  @Post(':id/resume')
+  @HttpCode(200)
+  async resume(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ): Promise<IntegrationRecord> {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Resume is admin-only');
+    }
+    return this.integrationsService.setActive(tenantId, user.sub, id, true);
+  }
+
   @Delete(':id')
   @HttpCode(204)
   async remove(
     @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
   ): Promise<void> {
-    await this.integrationsService.softDelete(tenantId, id);
+    await this.integrationsService.softDelete(tenantId, id, user.sub);
   }
 }

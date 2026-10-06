@@ -21,6 +21,7 @@ import {
   validateApiSyncCredentials,
 } from '@/lib/platform-credentials';
 import { formatPlatformLabel } from '@/lib/platform-options';
+import { platformsForV1, V1_ONLY } from '@/lib/v1-features';
 
 interface AddIntegrationFormProps {
   onCreated: (record: IntegrationRecord) => void;
@@ -35,6 +36,10 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
   const [webhookSecret, setWebhookSecret] = useState('');
   const [credValues, setCredValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (V1_ONLY && connectionMode === 'webhook') setConnectionMode('api_sync');
+  }, [connectionMode]);
 
   useEffect(() => {
     const token = getToken();
@@ -133,7 +138,7 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
     }
   }
 
-  const platformOptions =
+  const allPlatformOptions =
     options.length > 0
       ? options
       : [
@@ -142,6 +147,9 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
           { platform: 'trackdrive', supports_webhook: true, supports_api_sync: true },
           { platform: 'callgrid', supports_webhook: true, supports_api_sync: true },
         ];
+  const allowed = new Set(platformsForV1(allPlatformOptions.map((o) => o.platform)));
+  const platformOptions = allPlatformOptions.filter((o) => allowed.has(o.platform));
+  const showWebhook = canWebhook && !V1_ONLY;
 
   return (
     <form
@@ -205,7 +213,7 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
               API key — no callback setup
             </label>
           )}
-          {canWebhook && (
+          {showWebhook && (
             <label className="flex cursor-pointer items-center gap-2 rounded-md border border-calyx-border px-3 py-2 text-sm">
               <input
                 type="radio"

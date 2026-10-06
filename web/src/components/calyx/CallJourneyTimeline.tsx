@@ -61,6 +61,8 @@ export function buildJourneySteps(data: {
   hasCompliance: boolean;
   complianceRisk?: number;
   hasAttribution: boolean;
+  /** Score, Compliance, and Attribution are mock in v1 and stay out of the journey. */
+  includeLaterSteps?: boolean;
 }): JourneyStep[] {
   const complianceState: JourneyStepState =
     data.hasCompliance && (data.complianceRisk ?? 0) >= 70
@@ -71,7 +73,7 @@ export function buildJourneySteps(data: {
           ? 'active'
           : 'pending';
 
-  return [
+  const steps: JourneyStep[] = [
     {
       id: 'ping',
       label: 'Ping',
@@ -82,6 +84,9 @@ export function buildJourneySteps(data: {
       label: 'Enrich',
       state: data.hasEnrichment ? 'complete' : data.hasPing ? 'active' : 'pending',
     },
+  ];
+  if (data.includeLaterSteps === false) return steps;
+  steps.push(
     {
       id: 'score',
       label: 'Score',
@@ -97,5 +102,6 @@ export function buildJourneySteps(data: {
       label: 'Attribution',
       state: data.hasAttribution ? 'complete' : complianceState === 'complete' ? 'active' : 'pending',
     },
-  ];
+  );
+  return steps;
 }

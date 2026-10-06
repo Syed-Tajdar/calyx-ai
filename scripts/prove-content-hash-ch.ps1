@@ -10,7 +10,7 @@ function Get-AuthHeaders {
 }
 
 function Get-ProofCounts {
-  $q = "SELECT count() AS rows, uniqExact(external_call_id) AS calls FROM default.pings WHERE external_call_id LIKE 'proof-retreaver-%'"
+  $q = "SELECT count() AS rows, uniqExact(external_call_id) AS calls FROM default.pings WHERE external_call_id LIKE 'smoke-proof-retreaver-%'"
   $out = docker exec deploy-clickhouse-1 clickhouse-client --password callloom_dev --query $q
   $parts = ($out.Trim() -split '\s+')
   return @{ rows = [int]$parts[0]; calls = [int]$parts[1] }
@@ -22,7 +22,7 @@ $hz = Invoke-WebRequest -Uri "http://localhost:8088/healthz" -UseBasicParsing
 if ($hz.StatusCode -ne 200) { throw "platform-sync unhealthy" }
 
 # Clear prior proof hashes so Sync A is PublishNew
-docker exec deploy-redis-1 redis-cli --scan --pattern "*:dedup:retreaver:proof-retreaver-*" | ForEach-Object {
+docker exec deploy-redis-1 redis-cli --scan --pattern "*:dedup:retreaver:smoke-proof-retreaver-*" | ForEach-Object {
   if ($_) { docker exec deploy-redis-1 redis-cli DEL $_ | Out-Null }
 }
 

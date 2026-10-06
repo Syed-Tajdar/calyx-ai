@@ -45,6 +45,11 @@ export interface IntegrationRecord {
   supports_webhook: boolean;
   /** Empty-cursor / backfill window in days (api_sync only; null for webhook). */
   initial_lookback_days: number | null;
+  /**
+   * Per-tenant write-back gate (default false). Exposed so the UI can explain why Convert /
+   * Cancel are unavailable instead of surfacing a 403 after the operator clicks.
+   */
+  writeback_enabled: boolean;
 }
 
 export interface CreateIntegrationInput {
@@ -82,6 +87,7 @@ interface IntegrationRow {
   last_sync_error: string | null;
   created_at: string;
   initial_lookback_days: number | null;
+  writeback_enabled?: boolean;
 }
 
 @Injectable()
@@ -98,9 +104,10 @@ export class IntegrationsService {
                 CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
                 is_active, last_sync_at::text, sync_status, last_sync_error,
                 created_at::text,
-                CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days
+                CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days,
+                COALESCE(writeback_enabled, FALSE) AS writeback_enabled
          FROM integrations
-         WHERE is_active = TRUE
+         WHERE deleted_at IS NULL
          ORDER BY created_at DESC
          LIMIT 50`,
       );
@@ -152,7 +159,8 @@ export class IntegrationsService {
                    CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
                    is_active, last_sync_at::text, sync_status, last_sync_error,
                    created_at::text,
-                   CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days`,
+                   CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days,
+                   COALESCE(writeback_enabled, FALSE) AS writeback_enabled`,
         [
           tenantId,
           input.platform,
@@ -256,25 +264,13 @@ export class IntegrationsService {
     inboundCallId: string,
     amount?: number,
   ): Promise<Record<string, unknown>> {
-    const row = await this.getRowAny(tenantId, id);
-    if (row.connection_mode !== 'api_sync') {
-      throw new BadRequestException('Write-back is only available for API key integrations');
-    }
-    if (row.platform !== 'ringba') {
-      throw new BadRequestException('Write-back currently supports Ringba only');
-    }
-    if (row.sync_mode !== 'real') {
-      throw new BadRequestException('Write-back requires Live (sync_mode=real)');
-    }
-    if (!row.writeback_enabled) {
-      throw new ForbiddenException('Write-back is not enabled for this integration');
-    }
+    // The global kill switch lives in platform-sync (WRITEBACK_ENABLED → SetGlobalEnabled).
+    // This process always forwards when the internal token is set, including when the flag
+    // is false, so the refusal is audited before any Ringba call. Local checks used to
+    // return first and the audit row was never written.
     const token = process.env.WRITEBACK_INTERNAL_TOKEN ?? '';
     if (!token) {
       throw new ServiceUnavailableException('Write-back internal token is not configured');
-    }
-    if (action === 'convert' && (amount === undefined || !(amount > 0))) {
-      throw new BadRequestException('amount must be a positive number');
     }
 
     const syncUrl = process.env.PLATFORM_SYNC_URL ?? 'http://localhost:8088';
@@ -396,7 +392,8 @@ export class IntegrationsService {
              RETURNING id::text, platform, name, connection_mode,
                        sync_mode, NULL AS webhook_token,
                        is_active, last_sync_at::text, sync_status, last_sync_error,
-                       created_at::text, initial_lookback_days`
+                       created_at::text, initial_lookback_days,
+                       COALESCE(writeback_enabled, FALSE) AS writeback_enabled`
           : `UPDATE integrations
              SET sync_mode = $3, updated_at = NOW()
              WHERE id = $1::uuid AND tenant_id = $2::uuid
@@ -404,7 +401,8 @@ export class IntegrationsService {
              RETURNING id::text, platform, name, connection_mode,
                        sync_mode, NULL AS webhook_token,
                        is_active, last_sync_at::text, sync_status, last_sync_error,
-                       created_at::text, initial_lookback_days`,
+                       created_at::text, initial_lookback_days,
+                       COALESCE(writeback_enabled, FALSE) AS writeback_enabled`,
         lookback !== undefined
           ? [id, tenantId, syncMode, lookback]
           : [id, tenantId, syncMode],
@@ -416,18 +414,62 @@ export class IntegrationsService {
     });
   }
 
-  async softDelete(tenantId: string, id: string): Promise<void> {
+  async softDelete(tenantId: string, id: string, userId?: string): Promise<void> {
     return this.postgres.withTenant(tenantId, async (client) => {
       const result = await client.query(
         `UPDATE integrations
-         SET is_active = FALSE, updated_at = NOW()
-         WHERE id = $1::uuid AND tenant_id = $2::uuid AND is_active = TRUE`,
+         SET is_active = FALSE, deleted_at = NOW(), updated_at = NOW()
+         WHERE id = $1::uuid AND tenant_id = $2::uuid AND deleted_at IS NULL`,
         [id, tenantId],
       );
       if (result.rowCount === 0) {
         throw new NotFoundException('Integration not found');
       }
+      await this.insertSettingsAudit(client, tenantId, userId, id, 'delete');
     });
+  }
+
+  /** Pause (is_active false) or resume (is_active true). Does not change sync_mode. */
+  async setActive(
+    tenantId: string,
+    userId: string,
+    id: string,
+    active: boolean,
+  ): Promise<IntegrationRecord> {
+    return this.postgres.withTenant(tenantId, async (client) => {
+      const result = await client.query<IntegrationRow>(
+        `UPDATE integrations
+         SET is_active = $3, updated_at = NOW()
+         WHERE id = $1::uuid AND tenant_id = $2::uuid AND deleted_at IS NULL
+         RETURNING id::text, platform, name, connection_mode,
+                   CASE WHEN connection_mode = 'api_sync' THEN sync_mode ELSE NULL END AS sync_mode,
+                   CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
+                   is_active, last_sync_at::text, sync_status, last_sync_error,
+                   created_at::text,
+                   CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days,
+                   COALESCE(writeback_enabled, FALSE) AS writeback_enabled`,
+        [id, tenantId, active],
+      );
+      if (result.rowCount === 0) {
+        throw new NotFoundException('Integration not found');
+      }
+      await this.insertSettingsAudit(client, tenantId, userId, id, active ? 'resume' : 'pause');
+      return this.toRecord(result.rows[0]);
+    });
+  }
+
+  private async insertSettingsAudit(
+    client: { query: (sql: string, params: unknown[]) => Promise<unknown> },
+    tenantId: string,
+    userId: string | undefined,
+    integrationId: string,
+    action: 'pause' | 'resume' | 'delete',
+  ): Promise<void> {
+    await client.query(
+      `INSERT INTO integration_settings_audit (tenant_id, user_id, integration_id, action)
+       VALUES ($1::uuid, NULLIF($2, '')::uuid, $3::uuid, $4)`,
+      [tenantId, userId ?? '', integrationId, action],
+    );
   }
 
   listPlatformOptions(): {
@@ -540,28 +582,12 @@ export class IntegrationsService {
     sync_status: string;
     api_credentials_blob: Buffer | null;
   }> {
-    return this.getIntegrationRow(tenantId, id, true);
-  }
-
-  /** Includes paused (is_active=false) rows — write-back only. */
-  private async getRowAny(
-    tenantId: string,
-    id: string,
-  ): Promise<{
-    connection_mode: ConnectionMode;
-    platform: string;
-    sync_mode: SyncMode | null;
-    sync_status: string;
-    api_credentials_blob: Buffer | null;
-    writeback_enabled: boolean;
-  }> {
-    return this.getIntegrationRow(tenantId, id, false);
+    return this.getIntegrationRow(tenantId, id);
   }
 
   private async getIntegrationRow(
     tenantId: string,
     id: string,
-    activeOnly: boolean,
   ): Promise<{
     connection_mode: ConnectionMode;
     platform: string;
@@ -579,13 +605,9 @@ export class IntegrationsService {
         api_credentials_blob: Buffer | null;
         writeback_enabled: boolean;
       }>(
-        activeOnly
-          ? `SELECT connection_mode, platform, sync_mode, sync_status, api_credentials_blob,
-                    COALESCE(writeback_enabled, FALSE) AS writeback_enabled
-             FROM integrations WHERE id = $1::uuid AND is_active = TRUE`
-          : `SELECT connection_mode, platform, sync_mode, sync_status, api_credentials_blob,
-                    COALESCE(writeback_enabled, FALSE) AS writeback_enabled
-             FROM integrations WHERE id = $1::uuid`,
+        `SELECT connection_mode, platform, sync_mode, sync_status, api_credentials_blob,
+                COALESCE(writeback_enabled, FALSE) AS writeback_enabled
+         FROM integrations WHERE id = $1::uuid AND is_active = TRUE`,
         [id],
       );
       if (result.rowCount === 0) {
@@ -614,6 +636,7 @@ export class IntegrationsService {
         row.connection_mode === 'api_sync'
           ? (row.initial_lookback_days ?? DEFAULT_LOOKBACK_DAYS)
           : null,
+      writeback_enabled: row.writeback_enabled ?? false,
     };
   }
 }

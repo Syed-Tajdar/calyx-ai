@@ -16,14 +16,17 @@ import { getToken } from '@/lib/auth';
 import { countryForRegion } from '@/lib/na-regions';
 import { useDateFilter } from '@/lib/date-filter';
 import { FilterBar } from '@/components/ui/FilterBar';
+import { usePlatformOptions } from '@/lib/use-platform-options';
 
 export default function CoveragePage(): JSX.Element {
   const router = useRouter();
-  const { showDemo } = useDateFilter();
+  const { showDemo, startDate, platform } = useDateFilter();
+  const platforms = usePlatformOptions();
   const [rows, setRows] = useState<HeatmapStateRow[]>([]);
   const [totalPings, setTotalPings] = useState(0);
   const [usRegions, setUsRegions] = useState(0);
   const [caRegions, setCaRegions] = useState(0);
+  const [unmapped, setUnmapped] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedState, setSelectedState] = useState<string | null>(null);
@@ -35,12 +38,17 @@ export default function CoveragePage(): JSX.Element {
     if (!token) return;
 
     setLoading(true);
-    fetchCoverageHeatmap(token, { show_demo: showDemo || undefined })
+    fetchCoverageHeatmap(token, {
+      show_demo: showDemo || undefined,
+      from: startDate?.toISOString(),
+      platform: platform || undefined,
+    })
       .then((res) => {
         setRows(res.data);
         setTotalPings(res.total_pings);
         setUsRegions(res.us_regions ?? 0);
         setCaRegions(res.ca_regions ?? 0);
+        setUnmapped(res.unmapped_pings ?? 0);
       })
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -50,7 +58,7 @@ export default function CoveragePage(): JSX.Element {
         setError('Failed to load coverage heatmap');
       })
       .finally(() => setLoading(false));
-  }, [router, showDemo]);
+  }, [router, showDemo, startDate, platform]);
 
   const visibleRows = useMemo(() => {
     if (countryFilter === 'all') return rows;
@@ -120,7 +128,8 @@ export default function CoveragePage(): JSX.Element {
         }
       />
 
-      <FilterBar showDemoToggle />
+      {/* Period filter added so the map agrees with the dashboard (enterprise-roadmap Gap C). */}
+      <FilterBar showPlatform platforms={platforms} showDemoToggle />
 
       {loading && <PageLoader />}
       {error && <ErrorBanner message={error} />}
@@ -129,7 +138,8 @@ export default function CoveragePage(): JSX.Element {
         <>
           <div className="space-y-0.5">
             <p className="text-sm text-calyx-muted">
-              {totalPings.toLocaleString()} pings across {regionCount} regions · US + Canada
+              {totalPings.toLocaleString()} calls across {regionCount} regions ·{' '}
+              {unmapped.toLocaleString()} without a US/CA state
             </p>
             <p className="text-xs text-calyx-dim">
               {usRegions} US · {caRegions} CA

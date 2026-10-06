@@ -1,6 +1,6 @@
 'use client';
 
-import { History, RefreshCw, Trash2 } from 'lucide-react';
+import { History, Pause, Play, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { IntegrationRecord } from '@/lib/api';
@@ -8,6 +8,8 @@ import {
   ApiError,
   backfillIntegration,
   deleteIntegration,
+  pauseIntegration,
+  resumeIntegration,
   syncIntegration,
   updateIntegrationSyncMode,
 } from '@/lib/api';
@@ -27,18 +29,73 @@ function maskToken(token: string | null): string {
   return `${token.slice(0, 4)}…${token.slice(-4)}`;
 }
 
+/**
+ * Stage 4 R1-fix F1. `degraded` means the last window came back short of the platform's own
+ * row count, so the cursor is deliberately held and the sync is not making progress. It has to
+ * read differently from `ok` at a glance — a stuck sync that looks healthy is the failure this
+ * whole stage is about. Hover shows `last_sync_error`, which names the window and the counts.
+ */
+function syncStatusStyle(status: string): string {
+  switch (status) {
+    case 'ok':
+      return 'bg-emerald-500/15 text-emerald-400';
+    case 'degraded':
+      return 'bg-amber-500/15 text-amber-400';
+    case 'error':
+      return 'bg-red-500/15 text-red-400';
+    case 'syncing':
+      return 'bg-blue-500/15 text-blue-400';
+    default:
+      return 'bg-white/5 text-calyx-muted';
+  }
+}
+
+function syncStatusLabel(status: string): string {
+  return status === 'degraded' ? 'Degraded — sync held' : status;
+}
+
 export function IntegrationsList({
   integrations,
   onDeleted,
   onUpdated,
 }: IntegrationsListProps): JSX.Element {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pausingId, setPausingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [backfillingId, setBackfillingId] = useState<string | null>(null);
   const [updatingModeId, setUpdatingModeId] = useState<string | null>(null);
 
+  async function handlePauseToggle(item: IntegrationRecord): Promise<void> {
+    const pausing = item.is_active;
+    const ok = window.confirm(
+      pausing
+        ? `Pause "${item.name}"? It stays in this list and stops syncing. Resume turns it back on without changing Test or Live.`
+        : `Resume "${item.name}"? Sync mode stays as it is now.`,
+    );
+    if (!ok) return;
+    const token = getToken();
+    if (!token) return;
+    setPausingId(item.id);
+    try {
+      if (pausing) await pauseIntegration(token, item.id);
+      else await resumeIntegration(token, item.id);
+      toast.success(pausing ? 'Integration paused' : 'Integration resumed');
+      onUpdated();
+    } catch {
+      toast.error(pausing ? 'Failed to pause integration' : 'Failed to resume integration');
+    } finally {
+      setPausingId(null);
+    }
+  }
+
   async function handleDelete(id: string, name: string): Promise<void> {
-    if (!window.confirm(`Remove integration "${name}"?`)) return;
+    if (
+      !window.confirm(
+        `Delete "${name}"? This removes it from Settings. Pause is separate and keeps the row.`,
+      )
+    ) {
+      return;
+    }
     const token = getToken();
     if (!token) return;
     setDeletingId(id);
@@ -158,7 +215,7 @@ export function IntegrationsList({
                   {item.connection_mode === 'api_sync' ? 'API key' : 'Webhook'}
                 </td>
                 <td className="px-4 py-3">
-                  {item.connection_mode === 'api_sync' ? (
+                  {item.connection_mode === 'api_sync' && item.is_active ? (
                     <div className="inline-flex rounded-md border border-calyx-border p-0.5">
                       <button
                         type="button"
@@ -186,7 +243,9 @@ export function IntegrationsList({
                       </button>
                     </div>
                   ) : (
-                    <span className="text-calyx-muted">—</span>
+                    <span className="text-calyx-muted">
+                      {item.is_active ? '—' : 'Paused'}
+                    </span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-calyx-muted">
@@ -205,13 +264,16 @@ export function IntegrationsList({
                         : 'bg-red-500/15 text-red-400'
                     }`}
                   >
-                    {item.is_active ? 'Active' : 'Inactive'}
+                    {item.is_active ? 'Active' : 'Paused'}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-calyx-muted">
                   {item.connection_mode === 'api_sync' ? (
-                    <span title={item.last_sync_error ?? undefined}>
-                      {item.sync_status}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${syncStatusStyle(item.sync_status)}`}
+                      title={item.last_sync_error ?? undefined}
+                    >
+                      {syncStatusLabel(item.sync_status)}
                     </span>
                   ) : (
                     '—'
@@ -219,7 +281,7 @@ export function IntegrationsList({
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-1">
-                    {item.connection_mode === 'api_sync' && (
+                    {item.connection_mode === 'api_sync' && item.is_active && (
                       <>
                         <Button
                           type="button"
@@ -247,6 +309,18 @@ export function IntegrationsList({
                         </Button>
                       </>
                     )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={pausingId === item.id}
+                      onClick={() => void handlePauseToggle(item)}
+                      aria-label={item.is_active ? `Pause ${item.name}` : `Resume ${item.name}`}
+                      title={item.is_active ? 'Pause' : 'Resume'}
+                    >
+                      {item.is_active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"

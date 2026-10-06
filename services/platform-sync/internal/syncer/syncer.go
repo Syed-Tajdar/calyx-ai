@@ -72,27 +72,47 @@ func (s *Service) RunAll(ctx context.Context) error {
 	return nil
 }
 
-// RunAllSweeps re-fetches the hourly sweep window for every Ringba API-sync integration.
+// RunAllSweeps re-fetches the hourly sweep window for every API-sync integration whose adapter
+// supports windowed fetch (Stage 4 R1 / D — was Ringba-only).
 func (s *Service) RunAllSweeps(ctx context.Context) error {
-	return s.runRingbaSweeps(ctx, adapter.RingbaSweepDays(), "sweep")
+	return s.runSweeps(ctx, "sweep")
 }
 
-// RunAllDeepSweeps re-fetches the deep (dispute-window) sweep for every Ringba API-sync integration.
+// RunAllDeepSweeps re-fetches the deep (dispute-window) sweep for the same set.
 func (s *Service) RunAllDeepSweeps(ctx context.Context) error {
-	return s.runRingbaSweeps(ctx, adapter.RingbaDeepSweepDays(), "deep_sweep")
+	return s.runSweeps(ctx, "deep_sweep")
 }
 
-func (s *Service) runRingbaSweeps(ctx context.Context, days int, reason string) error {
+// sweepDaysFor returns the platform's sweep window. The tiers are the same shape for every
+// platform (hourly/7d, daily/30d) but each keeps its own env vars so they can be tuned per
+// vendor — Retreaver and Ringba have very different rate budgets.
+func sweepDaysFor(platform, reason string) int {
+	deep := reason == "deep_sweep"
+	if strings.EqualFold(platform, "retreaver") {
+		if deep {
+			return adapter.RetreaverDeepSweepDays()
+		}
+		return adapter.RetreaverSweepDays()
+	}
+	if deep {
+		return adapter.RingbaDeepSweepDays()
+	}
+	return adapter.RingbaSweepDays()
+}
+
+func (s *Service) runSweeps(ctx context.Context, reason string) error {
 	items, err := s.store.ListAPISync(ctx)
 	if err != nil {
 		return err
 	}
 	now := time.Now().UTC()
-	start, end := adapter.BuildRingbaSweepWindow(now, days)
 	for _, item := range items {
-		if !strings.EqualFold(item.Platform, "ringba") {
+		// Capability, not a platform name: any adapter that can fetch an explicit window gets
+		// sweeps. TrackDrive and CallGrid do not implement RangeFetcher and are skipped.
+		if !s.adapter.SupportsRange(item.Platform, item.SyncMode) {
 			continue
 		}
+		start, end := adapter.BuildRingbaSweepWindow(now, sweepDaysFor(item.Platform, reason))
 		if err := s.RunWindow(ctx, item.TenantID, item.ID, start, end, reason); err != nil {
 			if errors.Is(err, ErrAlreadyRunning) {
 				holder, _, _ := s.peekHolder(ctx, item.ID)
@@ -129,8 +149,8 @@ func (s *Service) RunWindow(ctx context.Context, tenantID, integrationID string,
 	if err != nil {
 		return fmt.Errorf("api_sync integration not found")
 	}
-	if !strings.EqualFold(item.Platform, "ringba") {
-		return fmt.Errorf("RunWindow only supported for ringba")
+	if !s.adapter.SupportsRange(item.Platform, item.SyncMode) {
+		return fmt.Errorf("windowed sync (sweeps/backfill) is not supported for %s", item.Platform)
 	}
 	return s.runWindowLocked(ctx, *item, start, end, reason)
 }
@@ -253,7 +273,11 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 	}
 	result, err := s.adapter.FetchAllPages(runCtx, item.Platform, item.SyncMode, creds, item.SyncCursor, lastSync, lookbackDays)
 	if err != nil {
-		s.markError(runCtx, item.ID, redact.ClassifySyncError(err))
+		// F1: an incomplete window is degraded, not error — and the cursor stays put either
+		// way, because UpdateSyncState is only reached on success.
+		if !s.handleWindowShortfall(runCtx, item, err, "incremental") {
+			s.markError(runCtx, item.ID, redact.ClassifySyncError(err))
+		}
 		return err
 	}
 
@@ -311,7 +335,27 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 		"requests", result.RequestCount,
 		"offset_fallback_windows", result.OffsetFallbackWindows,
 		"offset_fallback_rows", result.OffsetFallbackRows)
+	s.logRetreaverC3(item)
 	return nil
+}
+
+// logRetreaverC3 surfaces any break in the C3 correlation that made the Nullable(Decimal)
+// migration unnecessary (F3). Silent while the assumption holds; loud the moment it does not,
+// because from that point a stored 0.00 is ambiguous and the owner has a decision to make.
+func (s *Service) logRetreaverC3(item models.SyncIntegration) {
+	if !strings.EqualFold(item.Platform, "retreaver") {
+		return
+	}
+	checked, convertedNoRevenue, revenueNoConversion, convertedZero := adapter.RetreaverC3Snapshot()
+	if convertedNoRevenue+revenueNoConversion+convertedZero == 0 {
+		return
+	}
+	s.logger.Warn("retreaver C3 assumption violated — revisit the Nullable(Decimal) migration",
+		"integration_id", item.ID,
+		"calls_checked", checked,
+		"converted_without_revenue", convertedNoRevenue,
+		"revenue_without_conversion", revenueNoConversion,
+		"converted_zero_revenue", convertedZero)
 }
 
 func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegration, start, end time.Time, reason string) error {
@@ -334,6 +378,9 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 
 	result, err := s.adapter.FetchRange(runCtx, item.Platform, item.SyncMode, creds, start, end)
 	if err != nil {
+		// F1: the RangeFetcher path (sweeps and backfill) follows the same rule as the
+		// incremental one. Sweeps never move last_sync_at, so holding the cursor is implicit.
+		s.handleWindowShortfall(runCtx, item, err, reason)
 		return err
 	}
 
@@ -347,7 +394,12 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 	}
 
 	// Sweeps/backfills must not touch last_sync_at (incremental ticks only).
-	s.logger.Info("ringba window fetch completed",
+	platformName := item.Platform
+	if platformName == "" {
+		platformName = "unknown"
+	}
+	s.logger.Info(platformName+" window fetch completed",
+		"platform", platformName,
 		"integration_id", item.ID,
 		"reason", reason,
 		"window_start", start.UTC().Format(time.RFC3339),
@@ -431,5 +483,49 @@ func publishSyncCalls(
 
 func (s *Service) markError(ctx context.Context, id, msg string) {
 	errMsg := redact.RedactMessage(msg)
-	_ = s.store.UpdateSyncStatus(ctx, id, "error", &errMsg)
+	_ = s.store.UpdateSyncStatus(ctx, id, syncStatusError, &errMsg)
+}
+
+// markDegraded records an incomplete window (F1). Distinct from `error`: the API answered
+// correctly, the rows did not add up. The cursor is left untouched by the caller, so the next
+// tick re-walks the same window; a successful walk writes `ok` and clears this automatically.
+func (s *Service) markDegraded(ctx context.Context, id, msg string) {
+	errMsg := redact.RedactMessage(msg)
+	_ = s.store.UpdateSyncStatus(ctx, id, syncStatusDegraded, &errMsg)
+}
+
+// Sync statuses a failed run can write. `degraded` is F1's: the requests succeeded but the
+// window was incomplete, which is a different thing from the platform being unreachable.
+const (
+	syncStatusError    = "error"
+	syncStatusDegraded = "degraded"
+)
+
+// classifySyncFailure decides which sync_status a failed run writes, and returns the shortfall
+// detail when there is one. Pure so the routing can be tested without a database.
+func classifySyncFailure(err error) (string, *adapter.WindowShortfallError) {
+	if shortfall := adapter.AsWindowShortfall(err); shortfall != nil {
+		return syncStatusDegraded, shortfall
+	}
+	return syncStatusError, nil
+}
+
+// handleWindowShortfall marks the integration degraded and logs the window that failed.
+// Returns true when err was a shortfall and has been handled.
+func (s *Service) handleWindowShortfall(ctx context.Context, item models.SyncIntegration, err error, path string) bool {
+	status, shortfall := classifySyncFailure(err)
+	if status != syncStatusDegraded {
+		return false
+	}
+	s.logger.Warn("api sync window incomplete — cursor held, integration degraded",
+		"integration_id", item.ID,
+		"platform", item.Platform,
+		"path", path,
+		"window_start", shortfall.Start.UTC().Format(time.RFC3339),
+		"window_end", shortfall.End.UTC().Format(time.RFC3339),
+		"total", shortfall.Total,
+		"collected", shortfall.Collected,
+		"attempts", shortfall.Attempts)
+	s.markDegraded(ctx, item.ID, shortfall.Error())
+	return true
 }

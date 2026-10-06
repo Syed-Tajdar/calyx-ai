@@ -47,22 +47,46 @@ func NewRetreaverAdapter(http *HTTPClient) *RetreaverAdapter {
 
 func (a *RetreaverAdapter) Platform() string { return "retreaver" }
 
-// retreaverCursor tracks incremental pull by last-modified time (cursor_mode=updated_at).
-// CreatedAtStart is legacy (pre-D9); migrated into UpdatedAtStart when present.
+// retreaverCursor tracks an in-progress frozen window (Stage 4 R1 / C1).
+//
+// Before R1 this held only {updated_at_start, page} and the request carried no end bound, so the
+// result set shifted under the page walk (K1). It now carries both edges of the window, fixed
+// when the window opened, so a crash or a slow walk resumes exactly the same set.
+//
+// Migration: an old cursor supplies UpdatedAtStart only; it becomes WindowStart and a fresh
+// WindowEnd is computed on the next tick. CreatedAtStart is the pre-D9 legacy field.
 type retreaverCursor struct {
-	UpdatedAtStart string `json:"updated_at_start"`
+	WindowStart string `json:"window_start,omitempty"`
+	WindowEnd   string `json:"window_end,omitempty"`
+	Page        int    `json:"page"`
+	// Collected counts rows already returned for this window across previous ticks. The
+	// incremental path walks at most `maxPagesPerSync` pages per tick, so the row total for a
+	// window is only known once the last page is read — this carries the running count
+	// between ticks so a short window can still be detected there (F1).
+	Collected int `json:"collected,omitempty"`
+
+	UpdatedAtStart string `json:"updated_at_start,omitempty"` // legacy migrate-only
 	CreatedAtStart string `json:"created_at_start,omitempty"` // legacy migrate-only
-	Page           int    `json:"page"`
 }
 
 func (cs *retreaverCursor) normalize() {
+	// Oldest legacy form first, then the R0 form, then the R1 form.
 	if cs.UpdatedAtStart == "" && cs.CreatedAtStart != "" {
 		cs.UpdatedAtStart = cs.CreatedAtStart
 	}
-	cs.CreatedAtStart = "" // stop persisting legacy field
+	if cs.WindowStart == "" && cs.UpdatedAtStart != "" {
+		cs.WindowStart = cs.UpdatedAtStart
+	}
+	cs.CreatedAtStart = ""
+	cs.UpdatedAtStart = ""
 	if cs.Page < 1 {
 		cs.Page = 1
 	}
+}
+
+// inProgress reports whether the cursor describes a window that is still being walked.
+func (cs *retreaverCursor) inProgress() bool {
+	return cs.WindowStart != "" && cs.WindowEnd != ""
 }
 
 func retreaverLookbackDuration(lookbackDays int) time.Duration {
@@ -91,81 +115,197 @@ func maxCallUpdatedAt(calls []models.RemoteCall, fallback time.Time) time.Time {
 }
 
 func (a *RetreaverAdapter) TestAuth(ctx context.Context, creds map[string]string) error {
-	_, _, err := a.fetchCallsWithPerPage(ctx, creds, retreaverCursor{
-		UpdatedAtStart: time.Now().UTC().Add(-time.Hour).Format(time.RFC3339),
-		Page:           1,
-	}, 1)
+	now := time.Now().UTC()
+	_, _, _, err := a.fetchWindowPage(ctx, creds, now.Add(-time.Hour), now, 1, 1)
 	return err
 }
 
+// FetchPage walks one page of a frozen `[window_start, window_end)` window (Stage 4 R1).
+//
+// On the first page of a window the `Total` header decides whether the window is walkable within
+// the page cap; if not the window END is shrunk (C1) and page 1 re-fetched, repeatedly, so no row
+// is ever left beyond a cap. The window only advances once its last page has been read, which is
+// also how a Total mismatch is made to block rather than warn (C2).
 func (a *RetreaverAdapter) FetchPage(ctx context.Context, creds map[string]string, cursor string, lastSyncAt string, lookbackDays int) (PageResult, error) {
+	const perPage = 100 // R0.3 Q4: this is the API maximum; above it the API silently returns 25.
+
 	cs := retreaverCursor{Page: 1}
 	if cursor != "" {
 		_ = DecodeCursor(cursor, &cs)
-	} else if lastSyncAt != "" {
-		if t, err := time.Parse(time.RFC3339, lastSyncAt); err == nil {
-			cs.UpdatedAtStart = t.Add(-retreaverCursorSafetyDelta).UTC().Format(time.RFC3339)
-		}
 	}
 	cs.normalize()
-	if cs.UpdatedAtStart == "" {
-		cs.UpdatedAtStart = time.Now().UTC().Add(-retreaverLookbackDuration(lookbackDays)).Format(time.RFC3339)
+
+	now := time.Now().UTC()
+	var start, end time.Time
+	if cs.inProgress() {
+		// Resume the same frozen window — a crash or restart must not move the goalposts.
+		s, err1 := time.Parse(time.RFC3339, cs.WindowStart)
+		e, err2 := time.Parse(time.RFC3339, cs.WindowEnd)
+		if err1 == nil && err2 == nil && s.Before(e) {
+			start, end = s.UTC(), e.UTC()
+		}
 	}
-	calls, hasMore, err := a.fetchCallsWithPerPage(ctx, creds, cs, 100)
+	if start.IsZero() {
+		anchor := lastSyncAt
+		if cs.WindowStart != "" {
+			anchor = cs.WindowStart // finished window: continue from where it ended
+		}
+		start, end = BuildRetreaverWindow(now, anchor, lookbackDays)
+		cs.Page = 1
+	}
+
+	calls, total, hasMore, err := a.fetchWindowPage(ctx, creds, start, end, cs.Page, perPage)
 	if err != nil {
 		return PageResult{}, err
 	}
-	next := cs
-	if hasMore {
-		next.Page++
-	} else {
-		next.Page = 1
-		anchor := maxCallUpdatedAt(calls, time.Now().UTC())
-		next.UpdatedAtStart = anchor.Add(-retreaverCursorSafetyDelta).UTC().Format(time.RFC3339)
+
+	// C1 — on page 1, split rather than truncate. Shrinking the end is safe: the part dropped is
+	// simply not covered yet, and the next window starts exactly where this one ends.
+	maxPages := RetreaverMaxPagesPerWindow()
+	splits := 0
+	for cs.Page == 1 && !retreaverWindowFits(total, perPage, maxPages) {
+		newEnd, ok := shrinkRetreaverWindow(start, end)
+		if !ok {
+			break // at the floor; accept and walk it
+		}
+		end = newEnd
+		splits++
+		calls, total, hasMore, err = a.fetchWindowPage(ctx, creds, start, end, 1, perPage)
+		if err != nil {
+			return PageResult{}, err
+		}
+		if splits > 40 { // guard against pathological clocks
+			break
+		}
 	}
-	next.CreatedAtStart = ""
+
+	// A split restarts the walk, so anything counted for the wider window no longer applies.
+	if splits > 0 {
+		cs.Collected = 0
+	}
+	collected := cs.Collected + len(calls)
+
+	// F1 — the window closed short of the API's own `Total`. Re-walk the whole frozen window
+	// with bounded retry; if it is still short, walkWindowWithRetry returns a
+	// *WindowShortfallError, the syncer holds the cursor and marks the integration degraded.
+	if !hasMore && total > 0 && collected < total {
+		retried, reqs, rerr := a.walkWindowWithRetry(ctx, creds, start, end, perPage)
+		if rerr != nil {
+			return PageResult{}, rerr
+		}
+		done := retreaverCursor{
+			WindowStart: end.Add(-RetreaverWindowOverlap()).UTC().Format(time.RFC3339),
+			Page:        1,
+		}
+		doneCursor, encErr := EncodeCursor(done)
+		if encErr != nil {
+			return PageResult{}, encErr
+		}
+		return PageResult{
+			Calls:        retried,
+			NextCursor:   doneCursor,
+			HasMore:      false,
+			RequestCount: 1 + splits + reqs,
+			WindowStart:  start,
+			WindowEnd:    end,
+			WindowCapped: splits > 0,
+		}, nil
+	}
+
+	next := retreaverCursor{WindowStart: start.Format(time.RFC3339), Page: cs.Page}
+	if hasMore {
+		// Stay inside this window; keep the frozen end so later pages see the same set.
+		next.WindowEnd = end.Format(time.RFC3339)
+		next.Page = cs.Page + 1
+		next.Collected = collected
+	} else {
+		// Window complete. Next tick starts at this window's end minus the overlap; leaving
+		// WindowEnd empty marks it finished so a fresh end is computed then.
+		next.WindowStart = end.Add(-RetreaverWindowOverlap()).UTC().Format(time.RFC3339)
+		next.Page = 1
+	}
+
 	nextCursor, err := EncodeCursor(next)
 	if err != nil {
 		return PageResult{}, err
 	}
-	return PageResult{Calls: calls, NextCursor: nextCursor, HasMore: hasMore}, nil
+	return PageResult{
+		Calls:        calls,
+		NextCursor:   nextCursor,
+		HasMore:      hasMore,
+		RequestCount: 1 + splits,
+		WindowStart:  start,
+		WindowEnd:    end,
+		WindowCapped: splits > 0,
+	}, nil
 }
 
-func (a *RetreaverAdapter) fetchCallsWithPerPage(ctx context.Context, creds map[string]string, cs retreaverCursor, perPage int) ([]models.RemoteCall, bool, error) {
+// fetchWindowPage requests one page of a bounded [start, end) window.
+//
+// Returns the mapped calls, the API's `Total` for the window (0 when absent) and whether more
+// pages remain. R0.3 proved `updated_at_end` is honoured, which is what makes the window frozen.
+func (a *RetreaverAdapter) fetchWindowPage(
+	ctx context.Context,
+	creds map[string]string,
+	start, end time.Time,
+	page, perPage int,
+) ([]models.RemoteCall, int, bool, error) {
 	apiKey := creds["api_key"]
 	companyID := creds["company_id"]
 	if apiKey == "" || companyID == "" {
-		return nil, false, fmt.Errorf("retreaver: api_key and company_id required")
+		return nil, 0, false, fmt.Errorf("retreaver: api_key and company_id required")
 	}
-	cs.normalize()
+	if page < 1 {
+		page = 1
+	}
+
 	q := url.Values{}
+	// The key can only travel in the query string: header auth returns 401 (R1 B2(1),
+	// https://retreaver.github.io/core-api-docs/#authentication). Every error path that can
+	// carry this URL must therefore stay redacted — see retreaver_redaction_test.go.
 	q.Set("api_key", apiKey)
 	q.Set("company_id", companyID)
-	q.Set("updated_at_start", cs.UpdatedAtStart)
+	q.Set("updated_at_start", start.UTC().Format(time.RFC3339))
+	q.Set("updated_at_end", end.UTC().Format(time.RFC3339))
 	q.Set("sort_by", "updated_at")
-	// Docs: sort_by=updated_at is forced to desc even if order=asc.
+	// R0.3 Q3: order=asc is ignored for updated_at; the API always sorts desc. Stated
+	// explicitly so nobody "fixes" this into asc and assumes stable paging from it.
 	q.Set("order", "desc")
-	q.Set("page", strconv.Itoa(cs.Page))
+	q.Set("page", strconv.Itoa(page))
 	q.Set("per_page", strconv.Itoa(perPage))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, retreaverBaseURL()+"?"+q.Encode(), nil)
 	if err != nil {
-		return nil, false, err
+		return nil, 0, false, err
 	}
+	// Per-account throttle: Retreaver publishes no numeric limit, only a documented 429 and
+	// "highly concurrent requests are frowned upon".
+	retreaverLimiters.ForAccount(companyID).Wait()
+
 	resp, body, err := a.http.Do(req)
 	if err != nil {
-		return nil, false, err
+		return nil, 0, false, err
 	}
 	if err := checkHTTPStatus(resp.StatusCode, body, resp.Header, "retreaver"); err != nil {
-		return nil, false, err
+		return nil, 0, false, err
 	}
+
+	// `Total` is the exact row count for this window (R0.3 Q6) — used to decide splitting and to
+	// detect a short walk. `Link` is deliberately NOT read: it echoes the api_key.
+	total := 0
+	if v := strings.TrimSpace(resp.Header.Get("Total")); v != "" {
+		if n, convErr := strconv.Atoi(v); convErr == nil {
+			total = n
+		}
+	}
+
 	var payload struct {
 		Calls []json.RawMessage `json:"calls"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		var arr []json.RawMessage
 		if err2 := json.Unmarshal(body, &arr); err2 != nil {
-			return nil, false, fmt.Errorf("retreaver: parse response: %w", err)
+			return nil, 0, false, fmt.Errorf("retreaver: parse response: %w", err)
 		}
 		payload.Calls = arr
 	}
@@ -173,7 +313,13 @@ func (a *RetreaverAdapter) fetchCallsWithPerPage(ctx context.Context, creds map[
 	for _, raw := range payload.Calls {
 		calls = append(calls, mapRetreaverCall(raw))
 	}
-	return calls, len(payload.Calls) >= perPage, nil
+
+	hasMore := len(payload.Calls) >= perPage
+	if total > 0 {
+		// Prefer the authoritative count when the API supplies it.
+		hasMore = page*perPage < total
+	}
+	return calls, total, hasMore, nil
 }
 
 func mapRetreaverCall(raw json.RawMessage) models.RemoteCall {
@@ -197,6 +343,18 @@ func mapRetreaverCall(raw json.RawMessage) models.RemoteCall {
 		Connected          *bool    `json:"connected"`
 		CreatedAt          string   `json:"created_at"`
 		UpdatedAt          string   `json:"updated_at"`
+
+		// Stage 4 R1 / D — mapped from R0.3's live field inventory (71 fields on a real call).
+		// See the C4 field-meaning table in docs/retreaver-stage4-report.md: these must mean the
+		// same thing as their Ringba counterparts, because the dashboard shows both side by side.
+		Converted          *bool    `json:"converted"`
+		TotalDuration      *uint32  `json:"total_duration"`
+		DialedCallDuration *uint32  `json:"dialed_call_duration"`
+		ProfitGross        *float64 `json:"profit_gross"`
+		Duplicate          *bool    `json:"duplicate"`
+		PayableDuplicate   *bool    `json:"payable_duplicate"`
+		TargetName         string   `json:"target_name"`
+		AffiliateName      string   `json:"affiliate_name"`
 	}
 	_ = json.Unmarshal(raw, &row)
 	rev, pay := 0.0, 0.0
@@ -206,6 +364,14 @@ func mapRetreaverCall(raw json.RawMessage) models.RemoteCall {
 	if row.Payout != nil {
 		pay = *row.Payout
 	}
+
+	// F3: null → 0.00 is only lossless while `revenue = null` ⟺ `converted = false` holds.
+	// Count and log every call that breaks it so the assumption is watched, not trusted.
+	externalIDForLog := row.UUID
+	if externalIDForLog == "" {
+		externalIDForLog = row.CallUUID
+	}
+	recordRetreaverC3(externalIDForLog, row.Converted, row.Revenue)
 	publisher := row.AFID
 	if publisher == "" {
 		publisher = row.ClientAFID
@@ -238,6 +404,39 @@ func mapRetreaverCall(raw json.RawMessage) models.RemoteCall {
 	}
 	occurredAt := parseRetreaverTime(row.CreatedAt)
 	updatedAt := parseRetreaverTime(row.UpdatedAt)
+
+	// Conversion state. R0.3 sampled 100 real calls: `converted` is always present, and
+	// `revenue`/`payout` are null on exactly the 60 unconverted calls and populated on exactly
+	// the 40 converted ones — never zero. So a null amount is unambiguous once `converted` is
+	// mapped alongside it, and no Nullable migration is required (C3 proposal).
+	converted := row.Converted != nil && *row.Converted
+	connected := row.Connected != nil && *row.Connected
+
+	// Retreaver reports three duplicate flags. `duplicate` is the lead-level verdict that
+	// matches Ringba's `isDuplicate`; `payable_duplicate` is the narrower "we don't pay the
+	// publisher" case. Rule (b) excludes duplicates from revenue but keeps them in call counts,
+	// so the lead-level flag is the correct one — fall back to payable_duplicate when absent.
+	platDup := false
+	if row.Duplicate != nil {
+		platDup = *row.Duplicate
+	} else if row.PayableDuplicate != nil {
+		platDup = *row.PayableDuplicate
+	}
+
+	var profit float64
+	if row.ProfitGross != nil {
+		profit = *row.ProfitGross
+	}
+	// DurationSeconds = connected talk time (Ringba: connected duration).
+	// CallLengthSeconds = whole-call length (Ringba: call duration).
+	var talk, whole uint32
+	if row.DialedCallDuration != nil {
+		talk = *row.DialedCallDuration
+	}
+	if row.TotalDuration != nil {
+		whole = *row.TotalDuration
+	}
+
 	return models.RemoteCall{
 		ExternalCallID: externalID,
 		CallerID:       row.Caller,
@@ -250,6 +449,16 @@ func mapRetreaverCall(raw json.RawMessage) models.RemoteCall {
 		EventType:      eventType,
 		OccurredAt:     occurredAt,
 		UpdatedAt:      updatedAt,
+
+		HasConverted:        converted,
+		HasConvertedPresent: row.Converted != nil,
+		HasConnected:        connected,
+		DurationSeconds:     talk,
+		CallLengthSeconds:   whole,
+		ProfitGross:         profit,
+		PlatformDuplicate:   platDup,
+		TargetName:          row.TargetName,
+		PublisherName:       row.AffiliateName,
 	}
 }
 

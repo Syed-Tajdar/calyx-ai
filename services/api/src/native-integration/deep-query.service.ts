@@ -3,6 +3,13 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
+import { conversionState, ConversionState } from '../common/platform-capabilities';
+
+function optionalMoney(raw: string | null | undefined): number | null {
+  if (raw == null || raw === '' || raw === '\\N') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
 
 export interface CallDeepViewPing {
   platform: string;
@@ -18,7 +25,8 @@ export interface CallDeepViewPing {
   event_type: string;
   revenue: number;
   payout: number;
-  profit_gross: number;
+  /** Null when the row did not report profit. Zero is a real zero. */
+  profit_gross: number | null;
   /** Connected Call Length (talk time) from platform; 0 if unknown. */
   duration_seconds: number;
   /** Whole-call Duration including ring/IVR; 0 if unknown. */
@@ -27,6 +35,8 @@ export interface CallDeepViewPing {
   /** True when has_recording was set by API sync (distinguishes false vs not provided). */
   recording_known: boolean;
   has_converted: boolean;
+  /** Stamped by the API. Same four values as the call list. */
+  conversion_state: ConversionState;
   ani_hash: string;
   received_at: string;
   /** Platform call time when known; empty string if never set (epoch). Prefer over received_at in UI. */
@@ -281,12 +291,17 @@ export class DeepQueryService {
         event_type: row.event_type,
         revenue: Number(row.ping_revenue),
         payout: Number(row.ping_payout),
-        profit_gross: Number(row.profit_gross ?? 0),
+        profit_gross: optionalMoney(row.profit_gross),
         duration_seconds: Number(row.ping_duration_seconds ?? 0),
         call_length_seconds: Number(row.call_length_seconds ?? 0),
         has_recording: Number(row.has_recording ?? 0) === 1,
         recording_known: Number(row.recording_known ?? 0) === 1,
         has_converted: Number(row.has_converted ?? 0) === 1,
+        conversion_state: conversionState({
+          platform: row.ping_platform,
+          hasConverted: Number(row.has_converted ?? 0) === 1,
+          revenue: Number(row.ping_revenue),
+        }),
         ani_hash: row.ani_hash,
         received_at: row.ping_received_at,
         occurred_at:

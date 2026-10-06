@@ -1,9 +1,18 @@
 # Phase 0 ingestion slice verification: content-hash contract + call_key ciphertext.
+#
+# This gate asserts the EVENT-STREAM contract: an unchanged re-send adds no row, a changed
+# re-send adds one. Since Stage 4 R1 `/pings` collapses to one row per call by default, so these
+# reads pass `raw=true` to see the underlying stream. The stored data is unchanged either way.
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $apiBase = if ($env:API_BASE_URL) { $env:API_BASE_URL } else { "http://localhost:3100" }
 $ingestionDir = Join-Path $repoRoot "services\ingestion"
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+# Windows keeps Machine/User PATH separate from the process PATH; refreshing it here picks up
+# tools installed since the shell started. On macOS/Linux that API returns $null, which would
+# blank $env:Path and make every docker/go/node call in this script fail — so guard it.
+if ($IsWindows) {
+  $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+}
 
 function Get-AuthHeaders {
   $login = Invoke-RestMethod -Uri "$apiBase/auth/login" -Method POST `
@@ -46,7 +55,7 @@ function Wait-ForPingRow {
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   do {
     $headers = Get-AuthHeaders
-    $pings = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true" -Method GET -Headers $headers
+    $pings = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true&raw=true" -Method GET -Headers $headers
     $row = @($pings.data | Where-Object { $_.external_call_id -eq $ExternalCallId } | Select-Object -First 1)
     if ($row.Count -gt 0) { return $row[0] }
     Start-Sleep -Seconds 2
@@ -95,14 +104,14 @@ Write-Host ('PASS: unique ping incremented coverage.total_pings (' + $beforeHeat
 
 Write-Host "Resending identical Ringba ping (same CallID + revenue) -- content-hash must suppress..."
 $headers = Get-AuthHeaders
-$pingsBeforeResend = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true" -Method GET -Headers $headers
+$pingsBeforeResend = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true&raw=true" -Method GET -Headers $headers
 $sameBefore = @($pingsBeforeResend.data | Where-Object { $_.external_call_id -eq $callId })
 $rowCountBefore = $sameBefore.Count
 Send-RingbaPing -CallId $callId -State "WA" -Revenue "7.25"
 Start-Sleep -Seconds 10
 
 $headers = Get-AuthHeaders
-$pings = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true" -Method GET -Headers $headers
+$pings = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true&raw=true" -Method GET -Headers $headers
 $dupRows = @($pings.data | Where-Object { $_.external_call_id -eq $callId })
 if ($dupRows.Count -ne $rowCountBefore) {
   $msg = 'FAIL: identical resend changed row count (' + $rowCountBefore + ' to ' + $dupRows.Count + '); expected unchanged'
@@ -115,7 +124,7 @@ Write-Host "Sending changed-revenue Ringba ping (same CallID)..."
 Send-RingbaPing -CallId $callId -State "WA" -Revenue "42.50"
 Start-Sleep -Seconds 12
 $headers = Get-AuthHeaders
-$pings2 = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true" -Method GET -Headers $headers
+$pings2 = Invoke-RestMethod -Uri "$apiBase/pings?limit=100&show_demo=true&raw=true" -Method GET -Headers $headers
 $changedRows = @($pings2.data | Where-Object { $_.external_call_id -eq $callId })
 if ($changedRows.Count -lt ($rowCountBefore + 1)) {
   Write-Host ('FAIL: revenue change did not add a new row (had ' + $rowCountBefore + ', got ' + $changedRows.Count + ')') -ForegroundColor Red

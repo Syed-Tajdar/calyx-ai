@@ -1,6 +1,10 @@
 'use client';
 
-import { useDateFilter, type DateRangePreset } from '@/lib/date-filter';
+import {
+  useDateFilter,
+  type ConversionSelection,
+  type DateRangePreset,
+} from '@/lib/date-filter';
 import { formatPlatformLabel } from '@/lib/platform-options';
 
 const PRESETS: { value: DateRangePreset; label: string }[] = [
@@ -9,19 +13,44 @@ const PRESETS: { value: DateRangePreset; label: string }[] = [
   { value: 'all', label: 'All time' },
 ];
 
+const CONVERSIONS: { value: ConversionSelection; label: string; title?: string }[] = [
+  { value: '', label: 'All' },
+  { value: 'converted', label: 'Converted' },
+  { value: 'converted_zero', label: 'Converted · $0' },
+  { value: 'unconverted', label: 'Not converted' },
+  {
+    value: 'should_convert',
+    label: 'Should have converted',
+    title:
+      'Not converted, but the call either earned revenue or talked at least as long as the required duration',
+  },
+];
+
 interface FilterBarProps {
   showPlatform?: boolean;
   platforms?: string[];
   /** Show the demo-rows toggle (default true). */
   showDemoToggle?: boolean;
+  /** Show the conversion-state filter (call list only). */
+  showConversion?: boolean;
 }
 
 export function FilterBar({
   showPlatform = false,
   platforms = [],
   showDemoToggle = true,
+  showConversion = false,
 }: FilterBarProps): JSX.Element {
-  const { preset, platform, showDemo, setPreset, setPlatform, setShowDemo } = useDateFilter();
+  const {
+    preset,
+    platform,
+    showDemo,
+    conversion,
+    setPreset,
+    setPlatform,
+    setShowDemo,
+    setConversion,
+  } = useDateFilter();
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -57,6 +86,26 @@ export function FilterBar({
               </option>
             ))}
           </select>
+        </div>
+      )}
+      {showConversion && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="filter-group-label">Status</span>
+          {CONVERSIONS.map((c) => (
+            <button
+              key={c.value || 'all'}
+              type="button"
+              title={c.title}
+              onClick={() => setConversion(c.value)}
+              className={`inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium leading-none transition ${
+                conversion === c.value
+                  ? 'bg-calyx-accent-muted text-calyx-accent'
+                  : 'text-calyx-muted hover:bg-calyx-surface hover:text-calyx-text'
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
         </div>
       )}
       {showDemoToggle && (

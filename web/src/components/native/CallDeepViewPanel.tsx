@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import type { CallDeepView } from '@/lib/api';
+import { conversionStateLabel } from '@/lib/conversion-label';
+import { SHOW_MOCK_PANELS } from '@/lib/v1-features';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -181,10 +183,10 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
             <Field label="Payout">
               <PayoutValue payout={ping.payout} syncPath={syncPath} />
             </Field>
-            {((ping.profit_gross ?? 0) !== 0 || syncPath === 'api_sync') ? (
-              <Field label="Profit (gross)">${(ping.profit_gross ?? 0).toFixed(2)}</Field>
-            ) : null}
-            <Field label="Connected length">
+            <Field label="Profit (gross)">
+              {ping.profit_gross == null ? '—' : `$${ping.profit_gross.toFixed(2)}`}
+            </Field>
+            <Field label="Talk time">
               {(ping.duration_seconds ?? 0) > 0 ? (
                 formatSeconds(ping.duration_seconds ?? 0)
               ) : syncPath === 'webhook' ? (
@@ -193,7 +195,7 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
                 '—'
               )}
             </Field>
-            <Field label="Total call length">
+            <Field label="Total duration">
               {(ping.call_length_seconds ?? 0) > 0 ? (
                 formatSeconds(ping.call_length_seconds ?? 0)
               ) : syncPath === 'webhook' ? (
@@ -203,7 +205,9 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
               )}
             </Field>
             <Field label="Converted">
-              {ping.has_converted ? 'Yes' : 'No'}
+              <span className={ping.conversion_state === 'converted' ? 'text-calyx-teal' : undefined}>
+                {conversionStateLabel(ping.conversion_state)}
+              </span>
             </Field>
             <Field label="Recording">
               {ping.recording_known ? (
@@ -237,7 +241,7 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
           </dl>
         </Section>
       )}
-      {view.compliance && (
+      {SHOW_MOCK_PANELS && view.compliance && (
         <Section title="TCPA Risk">
           <p className="text-2xl font-bold text-calyx-warning">{view.compliance.risk_score}</p>
           <p className="text-xs text-calyx-muted">
@@ -246,7 +250,7 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
           </p>
         </Section>
       )}
-      {view.attribution && (
+      {SHOW_MOCK_PANELS && view.attribution && (
         <Section title="Ad Attribution">
           <p className="text-sm capitalize text-calyx-text">
             {view.attribution.platform} · {view.attribution.status}

@@ -148,18 +148,18 @@ func main() {
 		}))
 	}
 
-	if cfg.WritebackEnabled {
-		if cfg.WritebackAuthToken == "" {
-			logger.Error("WRITEBACK_ENABLED is on but WRITEBACK_INTERNAL_TOKEN is empty — routes not registered")
-		} else {
-			wb := writeback.NewService(st, st, decryptor, adapter.NewRingbaAdapter(adapter.NewHTTPClient()), writeback.NewRedisLocker(redisClient))
-			mux.HandleFunc("POST /writeback/convert", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
-				handleWriteback(w, r, logger, wb, "convert")
-			}))
-			mux.HandleFunc("POST /writeback/void", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
-				handleWriteback(w, r, logger, wb, "void")
-			}))
-		}
+	if cfg.WritebackAuthToken != "" {
+		wb := writeback.NewService(st, st, decryptor, adapter.NewRingbaAdapter(adapter.NewHTTPClient()), writeback.NewRedisLocker(redisClient))
+		wb.SetGlobalEnabled(cfg.WritebackEnabled)
+		wb.SetSettleWindow(writeback.ParseSettleWindow(os.Getenv("WRITEBACK_SETTLE_SECONDS")))
+		mux.HandleFunc("POST /writeback/convert", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
+			handleWriteback(w, r, logger, wb, "convert")
+		}))
+		mux.HandleFunc("POST /writeback/void", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
+			handleWriteback(w, r, logger, wb, "void")
+		}))
+	} else if cfg.WritebackEnabled {
+		logger.Error("WRITEBACK_ENABLED is on but WRITEBACK_INTERNAL_TOKEN is empty — routes not registered")
 	}
 
 	server := &http.Server{Addr: ":" + cfg.Port, Handler: mux}

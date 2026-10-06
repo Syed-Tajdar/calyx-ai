@@ -128,11 +128,31 @@ func (r *Registry) FetchRange(
 	if err != nil {
 		return PageResult{}, err
 	}
-	ra, ok := ad.(*RingbaAdapter)
+	rf, ok := ad.(RangeFetcher)
 	if !ok {
-		return PageResult{}, fmt.Errorf("FetchRange only supported for ringba real adapter, got %T", ad)
+		return PageResult{}, fmt.Errorf("windowed fetch not supported by the %s adapter (%T)", platform, ad)
 	}
-	return ra.FetchRange(ctx, creds, start, end)
+	return rf.FetchRange(ctx, creds, start, end)
+}
+
+// RangeFetcher is implemented by adapters that can fetch an explicit [start, end) window.
+//
+// Stage 4 R1 / D: this replaces the hardcoded `"ringba"` checks that gated sweeps and the
+// day-windowed backfill. Ringba could do it because it slices by callDt; Retreaver can now do it
+// because R0.3 proved `updated_at_end` is honoured. TrackDrive and CallGrid do not implement it
+// and are unaffected — they simply keep the plain incremental path.
+type RangeFetcher interface {
+	FetchRange(ctx context.Context, creds map[string]string, start, end time.Time) (PageResult, error)
+}
+
+// SupportsRange reports whether this platform can run sweeps and windowed backfill.
+func (r *Registry) SupportsRange(platform string, syncMode string) bool {
+	ad, err := r.Get(platform, syncMode)
+	if err != nil {
+		return false
+	}
+	_, ok := ad.(RangeFetcher)
+	return ok
 }
 
 // forceFirstPageCursor resets pagination to the first page of the same time window.

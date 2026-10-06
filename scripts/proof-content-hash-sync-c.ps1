@@ -7,12 +7,12 @@ $login = Invoke-RestMethod -Uri "$apiBase/auth/login" -Method POST -ContentType 
 $h = @{ Authorization = "Bearer $($login.access_token)" }
 
 Write-Host "BEFORE:"
-docker exec deploy-clickhouse-1 clickhouse-client --password callloom_dev --query "SELECT count(), uniqExact(external_call_id), max(revenue) FROM pings WHERE external_call_id LIKE 'proof-retreaver-%'"
+docker exec deploy-clickhouse-1 clickhouse-client --password callloom_dev --query "SELECT count(), uniqExact(external_call_id), max(revenue) FROM pings WHERE external_call_id LIKE 'smoke-proof-retreaver-%'"
 
 Invoke-RestMethod -Uri "$apiBase/integrations/$integrationId/sync" -Method POST -Headers $h | Out-Null
 Start-Sleep -Seconds 18
 
 Write-Host "AFTER:"
-docker exec deploy-clickhouse-1 clickhouse-client --password callloom_dev --query "SELECT count(), uniqExact(external_call_id), max(revenue) FROM pings WHERE external_call_id LIKE 'proof-retreaver-%'"
-docker exec deploy-clickhouse-1 clickhouse-client --password callloom_dev --query "SELECT external_call_id, argMax(revenue, received_at), count() FROM pings WHERE external_call_id='proof-retreaver-0' GROUP BY external_call_id"
+docker exec deploy-clickhouse-1 clickhouse-client --password callloom_dev --query "SELECT count(), uniqExact(external_call_id), max(revenue) FROM pings WHERE external_call_id LIKE 'smoke-proof-retreaver-%'"
+docker exec deploy-clickhouse-1 clickhouse-client --password callloom_dev --query "SELECT external_call_id, argMax(revenue, received_at), count() FROM pings WHERE external_call_id='smoke-proof-retreaver-0' GROUP BY external_call_id"
 docker logs deploy-platform-sync-1 2>&1 | Select-String "api sync completed" | Select-Object -Last 3

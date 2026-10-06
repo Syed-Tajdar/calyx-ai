@@ -12,6 +12,7 @@ import { EnrichmentPanel } from '@/components/enrichment/EnrichmentPanel';
 import { ScoreCard } from '@/components/scoring/ScoreCard';
 import { TranscriptPanel } from '@/components/scoring/TranscriptPanel';
 import { CallDeepViewPanel } from '@/components/native/CallDeepViewPanel';
+import { ConversionActions } from '@/components/native/ConversionActions';
 import { Button } from '@/components/ui/button';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -27,6 +28,7 @@ import {
 import { getToken } from '@/lib/auth';
 import { buildPlatformCallUrl, platformDeepLinkCopiesCallId } from '@/lib/platform-deep-links';
 import { formatPlatformLabel } from '@/lib/platform-options';
+import { SHOW_MOCK_PANELS } from '@/lib/v1-features';
 import { toast } from 'sonner';
 
 function CallDetailContent(): JSX.Element {
@@ -42,6 +44,8 @@ function CallDetailContent(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  /** Bumped after a write-back so the deep view refetches and the status reflects Ringba. */
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const token = getToken();
@@ -84,7 +88,7 @@ function CallDetailContent(): JSX.Element {
         setError('Failed to load call details');
       })
       .finally(() => setLoading(false));
-  }, [router, callId]);
+  }, [router, callId, reloadKey]);
 
   const displayScore = useMemo((): ScoreRecord | null => {
     if (score) return score;
@@ -115,6 +119,7 @@ function CallDetailContent(): JSX.Element {
         hasCompliance: deepView?.compliance != null,
         complianceRisk: deepView?.compliance?.risk_score,
         hasAttribution: deepView?.attribution != null,
+        includeLaterSteps: SHOW_MOCK_PANELS,
       }),
     [deepView, score, hasEnrichment],
   );
@@ -216,21 +221,30 @@ function CallDetailContent(): JSX.Element {
       {!loading && !error && (
         <div className="space-y-8">
           <CallJourneyTimeline steps={journeySteps} />
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className={SHOW_MOCK_PANELS ? 'grid gap-6 lg:grid-cols-2' : 'space-y-4'}>
             <div className="space-y-4">
+              <ConversionActions
+                callId={callId}
+                platform={platform}
+                hasConverted={deepView?.ping?.has_converted ?? false}
+                revenue={deepView?.ping?.revenue ?? 0}
+                onChanged={() => setReloadKey((k) => k + 1)}
+              />
               <CallDeepViewPanel view={deepView} />
-              <ScoreCard score={displayScore} />
+              {SHOW_MOCK_PANELS && <ScoreCard score={displayScore} />}
             </div>
-            <div className="space-y-4">
-              <TranscriptPanel transcript={transcript} />
-              {aniHash ? (
-                <EnrichmentPanel aniHash={aniHash} />
-              ) : (
-                <div className="calyx-card p-4 text-sm text-calyx-muted">
-                  No enrichment available for this call yet.
-                </div>
-              )}
-            </div>
+            {SHOW_MOCK_PANELS && (
+              <div className="space-y-4">
+                <TranscriptPanel transcript={transcript} />
+                {aniHash ? (
+                  <EnrichmentPanel aniHash={aniHash} />
+                ) : (
+                  <div className="calyx-card p-4 text-sm text-calyx-muted">
+                    No enrichment available for this call yet.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

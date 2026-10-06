@@ -189,7 +189,11 @@ func formatHTTPStatusError(status int, body []byte, hdr http.Header, platform st
 		prefix = platform + " HTTP"
 	}
 	headers := formatSafeResponseHeaders(hdr)
-	bodyStr := string(body)
+	// The body is attacker-/vendor-controlled text that ends up in the integration's
+	// last_sync_error column. Retreaver authenticates with `?api_key=` in the query string
+	// (header auth returns 401 — see retreaver_redaction_test.go), so any upstream error body
+	// that echoes the request URL would otherwise persist the credential. Redact it.
+	bodyStr := redact.RedactMessage(string(body))
 	if headers != "" {
 		return fmt.Sprintf("%s %d: headers={%s} body=%s", prefix, status, headers, bodyStr)
 	}

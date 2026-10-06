@@ -11,7 +11,12 @@ $states = @("TX", "CA", "FL", "NY", "AZ", "GA", "OH", "NC", "IL", "PA")
 $platforms = @("ringba", "ringba", "ringba", "mock")
 $revenues = @(8.50, 12.00, 15.75, 22.00, 9.25, 18.50)
 
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+# Windows keeps Machine/User PATH separate from the process PATH; refreshing it here picks up
+# tools installed since the shell started. On macOS/Linux that API returns $null, which would
+# blank $env:Path and make every docker/go/node call in this script fail — so guard it.
+if ($IsWindows) {
+  $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+}
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location "$repoRoot\services\ingestion"
 

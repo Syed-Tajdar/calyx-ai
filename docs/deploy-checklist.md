@@ -17,8 +17,26 @@ Each was found during write-back and pre-Phase-2 work. Do not deploy with any un
 
 ## Feature flags
 
-- [ ] **`WRITEBACK_ENABLED`** — set explicitly in production. Local compose sets `true` for
-      testing; the code default is `false`. Do not copy the compose value.
+- [ ] **`WRITEBACK_ENABLED`** — compose default is `false`
+      (`${WRITEBACK_ENABLED:-false}` on api and platform-sync). Leave it unset or `false`
+      on the server until a live write is approved. A git-ignored local `.env` may set
+      `true` for this machine only.
+- [ ] **`WRITEBACK_SETTLE_SECONDS`** — seconds platform-sync waits for Ringba to confirm a
+      convert or cancel. Default **20** when unset. 12 was tight against an observed ~10.4s
+      read-back.
+- [ ] **`RINGBA_RATE_PER_MIN`** — per-account Ringba budget. Default **75**. Ringba's ceiling
+      is 80/min; the gap is for wall-clock jitter.
+- [ ] **Before migration `000029`**, run this read-only query and decide which
+      `is_active = false` rows are old deletes. Do not guess in a migration. It returns
+      tenant, platform, name, and `updated_at` only.
+
+      ```sql
+      SELECT t.name AS tenant, i.platform, i.name, i.updated_at
+      FROM integrations i
+      JOIN tenants t ON t.id = i.tenant_id
+      WHERE NOT i.is_active
+      ORDER BY i.updated_at;
+      ```
 - [ ] **Per-tenant `writeback_enabled`** — only tenants deliberately opened. Default `false`.
 
 ## Network exposure
@@ -64,6 +82,12 @@ Each was found during write-back and pre-Phase-2 work. Do not deploy with any un
 
 ## Migrations
 
+- [ ] **Postgres, in order:** `000028` → `000029` → `000030` → `000031`.
+      Run the inactive-integration query in Feature flags **before** `000029`.
+      `000030` allows write-back audit outcome `rejected`. `000031` keeps a
+      deleted integration off the sweep even if `is_active` is still true.
+- [ ] **Rebuild `api`, `web`, and `platform-sync`** after those migrations.
+      `WRITEBACK_ENABLED` stays `false` on the server.
 - [x] **ClickHouse `000012_pings_has_converted`** down migration added
       (`000012_pings_has_converted.down.sql`).
 

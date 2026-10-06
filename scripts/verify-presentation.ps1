@@ -1,4 +1,6 @@
 # Presentation verification: API health + Phase 3 endpoints (MOCK_MODE).
+# -V1 skips POST /ask. That route needs the ask-ai container, which v1 does not run.
+param([switch]$V1)
 $ErrorActionPreference = "Stop"
 
 function Test-Endpoint {
@@ -60,8 +62,12 @@ foreach ($ep in $endpoints) {
   if (Test-Endpoint $ep.Name $ep.Url $h) { $passed++ }
 }
 
-$total++
-if (Test-Endpoint "POST /ask" "$base/ask" $h "POST" '{"question":"What is my total revenue?"}') { $passed++ }
+if (-not $V1) {
+  $total++
+  if (Test-Endpoint "POST /ask" "$base/ask" $h "POST" '{"question":"What is my total revenue?"}') { $passed++ }
+} else {
+  Write-Host "  SKIP POST /ask (v1 mode)"
+}
 
 # Tenant name check
 $total++
@@ -96,18 +102,33 @@ try {
   Write-Host "  FAIL scorecard CRUD smoke ($($_.Exception.Message))"
 }
 
-# Fixture data check
+# Ping data check.
+#
+# Stage 4 R1-fix F5: this gate must not get weaker. R1 changed it to always pass `show_demo=true`
+# so it could pass on a fixture-only database — but that means it can only ever prove demo rows
+# exist, and a database that lost every real row would still show green.
+#
+# So: assert on REAL rows without `show_demo` whenever any exist, exactly as before. Only when
+# there are none does it fall back to the demo rows, and then it says so loudly, so a DEMO-ONLY
+# pass is never mistaken for a full one.
 $total++
 try {
-  $pingCheck = Invoke-RestMethod -Uri "$base/pings?limit=1" -Headers $h
-  if ([int]$pingCheck.total -gt 0) {
-    Write-Host "  PASS fixture pings total > 0 ($($pingCheck.total))"
+  $realCheck = Invoke-RestMethod -Uri "$base/pings?limit=1" -Headers $h
+  if ([int]$realCheck.total -gt 0) {
+    Write-Host "  PASS pings total > 0 on real (non-demo) rows ($($realCheck.total))"
     $passed++
   } else {
-    Write-Host "  FAIL fixture pings total = 0 (run clickhouse-init / demo-seed)"
+    $demoCheck = Invoke-RestMethod -Uri "$base/pings?limit=1&show_demo=true" -Headers $h
+    if ([int]$demoCheck.total -gt 0) {
+      Write-Host "  PASS DEMO-ONLY fixture pings total > 0 ($($demoCheck.total)) - no real rows in this database"
+      Write-Host "  NOTE DEMO-ONLY: this gate did not exercise real data. Re-run after a live sync to assert on real rows."
+      $passed++
+    } else {
+      Write-Host "  FAIL pings total = 0 with and without show_demo (run clickhouse-init / demo-seed)"
+    }
   }
 } catch {
-  Write-Host "  FAIL fixture pings check ($($_.Exception.Message))"
+  Write-Host "  FAIL pings check ($($_.Exception.Message))"
 }
 
 # Demo call deep view fixture

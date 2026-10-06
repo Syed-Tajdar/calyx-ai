@@ -11,8 +11,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const scriptsDir = path.join(path.dirname(fileURLToPath(import.meta.url)));
+const repoRoot = path.join(scriptsDir, '..');
 const ALLOWED = /^(smoke-|demo-|apisync-)/;
 const failures = [];
+
+/**
+ * Directories scanned for call-id generation.
+ *
+ * `services/` is included because the KPI-exclusion gap this check exists to prevent also occurs
+ * in product code, not just scripts: the mock sync adapter emitted a bare `proof-` id, which the
+ * read-time filter (apisync-/demo-/smoke- only) counted as real revenue. A scripts-only scan
+ * could never have caught it.
+ */
+const SCAN_DIRS = [scriptsDir, path.join(repoRoot, 'services')];
 
 /** Patterns that look like call-id construction in scripts. */
 const GENERATORS = [
@@ -40,21 +51,37 @@ const GENERATORS = [
 ];
 
 function walk(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (ent.name === 'node_modules' || ent.name.startsWith('.')) continue;
+    if (ent.name === 'node_modules' || ent.name === 'dist' || ent.name.startsWith('.')) continue;
     const p = path.join(dir, ent.name);
     if (ent.isDirectory()) walk(p, out);
-    else if (/\.(mjs|js|ps1|ts|sh)$/i.test(ent.name)) out.push(p);
+    else if (/\.(mjs|js|ps1|ts|sh|go)$/i.test(ent.name)) out.push(p);
   }
   return out;
 }
 
-const files = walk(scriptsDir);
+const files = SCAN_DIRS.flatMap((d) => walk(d));
 for (const file of files) {
-  const rel = path.relative(scriptsDir, file).replace(/\\/g, '/');
+  const rel = path.relative(repoRoot, file).replace(/\\/g, '/');
   // This checker itself mentions forbidden prefixes — skip.
-  if (rel === 'check-smoke-call-id-prefix.mjs') continue;
+  if (rel.endsWith('check-smoke-call-id-prefix.mjs')) continue;
+  // Go unit tests build ids in-memory; they never reach ClickHouse.
+  if (rel.endsWith('_test.go')) continue;
   const text = fs.readFileSync(file, 'utf8');
+
+  // Go: any literal assigned to ExternalCallID must carry an excluded prefix.
+  for (const m of text.matchAll(
+    /ExternalCallID:\s*(?:fmt\.Sprintf\(\s*)?"([^"]*)"/g,
+  )) {
+    const literal = m[1];
+    // A bare "%s"-leading template carries no literal prefix to judge; flag it too.
+    if (!ALLOWED.test(literal)) {
+      failures.push(
+        `${rel}: ExternalCallID "${literal}" — must start with smoke-/demo-/apisync-`,
+      );
+    }
+  }
 
   // Explicit ban: historical contamination prefix
   if (/csp-live-/.test(text) && !/\/\/.*csp-live-/.test(text)) {
