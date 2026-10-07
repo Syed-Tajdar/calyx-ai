@@ -7,7 +7,7 @@
       POSTGRES_PASSWORD: callloom_dev
       POSTGRES_DB: callloom
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -46,7 +46,7 @@
       - --maxmemory-policy
       - volatile-ttl
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -75,7 +75,7 @@
       - --advertise-kafka-addr
       - PLAINTEXT://redpanda:9092
     ports:
-      - "9092:9092"
+      - "127.0.0.1:9092:9092"
     healthcheck:
       # rpk can exceed 5s under load; false "unhealthy" fails verify-system Docker 15/15.
       test: ["CMD", "rpk", "cluster", "health"]
@@ -155,9 +155,9 @@
       CLICKHOUSE_PASSWORD: callloom_dev
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
     ports:
-      - "8123:8123"
+      - "127.0.0.1:8123:8123"
       # Host 9100 — avoid reserved 9000 on shared servers (container still listens on 9000).
-      - "9100:9000"
+      - "127.0.0.1:9100:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ../db/clickhouse/migrations/000001_pings_table.up.sql:/docker-entrypoint-initdb.d/001_pings.sql:ro
@@ -173,7 +173,7 @@
       context: ..
       dockerfile: services/ingestion/Dockerfile
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       APP_ENV: "development"
       INGESTION_PORT: "8080"
@@ -198,7 +198,7 @@
     build:
       context: ../services/consumer
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     environment:
       APP_ENV: "development"
       CONSUMER_PORT: "8081"
@@ -228,7 +228,7 @@
     restart: unless-stopped
     ports:
       # Host 3100 — avoid reserved 3000–3003 on shared servers.
-      - "3100:3000"
+      - "127.0.0.1:3100:3000"
     environment:
       API_PORT: "3000"
       # KafkaJS reconnect DNS storms otherwise starve getaddrinfo for PG/CH readiness.
@@ -285,7 +285,7 @@
       context: ..
       dockerfile: services/providerconfig/Dockerfile
     ports:
-      - "8084:8084"
+      - "127.0.0.1:8084:8084"
     environment:
       PROVIDERCONFIG_PORT: "8084"
       MOCK_MODE: "true"
@@ -305,7 +305,7 @@
       context: ..
       dockerfile: services/compliance-intelligence/Dockerfile
     ports:
-      - "8085:8085"
+      - "127.0.0.1:8085:8085"
     environment:
       COMPLIANCE_PORT: "8085"
       MOCK_MODE: "true"
@@ -344,7 +344,7 @@
       context: ..
       dockerfile: services/ask-ai/Dockerfile
     ports:
-      - "8086:8086"
+      - "127.0.0.1:8086:8086"
     environment:
       ASK_AI_PORT: "8086"
       MOCK_MODE: "true"
@@ -375,7 +375,7 @@
       context: ..
       dockerfile: services/ad-attribution/Dockerfile
     ports:
-      - "8087:8087"
+      - "127.0.0.1:8087:8087"
     environment:
       ATTRIBUTION_PORT: "8087"
       MOCK_MODE: "true"
@@ -418,7 +418,7 @@
       context: ..
       dockerfile: services/platform-sync/Dockerfile
     ports:
-      - "8088:8088"
+      - "127.0.0.1:8088:8088"
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -452,7 +452,7 @@
     build:
       context: ../services/scoring
     ports:
-      - "8082:8082"
+      - "127.0.0.1:8082:8082"
     environment:
       SCORING_PORT: "8082"
       MOCK_MODE: "true"
@@ -488,7 +488,7 @@
     build:
       context: ../services/enrichment
     ports:
-      - "8083:8083"
+      - "127.0.0.1:8083:8083"
     environment:
       ENRICHMENT_PORT: "8083"
       MOCK_MODE: "true"
@@ -527,7 +527,7 @@
         NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN: ${NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN:-https://retreaver.com/calls/{id}}
     ports:
       # Host 3101 — avoid reserved 3000–3003 on shared servers.
-      - "3101:3000"
+      - "127.0.0.1:3101:3000"
     environment:
       APP_ENV: ${APP_ENV:-development}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL in .env}
