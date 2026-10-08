@@ -149,7 +149,7 @@ export default function DashboardPage(): JSX.Element {
     <>
       <PageHeader
         title="Operations Overview"
-        description="Real-time ping pipeline, financial metrics, and intelligence at a glance."
+        description="Real-time ping pipeline and financial metrics at a glance."
         action={
           connected ? (
             <Badge variant="teal" className="gap-1.5">

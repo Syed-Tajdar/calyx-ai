@@ -34,7 +34,7 @@ const ALL_NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'intelligence',
-    label: 'Intelligence',
+    label: 'Analytics',
     items: [
       { href: '/intelligence', label: 'Intelligence', icon: Brain },
       { href: '/reports', label: 'Reports', icon: BarChart3 },
