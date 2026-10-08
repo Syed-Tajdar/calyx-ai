@@ -24,3 +24,12 @@ Every value below was a **literal** in `deploy/docker-compose.yml`. Redis had no
 | Redis | api, ingestion, platform-sync, providerconfig, compliance-intelligence, ad-attribution, scoring, enrichment | `redis://redis:6379`, no password | Nothing stored is encrypted with this. Adding `requirepass` without the same password in every `REDIS_URL` makes those clients fail. |
 
 `WRITEBACK_ENABLED` is already `${WRITEBACK_ENABLED:-false}`. It is a switch, not a secret.
+
+## B5 — What a new encryption key does to old rows
+
+| Key | Stored where | After the key changes |
+|---|---|---|
+| `CREDENTIAL_ENCRYPTION_KEY` | Postgres `integrations.api_credentials_blob` | The row stays. List and Settings do not decrypt it. Test connection returns "Re-enter credentials" and does not 500. platform-sync records the same text on `last_sync_error` and continues to the next integration. Convert/void for that row is rejected with the same text. |
+| `ANI_ENCRYPTION_KEY` | ClickHouse `pings.call_key` only (hex ciphertext). Caller numbers are stored as `pings.ani_hash`, which is a hash, not ciphertext. The encrypted caller blob is not written to ClickHouse. | Dashboard, pings, and call detail do not decrypt `call_key`, so old rows do not crash. A `call_key` written with the old key cannot be used for a later Retreaver update. |
+
+No migration re-encrypts old blobs. On the server the owner is deleting the 4 dev webhook rows. Those are the only rows whose `call_key` could have been encrypted with the dev key. After they are deleted, nothing on the server needs re-encryption. Any integration saved with the dev key must be entered again. The laptop key is not rotated.

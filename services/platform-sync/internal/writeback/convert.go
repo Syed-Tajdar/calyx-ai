@@ -204,7 +204,7 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 
 	creds, err := s.decryptor.DecryptMap(item.APICredentialsBlob)
 	if err != nil {
-		return s.reject(ctx, req, action, amount, fmt.Errorf("decrypt credentials: %w", err))
+		return s.reject(ctx, req, action, amount, fmt.Errorf("Re-enter credentials"))
 	}
 	accountID := strings.TrimSpace(creds["account_id"])
 	if accountID == "" {
