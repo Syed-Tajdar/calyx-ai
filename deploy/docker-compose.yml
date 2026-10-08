@@ -45,6 +45,8 @@
       # or noeviction (writes fail at ceiling â†’ duplicate balloon).
       - --maxmemory-policy
       - volatile-ttl
+      - --requirepass
+      - ${REDIS_PASSWORD:-redis_dev}
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
@@ -177,7 +179,7 @@
     environment:
       APP_ENV: "development"
       INGESTION_PORT: "8080"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
       DEDUP_TTL_HOURS: "240"
@@ -241,7 +243,7 @@
       # Off = no fake /live UUIDs; Kafka consumer feeds real integration pings to WS.
       MOCK_EMITTER_ENABLED: "false"
       SINGLE_TENANT_MODE: "false"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       PROVIDERCONFIG_URL: http://providerconfig:8084
       ASK_AI_URL: http://ask-ai:8086
       PROVIDER_CATALOG_PATH: /app/catalog.json
@@ -290,7 +292,7 @@
       PROVIDERCONFIG_PORT: "8084"
       MOCK_MODE: "true"
       SINGLE_TENANT_MODE: "false"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       DATABASE_URL: postgres://callloom_api:${POSTGRES_API_PASSWORD:-api_dev}@postgres:5432/callloom?sslmode=disable
       PROVIDER_CATALOG_PATH: /app/catalog.json
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
@@ -310,7 +312,7 @@
       COMPLIANCE_PORT: "8085"
       MOCK_MODE: "true"
       SINGLE_TENANT_MODE: "false"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       PROVIDERCONFIG_URL: http://providerconfig:8084
       DNC_PROVIDER: mock
       KAFKA_BROKER: redpanda:9092
@@ -380,7 +382,7 @@
       ATTRIBUTION_PORT: "8087"
       MOCK_MODE: "true"
       ATTRIBUTION_MOCK_BRIDGE: "true"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       PROVIDERCONFIG_URL: http://providerconfig:8084
       ATTRIBUTION_PROVIDER: mock
       KAFKA_BROKER: redpanda:9092
@@ -426,7 +428,7 @@
       APP_ENV: "development"
       PLATFORM_SYNC_PORT: "8088"
       DATABASE_URL: postgres://callloom_sync:${POSTGRES_SYNC_PASSWORD:-sync_dev}@postgres:5432/callloom?sslmode=disable
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
@@ -457,7 +459,7 @@
       SCORING_PORT: "8082"
       MOCK_MODE: "true"
       MOCK_EMITTER_ENABLED: "true"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
       KAFKA_TOPIC_CALL_TRANSCRIPT_READY: callloom.calls.call_transcript_ready.v1
@@ -492,7 +494,7 @@
     environment:
       ENRICHMENT_PORT: "8083"
       MOCK_MODE: "true"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
       KAFKA_TOPIC_ENRICHMENT_DLQ: callloom.enrichment.dlq.v1
