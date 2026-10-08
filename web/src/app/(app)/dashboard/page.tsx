@@ -69,8 +69,12 @@ export default function DashboardPage(): JSX.Element {
     Promise.all([
       fetchAnalyticsMetrics(token, filters),
       fetchPlatformMix(token, filters),
-      fetchComplianceExposure(token, { show_demo: showDemo || undefined }),
-      fetchScores(token, { limit: 5, offset: 0, show_demo: showDemo || undefined }),
+      SHOW_MOCK_PANELS
+        ? fetchComplianceExposure(token, { show_demo: showDemo || undefined })
+        : Promise.resolve(null),
+      SHOW_MOCK_PANELS
+        ? fetchScores(token, { limit: 5, offset: 0, show_demo: showDemo || undefined })
+        : Promise.resolve(null),
       fetchPingSeries(token, {
         from: filters.from,
         to: filters.to,

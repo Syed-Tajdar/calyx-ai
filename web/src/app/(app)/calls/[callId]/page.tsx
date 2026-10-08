@@ -55,8 +55,10 @@ function CallDetailContent(): JSX.Element {
     setError('');
 
     Promise.all([
-      fetchScores(token, { callId }).catch(() => null),
-      fetchTranscript(token, callId).catch(() => null),
+      SHOW_MOCK_PANELS ? fetchScores(token, { callId }).catch(() => null) : Promise.resolve(null),
+      SHOW_MOCK_PANELS
+        ? fetchTranscript(token, callId).catch(() => null)
+        : Promise.resolve(null),
       fetchCallDeepView(token, callId).catch(() => null),
     ])
       .then(([scoreRes, transcriptRes, deepRes]) => {
