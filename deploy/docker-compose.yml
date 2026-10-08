@@ -177,7 +177,7 @@
     ports:
       - "127.0.0.1:8080:8080"
     environment:
-      APP_ENV: "development"
+      APP_ENV: ${APP_ENV:-development}
       INGESTION_PORT: "8080"
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       KAFKA_BROKER: redpanda:9092
@@ -202,7 +202,7 @@
     ports:
       - "127.0.0.1:8081:8081"
     environment:
-      APP_ENV: "development"
+      APP_ENV: ${APP_ENV:-development}
       CONSUMER_PORT: "8081"
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
@@ -260,7 +260,14 @@
       PLATFORM_SYNC_URL: http://platform-sync:8088
       WRITEBACK_ENABLED: ${WRITEBACK_ENABLED:-false}
       WRITEBACK_INTERNAL_TOKEN: ${WRITEBACK_INTERNAL_TOKEN:-dev_writeback_internal_token_change_me}
-      APP_ENV: "development"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-callloom_dev}
+      POSTGRES_API_PASSWORD: ${POSTGRES_API_PASSWORD:-api_dev}
+      POSTGRES_INGESTION_PASSWORD: ${POSTGRES_INGESTION_PASSWORD:-ingestion_dev}
+      POSTGRES_SYNC_PASSWORD: ${POSTGRES_SYNC_PASSWORD:-sync_dev}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-callloom_dev}
+      ANI_ENCRYPTION_KEY: ${ANI_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_dev}
+      APP_ENV: ${APP_ENV:-development}
       WEB_ORIGINS: ${WEB_ORIGINS:-http://localhost:3101,http://127.0.0.1:3101}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
@@ -425,7 +432,7 @@
       - 1.1.1.1
       - 8.8.8.8
     environment:
-      APP_ENV: "development"
+      APP_ENV: ${APP_ENV:-development}
       PLATFORM_SYNC_PORT: "8088"
       DATABASE_URL: postgres://callloom_sync:${POSTGRES_SYNC_PASSWORD:-sync_dev}@postgres:5432/callloom?sslmode=disable
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379

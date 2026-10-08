@@ -94,6 +94,9 @@ func refuseProductionPlaceholders() error {
 	if v := os.Getenv("DATABASE_URL"); v == "" || strings.Contains(v, "ingestion_dev") || strings.Contains(v, "callloom_dev") {
 		bad = append(bad, "DATABASE_URL")
 	}
+	if v := os.Getenv("REDIS_URL"); v == "" || strings.Contains(v, "redis_dev") || !strings.Contains(v, "@") {
+		bad = append(bad, "REDIS_URL")
+	}
 	if len(bad) > 0 {
 		return fmt.Errorf("APP_ENV=production refuses to start with placeholder/missing secrets: %v", bad)
 	}

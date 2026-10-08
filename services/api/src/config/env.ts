@@ -67,27 +67,48 @@ const DEV_JWT = 'callloom_dev_jwt_secret_min_32_chars_long';
 const DEV_CRED_KEY =
   '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const DEV_WRITEBACK = 'dev_writeback_internal_token_change_me';
+const DEV_DEEPGRAM = 'dev_deepgram_callback_secret_change_me';
+const DEV_REDIS = 'redis_dev';
 
-/** Refuse production boot when secrets are missing or still the known local placeholders. */
+function named(bad: string[], name: string, value: string | undefined, placeholders: string[]): void {
+  if (!value || placeholders.some((item) => value === item || value.includes(item))) {
+    bad.push(name);
+  }
+}
+
+function redisUrlIsDev(value: string | undefined): boolean {
+  if (!value) return true;
+  try {
+    const url = new URL(value);
+    return !url.password || url.password === DEV_REDIS;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Refuse production boot when a B1 secret is missing or still a known local placeholder.
+ * This does not read the users table and does not change the app login.
+ */
 export function assertProductionSecrets(env: EnvConfig): void {
   if (env.APP_ENV !== 'production') return;
   const bad: string[] = [];
   if (!env.JWT_SECRET || env.JWT_SECRET === DEV_JWT || env.JWT_SECRET.length < 32) {
     bad.push('JWT_SECRET');
   }
-  if (!env.CREDENTIAL_ENCRYPTION_KEY || env.CREDENTIAL_ENCRYPTION_KEY === DEV_CRED_KEY) {
-    bad.push('CREDENTIAL_ENCRYPTION_KEY');
-  }
-  if (!env.WRITEBACK_INTERNAL_TOKEN || env.WRITEBACK_INTERNAL_TOKEN === DEV_WRITEBACK) {
-    bad.push('WRITEBACK_INTERNAL_TOKEN');
-  }
-  if (
-    !env.DATABASE_URL ||
-    env.DATABASE_URL.includes('api_dev') ||
-    env.DATABASE_URL.includes('callloom_dev')
-  ) {
-    bad.push('DATABASE_URL');
-  }
+  named(bad, 'CREDENTIAL_ENCRYPTION_KEY', env.CREDENTIAL_ENCRYPTION_KEY, [DEV_CRED_KEY]);
+  named(bad, 'WRITEBACK_INTERNAL_TOKEN', env.WRITEBACK_INTERNAL_TOKEN, [DEV_WRITEBACK]);
+  named(bad, 'DATABASE_URL', env.DATABASE_URL, ['api_dev', 'ingestion_dev', 'sync_dev', 'callloom_dev']);
+  named(bad, 'CLICKHOUSE_URL', env.CLICKHOUSE_URL, ['callloom_dev']);
+  named(bad, 'DEEPGRAM_CALLBACK_SECRET', env.DEEPGRAM_CALLBACK_SECRET, [DEV_DEEPGRAM]);
+  if (redisUrlIsDev(env.REDIS_URL)) bad.push('REDIS_URL');
+  named(bad, 'POSTGRES_PASSWORD', process.env.POSTGRES_PASSWORD, ['callloom_dev']);
+  named(bad, 'CLICKHOUSE_PASSWORD', process.env.CLICKHOUSE_PASSWORD, ['callloom_dev']);
+  named(bad, 'ANI_ENCRYPTION_KEY', process.env.ANI_ENCRYPTION_KEY, [DEV_CRED_KEY]);
+  named(bad, 'POSTGRES_API_PASSWORD', process.env.POSTGRES_API_PASSWORD, ['api_dev']);
+  named(bad, 'POSTGRES_INGESTION_PASSWORD', process.env.POSTGRES_INGESTION_PASSWORD, ['ingestion_dev']);
+  named(bad, 'POSTGRES_SYNC_PASSWORD', process.env.POSTGRES_SYNC_PASSWORD, ['sync_dev']);
+  named(bad, 'REDIS_PASSWORD', process.env.REDIS_PASSWORD, [DEV_REDIS]);
   if (bad.length) {
     throw new Error(
       `APP_ENV=production refuses to start with placeholder/missing secrets: ${bad.join(', ')}`,
