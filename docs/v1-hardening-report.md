@@ -42,6 +42,8 @@ A browser login against the rehearsal while `WEB_ORIGINS` was only the public ht
 
 ## Part D — Server deploy note
 
+Superseded by the owner's deploy pack calyx-deploy-v1-hardening.md. Do not run this section on the server.
+
 Run this on the server, from the repo root. Do not paste any generated value into chat. Give Syed a copy of the new `.env`. If that file is lost, stored platform credentials cannot be decrypted.
 
 ```bash
