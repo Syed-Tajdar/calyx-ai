@@ -194,7 +194,12 @@ export class IntegrationsService {
     if (!row.api_credentials_blob) {
       return { ok: false, message: 'API credentials not configured' };
     }
-    const creds = decryptCredentialJson(row.api_credentials_blob);
+    let creds: Record<string, string>;
+    try {
+      creds = decryptCredentialJson(row.api_credentials_blob);
+    } catch {
+      return { ok: false, message: 'Re-enter credentials' };
+    }
     try {
       validateApiSyncCredentials(row.platform, creds);
     } catch (err: unknown) {

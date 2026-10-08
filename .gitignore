@@ -17,6 +17,7 @@ out/
 .env
 .env.*
 !.env.example
+!deploy/.env.example
 # Symlink to the repo-root .env so `cd deploy && docker compose` interpolates it.
 !deploy/.env
 *.pem

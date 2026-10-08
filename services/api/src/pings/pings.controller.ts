@@ -25,6 +25,10 @@ const listQuerySchema = z.object({
     .union([z.literal('true'), z.literal('1'), z.literal('false'), z.literal('0')])
     .optional()
     .transform((v) => v === 'true' || v === '1'),
+  v1_platforms: z
+    .union([z.literal('true'), z.literal('1'), z.literal('false'), z.literal('0')])
+    .optional()
+    .transform((v) => v === 'true' || v === '1'),
 });
 
 @Controller('pings')
@@ -46,6 +50,7 @@ export class PingsController {
       show_demo: parsed.show_demo,
       conversion: parsed.conversion,
       raw: parsed.raw,
+      v1_platforms: parsed.v1_platforms,
     });
   }
 
@@ -66,6 +71,7 @@ export class PingsController {
       show_demo: parsed.show_demo,
       conversion: parsed.conversion,
       raw: parsed.raw,
+      v1_platforms: parsed.v1_platforms,
     });
     res.send(csv);
   }

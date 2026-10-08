@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
 import { countryForRegion, RegionCountry } from '../common/na-regions';
 import { apiSyncExclusionSql } from '../common/demo-rows';
+import { platformScopeSql } from '../common/v1-platforms';
 import { EVENT_AT_EXPR } from '../common/ping-event-time';
 
 export interface HeatmapStateRow {
@@ -38,6 +39,7 @@ export class CoverageService {
     from?: string,
     to?: string,
     platform?: string,
+    v1Platforms?: boolean,
   ): Promise<HeatmapResult> {
     const demo = apiSyncExclusionSql('external_call_id', showDemo);
     const params: Record<string, string> = { tenant_id: tenantId };
@@ -50,9 +52,10 @@ export class CoverageService {
       period += `\n            AND ${EVENT_AT_EXPR} < parseDateTimeBestEffort({to:String})`;
       params.to = to;
     }
-    if (platform) {
-      period += `\n            AND platform = {platform:String}`;
-      params.platform = platform;
+    const scope = platformScopeSql(platform, v1Platforms);
+    if (scope.sql) {
+      period += `\n            ${scope.sql}`;
+      Object.assign(params, scope.params);
     }
     const result = await this.clickhouse.getClient().query({
       query: `

@@ -29,4 +29,24 @@ describe('ping series period', () => {
     assert.equal(chartSeriesForPreset(daily.slice(0, 30), '30d').length, 30);
     assert.equal(rollupDaily(daily.slice(0, 7), 'day').length, 7);
   });
+
+  it('fills every day through today and keeps the call total', () => {
+    const today = new Date(2026, 9, 8, 15, 0, 0);
+    const series = chartSeriesForPreset([{ date: '2026-10-06', count: 4 }], '7d', today);
+    assert.equal(series.length, 7);
+    assert.equal(series[0].date, '2026-10-02');
+    assert.equal(series[series.length - 1].date, '2026-10-08');
+    assert.equal(series.find((point) => point.date === '2026-10-05')?.count, 0);
+    assert.equal(series.reduce((sum, point) => sum + point.count, 0), 4);
+
+    const month = chartSeriesForPreset([{ date: '2026-09-22', count: 9 }], '30d', today);
+    assert.equal(month.length, 30);
+    assert.equal(month[0].date, '2026-09-09');
+    assert.equal(month[month.length - 1].date, '2026-10-08');
+    assert.equal(month.reduce((sum, point) => sum + point.count, 0), 9);
+
+    const all = chartSeriesForPreset([{ date: '2026-09-22', count: 9 }], 'all', today);
+    assert.equal(all[all.length - 1].date, '2026-10-08');
+    assert.equal(all.reduce((sum, point) => sum + point.count, 0), 9);
+  });
 });

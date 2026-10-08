@@ -69,13 +69,18 @@ export default function DashboardPage(): JSX.Element {
     Promise.all([
       fetchAnalyticsMetrics(token, filters),
       fetchPlatformMix(token, filters),
-      fetchComplianceExposure(token, { show_demo: showDemo || undefined }),
-      fetchScores(token, { limit: 5, offset: 0, show_demo: showDemo || undefined }),
+      SHOW_MOCK_PANELS
+        ? fetchComplianceExposure(token, { show_demo: showDemo || undefined })
+        : Promise.resolve(null),
+      SHOW_MOCK_PANELS
+        ? fetchScores(token, { limit: 5, offset: 0, show_demo: showDemo || undefined })
+        : Promise.resolve(null),
       fetchPingSeries(token, {
         from: filters.from,
         to: filters.to,
         platform: filters.platform,
         show_demo: filters.show_demo,
+        v1_platforms: filters.v1_platforms,
       }),
     ])
       .then(([metricsRes, platformMixRes, exposureRes, scoresRes, series]) => {
@@ -144,7 +149,7 @@ export default function DashboardPage(): JSX.Element {
     <>
       <PageHeader
         title="Operations Overview"
-        description="Real-time ping pipeline, financial metrics, and intelligence at a glance."
+        description="Real-time ping pipeline and financial metrics at a glance."
         action={
           connected ? (
             <Badge variant="teal" className="gap-1.5">

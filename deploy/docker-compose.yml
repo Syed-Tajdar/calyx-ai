@@ -4,7 +4,7 @@
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: callloom
-      POSTGRES_PASSWORD: callloom_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-callloom_dev}
       POSTGRES_DB: callloom
     ports:
       - "127.0.0.1:5432:5432"
@@ -23,7 +23,7 @@
       - ../db/postgres/migrations:/migrations
     command:
       - -path=/migrations
-      - -database=postgres://callloom:callloom_dev@postgres:5432/callloom?sslmode=disable
+      - -database=postgres://callloom:${POSTGRES_PASSWORD:-callloom_dev}@postgres:5432/callloom?sslmode=disable
       - up
     depends_on:
       postgres:
@@ -45,12 +45,16 @@
       # or noeviction (writes fail at ceiling â†’ duplicate balloon).
       - --maxmemory-policy
       - volatile-ttl
+      - --requirepass
+      - ${REDIS_PASSWORD:-redis_dev}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_dev}
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -128,21 +132,21 @@
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        until clickhouse-client --host clickhouse --password callloom_dev --query "SELECT 1"; do sleep 2; done
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase2.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase3.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase4.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase5.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase6.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase7.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase8.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase9.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase10.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase11.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase12.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase13.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase14.sql || true
-        clickhouse-client --host clickhouse --password callloom_dev --multiquery < /init-phase15.sql || true
+        until clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --query "SELECT 1"; do sleep 2; done
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase2.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase3.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase4.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase5.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase6.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase7.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase8.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase9.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase10.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase11.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase12.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase13.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase14.sql || true
+        clickhouse-client --host clickhouse --password ${CLICKHOUSE_PASSWORD:-callloom_dev} --multiquery < /init-phase15.sql || true
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -152,7 +156,7 @@
     image: clickhouse/clickhouse-server:24.8
     environment:
       CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: callloom_dev
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-callloom_dev}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
     ports:
       - "127.0.0.1:8123:8123"
@@ -175,14 +179,14 @@
     ports:
       - "127.0.0.1:8080:8080"
     environment:
-      APP_ENV: "development"
+      APP_ENV: ${APP_ENV:-development}
       INGESTION_PORT: "8080"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
       DEDUP_TTL_HOURS: "240"
-      DATABASE_URL: postgres://callloom_ingestion:ingestion_dev@postgres:5432/callloom?sslmode=disable
-      ANI_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      DATABASE_URL: postgres://callloom_ingestion:${POSTGRES_INGESTION_PASSWORD:-ingestion_dev}@postgres:5432/callloom?sslmode=disable
+      ANI_ENCRYPTION_KEY: ${ANI_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -200,7 +204,7 @@
     ports:
       - "127.0.0.1:8081:8081"
     environment:
-      APP_ENV: "development"
+      APP_ENV: ${APP_ENV:-development}
       CONSUMER_PORT: "8081"
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
@@ -209,7 +213,7 @@
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: callloom_dev
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-callloom_dev}
       BATCH_SIZE: "500"
       BATCH_FLUSH_MS: "5000"
     depends_on:
@@ -233,15 +237,15 @@
       API_PORT: "3000"
       # KafkaJS reconnect DNS storms otherwise starve getaddrinfo for PG/CH readiness.
       UV_THREADPOOL_SIZE: "64"
-      DATABASE_URL: postgres://callloom_api:api_dev@postgres:5432/callloom?sslmode=disable
-      JWT_SECRET: callloom_dev_jwt_secret_min_32_chars_long
-      CLICKHOUSE_URL: http://default:callloom_dev@clickhouse:8123
+      DATABASE_URL: postgres://callloom_api:${POSTGRES_API_PASSWORD:-api_dev}@postgres:5432/callloom?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-callloom_dev_jwt_secret_min_32_chars_long}
+      CLICKHOUSE_URL: http://default:${CLICKHOUSE_PASSWORD:-callloom_dev}@clickhouse:8123
       CLICKHOUSE_DB: default
       MOCK_MODE: "true"
       # Off = no fake /live UUIDs; Kafka consumer feeds real integration pings to WS.
       MOCK_EMITTER_ENABLED: "false"
       SINGLE_TENANT_MODE: "false"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       PROVIDERCONFIG_URL: http://providerconfig:8084
       ASK_AI_URL: http://ask-ai:8086
       PROVIDER_CATALOG_PATH: /app/catalog.json
@@ -251,14 +255,21 @@
       KAFKA_TOPIC_ATTRIBUTION_ATTRIBUTED: callloom.attribution.attributed.v1
       KAFKA_TOPIC_COMPLIANCE_VIOLATION: callloom.compliance.violation_detected.v1
       KAFKA_TOPIC_CALL_TRANSCRIPT_READY: callloom.calls.call_transcript_ready.v1
-      DEEPGRAM_CALLBACK_SECRET: dev_deepgram_callback_secret_change_me
+      DEEPGRAM_CALLBACK_SECRET: ${DEEPGRAM_CALLBACK_SECRET:-dev_deepgram_callback_secret_change_me}
       ADSPEND_SOURCE: mock
       NOTIFICATION_CHANNEL: mock
-      CREDENTIAL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       PLATFORM_SYNC_URL: http://platform-sync:8088
       WRITEBACK_ENABLED: ${WRITEBACK_ENABLED:-false}
-      WRITEBACK_INTERNAL_TOKEN: "dev_writeback_internal_token_change_me"
-      APP_ENV: "development"
+      WRITEBACK_INTERNAL_TOKEN: ${WRITEBACK_INTERNAL_TOKEN:-dev_writeback_internal_token_change_me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-callloom_dev}
+      POSTGRES_API_PASSWORD: ${POSTGRES_API_PASSWORD:-api_dev}
+      POSTGRES_INGESTION_PASSWORD: ${POSTGRES_INGESTION_PASSWORD:-ingestion_dev}
+      POSTGRES_SYNC_PASSWORD: ${POSTGRES_SYNC_PASSWORD:-sync_dev}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-callloom_dev}
+      ANI_ENCRYPTION_KEY: ${ANI_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_dev}
+      APP_ENV: ${APP_ENV:-development}
       WEB_ORIGINS: ${WEB_ORIGINS:-http://localhost:3101,http://127.0.0.1:3101}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
@@ -269,6 +280,7 @@
         condition: service_healthy
       providerconfig:
         condition: service_started
+        required: false
       platform-sync:
         condition: service_started
       clickhouse:
@@ -281,6 +293,7 @@
         condition: service_completed_successfully
 
   providerconfig:
+    profiles: ["intelligence"]
     build:
       context: ..
       dockerfile: services/providerconfig/Dockerfile
@@ -290,10 +303,10 @@
       PROVIDERCONFIG_PORT: "8084"
       MOCK_MODE: "true"
       SINGLE_TENANT_MODE: "false"
-      REDIS_URL: redis://redis:6379
-      DATABASE_URL: postgres://callloom_api:api_dev@postgres:5432/callloom?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
+      DATABASE_URL: postgres://callloom_api:${POSTGRES_API_PASSWORD:-api_dev}@postgres:5432/callloom?sslmode=disable
       PROVIDER_CATALOG_PATH: /app/catalog.json
-      CREDENTIAL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -301,6 +314,7 @@
         condition: service_healthy
 
   compliance-intelligence:
+    profiles: ["intelligence"]
     build:
       context: ..
       dockerfile: services/compliance-intelligence/Dockerfile
@@ -310,7 +324,7 @@
       COMPLIANCE_PORT: "8085"
       MOCK_MODE: "true"
       SINGLE_TENANT_MODE: "false"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       PROVIDERCONFIG_URL: http://providerconfig:8084
       DNC_PROVIDER: mock
       KAFKA_BROKER: redpanda:9092
@@ -322,7 +336,7 @@
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: callloom_dev
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-callloom_dev}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -340,6 +354,7 @@
         condition: service_started
 
   ask-ai:
+    profiles: ["intelligence"]
     build:
       context: ..
       dockerfile: services/ask-ai/Dockerfile
@@ -348,13 +363,13 @@
     environment:
       ASK_AI_PORT: "8086"
       MOCK_MODE: "true"
-      DATABASE_URL: postgres://callloom_api:api_dev@postgres:5432/callloom?sslmode=disable
+      DATABASE_URL: postgres://callloom_api:${POSTGRES_API_PASSWORD:-api_dev}@postgres:5432/callloom?sslmode=disable
       PROVIDERCONFIG_URL: http://providerconfig:8084
       LLM_PROVIDER: mock
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: callloom_dev
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-callloom_dev}
       ASK_AI_TOKEN_BUDGET_DAILY: "100000"
       ASK_AI_QUERY_TIMEOUT_SEC: "10"
       ASK_AI_MAX_ROWS: "100"
@@ -371,6 +386,7 @@
         condition: service_started
 
   ad-attribution:
+    profiles: ["intelligence"]
     build:
       context: ..
       dockerfile: services/ad-attribution/Dockerfile
@@ -380,7 +396,7 @@
       ATTRIBUTION_PORT: "8087"
       MOCK_MODE: "true"
       ATTRIBUTION_MOCK_BRIDGE: "true"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       PROVIDERCONFIG_URL: http://providerconfig:8084
       ATTRIBUTION_PROVIDER: mock
       KAFKA_BROKER: redpanda:9092
@@ -393,7 +409,7 @@
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: callloom_dev
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-callloom_dev}
       ATTRIBUTION_DEDUP_TTL_HOURS: "24"
       ATTRIBUTION_FIRE_MAX_RETRIES: "3"
     depends_on:
@@ -423,19 +439,19 @@
       - 1.1.1.1
       - 8.8.8.8
     environment:
-      APP_ENV: "development"
+      APP_ENV: ${APP_ENV:-development}
       PLATFORM_SYNC_PORT: "8088"
-      DATABASE_URL: postgres://callloom_sync:sync_dev@postgres:5432/callloom?sslmode=disable
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgres://callloom_sync:${POSTGRES_SYNC_PASSWORD:-sync_dev}@postgres:5432/callloom?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
-      CREDENTIAL_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-      ANI_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      ANI_ENCRYPTION_KEY: ${ANI_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       MOCK_MODE: "true"
       MOCK_DEDUP_PROOF: "0"
       WRITEBACK_ENABLED: ${WRITEBACK_ENABLED:-false}
       WRITEBACK_SETTLE_SECONDS: "20"
-      WRITEBACK_INTERNAL_TOKEN: "dev_writeback_internal_token_change_me"
+      WRITEBACK_INTERNAL_TOKEN: ${WRITEBACK_INTERNAL_TOKEN:-dev_writeback_internal_token_change_me}
       SYNC_INTERVAL_SEC: "120"
       DEDUP_TTL_HOURS: "240"
     depends_on:
@@ -449,6 +465,7 @@
         condition: service_completed_successfully
 
   scoring:
+    profiles: ["intelligence"]
     build:
       context: ../services/scoring
     ports:
@@ -457,7 +474,7 @@
       SCORING_PORT: "8082"
       MOCK_MODE: "true"
       MOCK_EMITTER_ENABLED: "true"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
       KAFKA_TOPIC_CALL_TRANSCRIPT_READY: callloom.calls.call_transcript_ready.v1
@@ -468,7 +485,7 @@
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: callloom_dev
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-callloom_dev}
       TRANSCRIPTION_PROVIDER: mock
       AI_PROVIDER: mock
       RECORDING_SOURCE: mock
@@ -485,6 +502,7 @@
         condition: service_completed_successfully
 
   enrichment:
+    profiles: ["intelligence"]
     build:
       context: ../services/enrichment
     ports:
@@ -492,7 +510,7 @@
     environment:
       ENRICHMENT_PORT: "8083"
       MOCK_MODE: "true"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379
       KAFKA_BROKER: redpanda:9092
       KAFKA_TOPIC_PINGS: callloom.pings.v1
       KAFKA_TOPIC_ENRICHMENT_DLQ: callloom.enrichment.dlq.v1
@@ -500,7 +518,7 @@
       CLICKHOUSE_ADDR: clickhouse:9000
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: callloom_dev
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-callloom_dev}
       ENRICHMENT_PROVIDER: mock
       ENRICHMENT_CACHE_TTL_HOURS: "24"
     depends_on:

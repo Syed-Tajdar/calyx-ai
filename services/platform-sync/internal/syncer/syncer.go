@@ -162,7 +162,7 @@ func (s *Service) TestAuth(ctx context.Context, tenantID, integrationID string) 
 	}
 	creds, err := s.decryptor.DecryptMap(item.APICredentialsBlob)
 	if err != nil {
-		return fmt.Errorf("decrypt credentials: %w", err)
+		return fmt.Errorf("Re-enter credentials")
 	}
 	return s.adapter.TestAuth(ctx, item.Platform, item.SyncMode, creds)
 }
@@ -257,8 +257,8 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 
 	creds, err := s.decryptor.DecryptMap(item.APICredentialsBlob)
 	if err != nil {
-		s.markError(runCtx, item.ID, "decrypt credentials failed")
-		return fmt.Errorf("decrypt credentials: %w", err)
+		s.markError(runCtx, item.ID, "Re-enter credentials")
+		return fmt.Errorf("Re-enter credentials")
 	}
 	creds["platform"] = item.Platform
 
@@ -372,7 +372,7 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 	began := time.Now().UTC()
 	creds, err := s.decryptor.DecryptMap(item.APICredentialsBlob)
 	if err != nil {
-		return fmt.Errorf("decrypt credentials: %w", err)
+		return fmt.Errorf("Re-enter credentials")
 	}
 	creds["platform"] = item.Platform
 
