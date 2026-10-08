@@ -278,6 +278,7 @@
         condition: service_healthy
       providerconfig:
         condition: service_started
+        required: false
       platform-sync:
         condition: service_started
       clickhouse:
@@ -290,6 +291,7 @@
         condition: service_completed_successfully
 
   providerconfig:
+    profiles: ["intelligence"]
     build:
       context: ..
       dockerfile: services/providerconfig/Dockerfile
@@ -310,6 +312,7 @@
         condition: service_healthy
 
   compliance-intelligence:
+    profiles: ["intelligence"]
     build:
       context: ..
       dockerfile: services/compliance-intelligence/Dockerfile
@@ -349,6 +352,7 @@
         condition: service_started
 
   ask-ai:
+    profiles: ["intelligence"]
     build:
       context: ..
       dockerfile: services/ask-ai/Dockerfile
@@ -380,6 +384,7 @@
         condition: service_started
 
   ad-attribution:
+    profiles: ["intelligence"]
     build:
       context: ..
       dockerfile: services/ad-attribution/Dockerfile
@@ -458,6 +463,7 @@
         condition: service_completed_successfully
 
   scoring:
+    profiles: ["intelligence"]
     build:
       context: ../services/scoring
     ports:
@@ -494,6 +500,7 @@
         condition: service_completed_successfully
 
   enrichment:
+    profiles: ["intelligence"]
     build:
       context: ../services/enrichment
     ports:
