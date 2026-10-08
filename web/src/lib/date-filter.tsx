@@ -29,8 +29,8 @@ function presetToStart(preset: DateRangePreset): Date | null {
   if (preset === 'all') return null;
   const days = preset === '7d' ? 7 : 30;
   const d = new Date();
-  d.setDate(d.getDate() - days);
   d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - (days - 1));
   return d;
 }
 
