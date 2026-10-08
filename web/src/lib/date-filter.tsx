@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import type { PingConversionFilter } from '@/lib/api';
+import { V1_ONLY } from '@/lib/v1-features';
 
 export type DateRangePreset = '7d' | '30d' | 'all';
 
@@ -86,6 +87,8 @@ export interface DateFilterQuery {
   search?: string;
   show_demo?: boolean;
   conversion?: PingConversionFilter;
+  /** v1 All: ask the API to count ringba + retreaver only. */
+  v1_platforms?: boolean;
 }
 
 export function dateFilterToQuery(
@@ -106,6 +109,9 @@ export function dateFilterToQuery(
   }
   if (conversion) {
     query.conversion = conversion;
+  }
+  if (V1_ONLY && !platform) {
+    query.v1_platforms = true;
   }
   return query;
 }

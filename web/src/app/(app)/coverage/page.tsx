@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { ApiError, fetchCoverageHeatmap, HeatmapStateRow } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { countryForRegion } from '@/lib/na-regions';
-import { useDateFilter } from '@/lib/date-filter';
+import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { usePlatformOptions } from '@/lib/use-platform-options';
 
@@ -38,11 +38,7 @@ export default function CoveragePage(): JSX.Element {
     if (!token) return;
 
     setLoading(true);
-    fetchCoverageHeatmap(token, {
-      show_demo: showDemo || undefined,
-      from: startDate?.toISOString(),
-      platform: platform || undefined,
-    })
+    fetchCoverageHeatmap(token, dateFilterToQuery(startDate, platform, showDemo))
       .then((res) => {
         setRows(res.data);
         setTotalPings(res.total_pings);

@@ -15,6 +15,10 @@ const heatmapQuerySchema = z.object({
   from: optionalIsoDate,
   to: optionalIsoDate,
   platform: z.string().optional(),
+  v1_platforms: z
+    .union([z.literal('true'), z.literal('1'), z.literal('false'), z.literal('0')])
+    .optional()
+    .transform((v) => v === 'true' || v === '1'),
 });
 
 @Controller('coverage')
@@ -34,6 +38,7 @@ export class CoverageController {
       parsed.from,
       parsed.to,
       parsed.platform,
+      parsed.v1_platforms,
     );
   }
 }

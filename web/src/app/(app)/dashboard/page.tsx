@@ -76,6 +76,7 @@ export default function DashboardPage(): JSX.Element {
         to: filters.to,
         platform: filters.platform,
         show_demo: filters.show_demo,
+        v1_platforms: filters.v1_platforms,
       }),
     ])
       .then(([metricsRes, platformMixRes, exposureRes, scoresRes, series]) => {

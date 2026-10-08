@@ -18,6 +18,7 @@ const dateQuerySchema = z.object({
 
 const platformMixQuerySchema = dateQuerySchema.extend({
   platform: z.string().optional(),
+  v1_platforms: showDemoField,
 });
 
 @Controller('analytics')
@@ -37,6 +38,7 @@ export class AnalyticsController {
       parsed.to,
       parsed.show_demo,
       parsed.platform,
+      parsed.v1_platforms,
     );
   }
 
@@ -45,12 +47,14 @@ export class AnalyticsController {
     @CurrentTenant() tenantId: string,
     @Query() query: Record<string, string>,
   ): Promise<PnLResult> {
-    const parsed = dateQuerySchema.parse(query);
+    const parsed = platformMixQuerySchema.parse(query);
     return this.analyticsService.getPnL(
       tenantId,
       parsed.from,
       parsed.to,
       parsed.show_demo,
+      parsed.platform,
+      parsed.v1_platforms,
     );
   }
 
@@ -66,6 +70,7 @@ export class AnalyticsController {
       parsed.to,
       parsed.show_demo,
       parsed.platform,
+      parsed.v1_platforms,
     );
   }
 
@@ -81,6 +86,7 @@ export class AnalyticsController {
       parsed.to,
       parsed.platform,
       parsed.show_demo,
+      parsed.v1_platforms,
     );
   }
 }

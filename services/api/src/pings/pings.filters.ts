@@ -1,6 +1,7 @@
 import { EVENT_AT_EXPR } from '../common/ping-event-time';
 import { apiSyncExclusionSql } from '../common/demo-rows';
 import { conversionFilterSql } from '../common/platform-capabilities';
+import { platformScopeSql } from '../common/v1-platforms';
 
 /**
  * Conversion state filter for the call list.
@@ -34,6 +35,8 @@ export interface PingListFilters {
   show_demo?: boolean;
   /** Conversion state. Omitted = no conversion filtering. */
   conversion?: PingConversionFilter;
+  /** v1 "All": ringba + retreaver only. Ignored when `platform` is set. */
+  v1_platforms?: boolean;
   /**
    * When true, return the raw event stream — one row per sync, so a call that was re-synced
    * appears several times. Default (false) collapses to one row per call.
@@ -51,10 +54,9 @@ export function buildPingWhereClause(filters: PingListFilters): {
   const demoClause = apiSyncExclusionSql('external_call_id', filters.show_demo);
   if (demoClause) parts.push(demoClause);
 
-  if (filters.platform) {
-    parts.push('AND platform = {platform:String}');
-    params.platform = filters.platform;
-  }
+  const scope = platformScopeSql(filters.platform, filters.v1_platforms);
+  if (scope.sql) parts.push(scope.sql);
+  Object.assign(params, scope.params);
   if (filters.from) {
     parts.push(
       `AND ${EVENT_AT_EXPR} >= parseDateTimeBestEffort({from:String})`,

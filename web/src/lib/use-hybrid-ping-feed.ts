@@ -72,6 +72,14 @@ function pingMatchesFilters(row: PingRecord, filters: PingFetchFilters): boolean
     return false;
   }
   if (filters.platform && row.platform !== filters.platform) return false;
+  if (
+    filters.v1_platforms &&
+    !filters.platform &&
+    row.platform !== 'ringba' &&
+    row.platform !== 'retreaver'
+  ) {
+    return false;
+  }
   if (filters.from) {
     if (new Date(pingEventAt(row)).getTime() < new Date(filters.from).getTime()) return false;
   }

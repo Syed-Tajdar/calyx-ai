@@ -362,6 +362,8 @@ export interface PingFetchFilters {
   conversion?: PingConversionFilter;
   /** Raw event stream (one row per sync) instead of one row per call. */
   raw?: boolean;
+  /** v1 All: ringba + retreaver only. */
+  v1_platforms?: boolean;
 }
 
 export async function fetchPings(
@@ -381,6 +383,7 @@ export async function fetchPings(
   if (filters.show_demo) params.set('show_demo', 'true');
   if (filters.conversion) params.set('conversion', filters.conversion);
   if (filters.raw) params.set('raw', 'true');
+  if (filters.v1_platforms) params.set('v1_platforms', 'true');
   return fetchWithAuth<PingListResponse>(token, `/pings?${params.toString()}`);
 }
 
@@ -396,6 +399,7 @@ export async function downloadPingsExport(
   if (filters.show_demo) params.set('show_demo', 'true');
   if (filters.conversion) params.set('conversion', filters.conversion);
   if (filters.raw) params.set('raw', 'true');
+  if (filters.v1_platforms) params.set('v1_platforms', 'true');
   const qs = params.toString();
   const res = await fetch(`${API_URL}/pings/export${qs ? `?${qs}` : ''}`, {
     credentials: 'include',
@@ -462,51 +466,56 @@ export async function fetchEnrichment(
 
 export async function fetchAnalyticsMetrics(
   token: string,
-  filters: { from?: string; to?: string; show_demo?: boolean; platform?: string } = {},
+  filters: { from?: string; to?: string; show_demo?: boolean; platform?: string; v1_platforms?: boolean } = {},
 ): Promise<MetricsResult> {
   const params = new URLSearchParams();
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.platform) params.set('platform', filters.platform);
   if (filters.show_demo) params.set('show_demo', 'true');
+  if (filters.v1_platforms) params.set('v1_platforms', 'true');
   const qs = params.toString();
   return fetchWithAuth<MetricsResult>(token, `/analytics/metrics${qs ? `?${qs}` : ''}`);
 }
 
 export async function fetchPingSeries(
   token: string,
-  filters: { from?: string; to?: string; show_demo?: boolean; platform?: string } = {},
+  filters: { from?: string; to?: string; show_demo?: boolean; platform?: string; v1_platforms?: boolean } = {},
 ): Promise<Array<{ date: string; count: number }>> {
   const params = new URLSearchParams();
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.platform) params.set('platform', filters.platform);
   if (filters.show_demo) params.set('show_demo', 'true');
+  if (filters.v1_platforms) params.set('v1_platforms', 'true');
   const qs = params.toString();
   return fetchWithAuth(token, `/analytics/ping-series${qs ? `?${qs}` : ''}`);
 }
 
 export async function fetchPnL(
   token: string,
-  filters: { from?: string; to?: string; show_demo?: boolean } = {},
+  filters: { from?: string; to?: string; show_demo?: boolean; platform?: string; v1_platforms?: boolean } = {},
 ): Promise<PnLResult> {
   const params = new URLSearchParams();
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
+  if (filters.platform) params.set('platform', filters.platform);
   if (filters.show_demo) params.set('show_demo', 'true');
+  if (filters.v1_platforms) params.set('v1_platforms', 'true');
   const qs = params.toString();
   return fetchWithAuth<PnLResult>(token, `/analytics/pnl${qs ? `?${qs}` : ''}`);
 }
 
 export async function fetchPlatformMix(
   token: string,
-  filters: { from?: string; to?: string; platform?: string; show_demo?: boolean } = {},
+  filters: { from?: string; to?: string; platform?: string; show_demo?: boolean; v1_platforms?: boolean } = {},
 ): Promise<PlatformMixRow[]> {
   const params = new URLSearchParams();
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.platform) params.set('platform', filters.platform);
   if (filters.show_demo) params.set('show_demo', 'true');
+  if (filters.v1_platforms) params.set('v1_platforms', 'true');
   const qs = params.toString();
   return fetchWithAuth<PlatformMixRow[]>(token, `/analytics/platform-mix${qs ? `?${qs}` : ''}`);
 }
@@ -673,13 +682,14 @@ export async function updateIntegrationSyncMode(
 
 export async function fetchCoverageHeatmap(
   token: string,
-  options: { show_demo?: boolean; from?: string; to?: string; platform?: string } = {},
+  options: { show_demo?: boolean; from?: string; to?: string; platform?: string; v1_platforms?: boolean } = {},
 ): Promise<HeatmapResult> {
   const params = new URLSearchParams();
   if (options.show_demo) params.set('show_demo', 'true');
   if (options.from) params.set('from', options.from);
   if (options.to) params.set('to', options.to);
   if (options.platform) params.set('platform', options.platform);
+  if (options.v1_platforms) params.set('v1_platforms', 'true');
   const qs = params.toString();
   return fetchWithAuth<HeatmapResult>(token, `/coverage/heatmap${qs ? `?${qs}` : ''}`);
 }
