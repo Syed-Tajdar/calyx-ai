@@ -93,6 +93,9 @@ type RetreaverCallClientOptions struct {
 	MaxBackoff  time.Duration
 	// Sleep replaces the backoff wait (tests).
 	Sleep func(ctx context.Context, d time.Duration) error
+	// Limiters replaces the shared per-company limiters (tests only; production must share
+	// the sync limiters, which is the default).
+	Limiters *RetreaverAccountLimiters
 }
 
 // RetreaverCallClient does single-call reads and revenue writes. It shares the per-company
@@ -119,6 +122,9 @@ func NewRetreaverCallClientWith(o RetreaverCallClientOptions) *RetreaverCallClie
 		maxAttempts: o.MaxAttempts,
 		maxBackoff:  o.MaxBackoff,
 		sleep:       o.Sleep,
+	}
+	if o.Limiters != nil {
+		c.limiters = o.Limiters
 	}
 	if c.client == nil {
 		c.client = &http.Client{

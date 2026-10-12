@@ -44,6 +44,12 @@ type Writer interface {
 	FailOnUnsettled() bool
 }
 
+// RequestValidator is an optional Writer hook. It runs after CheckCredentials and before the
+// lock; an error is audited as a rejection and nothing is sent to the platform.
+type RequestValidator interface {
+	ValidateRequest(action, callID string, amount float64) error
+}
+
 // CallState is what LookupCall / ReadBack return: the mapped call plus, for platforms that
 // expose them, the raw read-back fields stored in the audit row.
 type CallState struct {

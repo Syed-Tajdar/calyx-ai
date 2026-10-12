@@ -240,6 +240,11 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 	if err := w.CheckCredentials(creds); err != nil {
 		return s.reject(ctx, req, action, amount, err)
 	}
+	if v, ok := w.(RequestValidator); ok {
+		if err := v.ValidateRequest(action, req.InboundCallID, req.Amount); err != nil {
+			return s.reject(ctx, req, action, amount, err)
+		}
+	}
 
 	gotLock, err := s.lock.Acquire(ctx, req.TenantID, action, req.InboundCallID)
 	if err != nil {
@@ -268,6 +273,10 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
 			_, _ = a.audit(ctx, 0, "failed", "", "", err.Error(), "absent", nil, nil)
 			return Result{}, forPlatform(ErrCallNotFound, platform)
+		}
+		if platform != "ringba" {
+			// Audit every attempt. Ringba keeps its pre-registry behaviour here (no row).
+			_, _ = a.audit(ctx, req.Amount, "failed", "", "", err.Error(), "absent", nil, nil)
 		}
 		return Result{}, err
 	}

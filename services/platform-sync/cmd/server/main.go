@@ -152,6 +152,14 @@ func main() {
 		wb := writeback.NewService(st, st, decryptor, adapter.NewRingbaAdapter(adapter.NewHTTPClient()), writeback.NewRedisLocker(redisClient))
 		wb.SetGlobalEnabled(cfg.WritebackEnabled)
 		wb.SetSettleWindow(writeback.ParseSettleWindow(os.Getenv("WRITEBACK_SETTLE_SECONDS")))
+		// Stage 4b: Retreaver joins the registry. It shares the sync per-company limiter and is
+		// still behind WRITEBACK_ENABLED and each integration's writeback_enabled (both false
+		// by default). Its settle window is separate until Phase 3 measures the real value.
+		wb.Register(writeback.NewRetreaverWriter(
+			adapter.NewRetreaverCallClient(),
+			writeback.ParseSettleWindow(os.Getenv("WRITEBACK_SETTLE_SECONDS_RETREAVER")),
+		))
+		logger.Info("writeback registry", "platforms", strings.Join(wb.SupportedPlatforms(), ","))
 		mux.HandleFunc("POST /writeback/convert", writeback.RequireBearer(cfg.WritebackAuthToken, func(w http.ResponseWriter, r *http.Request) {
 			handleWriteback(w, r, logger, wb, "convert")
 		}))
