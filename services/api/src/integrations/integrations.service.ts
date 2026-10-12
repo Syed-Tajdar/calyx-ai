@@ -8,6 +8,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { isDemoModeEnabled } from '../common/demo-rows';
 import { PostgresService } from '../database/postgres.service';
 import { supportsWriteback } from '../common/platform-capabilities';
 import {
@@ -150,6 +151,9 @@ export class IntegrationsService {
 
     const syncMode: SyncMode =
       input.connection_mode === 'api_sync' ? (input.sync_mode ?? 'mock') : 'mock';
+    if (!isDemoModeEnabled() && syncMode === 'mock') {
+      throw new BadRequestException('Test mode is off in production. Save as Live.');
+    }
     const lookbackDays =
       input.connection_mode === 'api_sync'
         ? this.normalizeLookbackDays(input.initial_lookback_days)
@@ -388,6 +392,9 @@ export class IntegrationsService {
   ): Promise<IntegrationRecord> {
     if (syncMode !== 'mock' && syncMode !== 'real') {
       throw new BadRequestException('sync_mode must be mock or real');
+    }
+    if (!isDemoModeEnabled() && syncMode === 'mock') {
+      throw new BadRequestException('Test mode is off in production. Save as Live.');
     }
     const lookback =
       initialLookbackDays !== undefined

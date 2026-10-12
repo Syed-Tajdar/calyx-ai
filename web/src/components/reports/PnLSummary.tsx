@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { PnLResult } from '@/lib/api';
+import { V1_ONLY } from '@/lib/v1-features';
 
 interface PnLSummaryProps {
   pnl: PnLResult | null;
@@ -20,16 +21,24 @@ export function PnLSummary({ pnl }: PnLSummaryProps): JSX.Element {
     return <div className="calyx-card h-48 animate-pulse bg-calyx-card/50" />;
   }
 
-  const chartData = [
-    { name: 'Revenue', value: pnl.revenue },
-    { name: 'Payout', value: pnl.payout },
-    { name: 'Ad Spend', value: pnl.ad_spend },
-    { name: 'Profit', value: pnl.profit },
-  ];
+  const grossProfit = pnl.revenue - pnl.payout;
+  const profit = V1_ONLY ? grossProfit : pnl.profit;
+  const chartData = V1_ONLY
+    ? [
+        { name: 'Revenue', value: pnl.revenue },
+        { name: 'Payout', value: pnl.payout },
+        { name: 'Profit (gross)', value: profit },
+      ]
+    : [
+        { name: 'Revenue', value: pnl.revenue },
+        { name: 'Payout', value: pnl.payout },
+        { name: 'Ad Spend', value: pnl.ad_spend },
+        { name: 'Profit', value: profit },
+      ];
 
   return (
     <div className="space-y-4">
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className={`grid grid-cols-2 gap-3 ${V1_ONLY ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
         <div className="calyx-metric-card">
           <p className="text-[10px] font-semibold uppercase text-calyx-muted">Revenue</p>
           <p className="mt-2 text-xl font-bold tabular-nums text-calyx-success">${pnl.revenue.toFixed(0)}</p>
@@ -38,16 +47,20 @@ export function PnLSummary({ pnl }: PnLSummaryProps): JSX.Element {
           <p className="text-[10px] font-semibold uppercase text-calyx-muted">Payout</p>
           <p className="mt-2 text-xl font-bold text-calyx-text">${pnl.payout.toFixed(0)}</p>
         </div>
+        {!V1_ONLY && (
+          <div className="calyx-metric-card">
+            <p className="text-[10px] font-semibold uppercase text-calyx-muted">Ad Spend</p>
+            <p className="mt-2 text-xl font-bold tabular-nums text-calyx-warning">${pnl.ad_spend.toFixed(0)}</p>
+          </div>
+        )}
         <div className="calyx-metric-card">
-          <p className="text-[10px] font-semibold uppercase text-calyx-muted">Ad Spend</p>
-          <p className="mt-2 text-xl font-bold tabular-nums text-calyx-warning">${pnl.ad_spend.toFixed(0)}</p>
-        </div>
-        <div className="calyx-metric-card">
-          <p className="text-[10px] font-semibold uppercase text-calyx-muted">Profit</p>
+          <p className="text-[10px] font-semibold uppercase text-calyx-muted">
+            {V1_ONLY ? 'Profit (gross)' : 'Profit'}
+          </p>
           <p
-            className={`mt-2 text-xl font-bold tabular-nums ${pnl.profit >= 0 ? 'text-calyx-success' : 'text-calyx-danger'}`}
+            className={`mt-2 text-xl font-bold tabular-nums ${profit >= 0 ? 'text-calyx-success' : 'text-calyx-danger'}`}
           >
-            ${pnl.profit.toFixed(0)}
+            ${profit.toFixed(0)}
           </p>
         </div>
       </section>

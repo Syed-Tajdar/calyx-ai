@@ -64,8 +64,8 @@ func TestSyncOneReturnsErrAlreadyRunningWhenLockHeld(t *testing.T) {
 	}
 	defer func() { _ = lock.Release(context.Background(), "int-1", token) }()
 
-	svc := &Service{lock: lock}
-	err = svc.syncOne(context.Background(), models.SyncIntegration{ID: "int-1"}, true)
+	svc := &Service{lock: lock, logger: slog.Default()}
+	err = svc.syncOne(context.Background(), models.SyncIntegration{ID: "int-1", SyncMode: "real"}, true)
 	if !errors.Is(err, ErrAlreadyRunning) {
 		t.Fatalf("err=%v want ErrAlreadyRunning", err)
 	}

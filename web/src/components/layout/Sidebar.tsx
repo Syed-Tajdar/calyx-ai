@@ -10,6 +10,7 @@ import { ApiError, fetchMe, MeResult } from '@/lib/api';
 import { NAV_GROUPS, isNavActive } from '@/lib/app-navigation';
 import { getToken } from '@/lib/auth';
 import { isMockModeEnabled } from '@/lib/provider-domains';
+import { V1_ONLY } from '@/lib/v1-features';
 import { useSidebarCollapse } from '@/lib/use-sidebar-collapse';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +31,14 @@ export function Sidebar(): JSX.Element {
 
   const tenantLabel = me?.tenant_name ?? 'Tenant';
   const mockMode = isMockModeEnabled();
+  const sourceLabel = V1_ONLY
+    ? me?.has_live_integration
+      ? 'Live'
+      : 'Test'
+    : mockMode
+      ? 'Mock'
+      : 'Live';
+  const showSourceBadge = V1_ONLY || mockMode;
   const sidebarWidth = collapsed
     ? 'var(--sidebar-width-collapsed)'
     : 'var(--sidebar-width)';
@@ -105,10 +114,10 @@ export function Sidebar(): JSX.Element {
 
       <div className="border-t border-calyx-border p-4">
         {collapsed ? (
-          mockMode ? (
+          showSourceBadge ? (
             <span
               className="mx-auto block size-2 rounded-full bg-calyx-muted"
-              title={`Mock · ${tenantLabel}`}
+              title={`${sourceLabel} · ${tenantLabel}`}
             />
           ) : (
             <span
@@ -118,9 +127,9 @@ export function Sidebar(): JSX.Element {
           )
         ) : (
           <div className="flex flex-col gap-1.5">
-            {mockMode && (
+            {showSourceBadge && (
               <span className="inline-flex w-fit items-center rounded-full border border-calyx-border bg-calyx-card px-2 py-0.5 text-[11px] font-medium text-calyx-muted">
-                Mock
+                {sourceLabel}
               </span>
             )}
             <span className="truncate text-xs font-semibold text-calyx-text">{tenantLabel}</span>

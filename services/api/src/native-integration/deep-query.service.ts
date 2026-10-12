@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { ClickhouseService } from '../database/clickhouse.service';
+import { isDemoModeEnabled, isTestDataExternalId } from '../common/demo-rows';
 import { conversionState, ConversionState } from '../common/platform-capabilities';
 
 function optionalMoney(raw: string | null | undefined): number | null {
@@ -144,6 +146,9 @@ export class DeepQueryService {
     const trimmedCallId = callId.trim();
     if (!trimmedCallId) {
       throw new BadRequestException('callId is required');
+    }
+    if (!isDemoModeEnabled() && isTestDataExternalId(trimmedCallId)) {
+      throw new NotFoundException('Call not found');
     }
 
     const result = await this.clickhouse.getClient().query({

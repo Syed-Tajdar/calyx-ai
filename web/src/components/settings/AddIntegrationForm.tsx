@@ -21,6 +21,7 @@ import {
   validateApiSyncCredentials,
 } from '@/lib/platform-credentials';
 import { formatPlatformLabel } from '@/lib/platform-options';
+import { useDateFilter } from '@/lib/date-filter';
 import { platformsForV1, V1_ONLY } from '@/lib/v1-features';
 
 interface AddIntegrationFormProps {
@@ -32,6 +33,7 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
   const [platform, setPlatform] = useState('retreaver');
   const [name, setName] = useState('');
   const [connectionMode, setConnectionMode] = useState<'webhook' | 'api_sync'>('api_sync');
+  const { demoModeEnabled } = useDateFilter();
   const [syncMode, setSyncMode] = useState<'mock' | 'real'>('mock');
   const [webhookSecret, setWebhookSecret] = useState('');
   const [credValues, setCredValues] = useState<Record<string, string>>({});
@@ -40,6 +42,10 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
   useEffect(() => {
     if (V1_ONLY && connectionMode === 'webhook') setConnectionMode('api_sync');
   }, [connectionMode]);
+
+  useEffect(() => {
+    if (!demoModeEnabled) setSyncMode('real');
+  }, [demoModeEnabled]);
 
   useEffect(() => {
     const token = getToken();
@@ -235,15 +241,17 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
           <div className="space-y-2">
             <p className="text-xs text-calyx-muted">Data source</p>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-calyx-border px-3 py-2 text-sm">
-                <input
-                  type="radio"
-                  name="sync_mode"
-                  checked={syncMode === 'mock'}
-                  onChange={() => setSyncMode('mock')}
-                />
-                Test — demo calls (default)
-              </label>
+              {demoModeEnabled && (
+                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-calyx-border px-3 py-2 text-sm">
+                  <input
+                    type="radio"
+                    name="sync_mode"
+                    checked={syncMode === 'mock'}
+                    onChange={() => setSyncMode('mock')}
+                  />
+                  Test — demo calls (default)
+                </label>
+              )}
               <label className="flex cursor-pointer items-center gap-2 rounded-md border border-calyx-border px-3 py-2 text-sm">
                 <input
                   type="radio"

@@ -10,6 +10,8 @@ import {
   YAxis,
 } from 'recharts';
 
+import { axisDateTicks } from '@/lib/ping-series';
+
 interface PingChartProps {
   data: Array<{ date: string; count: number }>;
   periodLabel: string;
@@ -49,12 +51,13 @@ export function PingChart({ data, periodLabel }: PingChartProps): JSX.Element {
             />
             <XAxis
               dataKey="date"
+              ticks={axisDateTicks(chartData.map((point) => point.date))}
               tick={{ fill: 'var(--calyx-chart-tick)', fontSize: 10 }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: string) => v.slice(5)}
               interval={0}
-              minTickGap={4}
+              minTickGap={8}
             />
             <YAxis
               tick={{ fill: 'var(--calyx-chart-tick)', fontSize: 10 }}

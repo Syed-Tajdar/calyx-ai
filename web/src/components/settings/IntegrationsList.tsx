@@ -14,6 +14,7 @@ import {
   updateIntegrationSyncMode,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { useDateFilter } from '@/lib/date-filter';
 import { formatPlatformLabel } from '@/lib/platform-options';
 import { useState } from 'react';
 
@@ -63,6 +64,7 @@ export function IntegrationsList({
   const [pausingId, setPausingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [backfillingId, setBackfillingId] = useState<string | null>(null);
+  const { demoModeEnabled } = useDateFilter();
   const [updatingModeId, setUpdatingModeId] = useState<string | null>(null);
 
   async function handlePauseToggle(item: IntegrationRecord): Promise<void> {
@@ -216,6 +218,7 @@ export function IntegrationsList({
                 </td>
                 <td className="px-4 py-3">
                   {item.connection_mode === 'api_sync' && item.is_active ? (
+                    demoModeEnabled ? (
                     <div className="inline-flex rounded-md border border-calyx-border p-0.5">
                       <button
                         type="button"
@@ -242,6 +245,11 @@ export function IntegrationsList({
                         Live
                       </button>
                     </div>
+                    ) : (
+                      <span className="text-calyx-muted">
+                        {item.sync_mode === 'real' ? 'Live' : 'Test'}
+                      </span>
+                    )
                   ) : (
                     <span className="text-calyx-muted">
                       {item.is_active ? '—' : 'Paused'}

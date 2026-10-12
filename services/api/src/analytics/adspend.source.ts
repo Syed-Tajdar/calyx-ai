@@ -8,8 +8,14 @@ export interface AdSpendSource {
   getSpend(tenantId: string): Promise<AdSpendRow[]>;
 }
 
+function v1Only(): boolean {
+  return process.env.V1_ONLY !== 'false';
+}
+
 export class MockAdSpendSource implements AdSpendSource {
   async getSpend(_tenantId: string): Promise<AdSpendRow[]> {
+    // v1 has no ad-spend source. The $370 (250+120) is invented demo money.
+    if (v1Only()) return [];
     return [
       { campaign_id: 'camp_google', spend_date: new Date().toISOString().slice(0, 10), amount: 250 },
       { campaign_id: 'camp_bing', spend_date: new Date().toISOString().slice(0, 10), amount: 120 },

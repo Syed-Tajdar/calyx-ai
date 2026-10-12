@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { PingConversionFilter } from '@/lib/api';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { fetchMe, type PingConversionFilter } from '@/lib/api';
+import { getToken } from '@/lib/auth';
 import { V1_ONLY } from '@/lib/v1-features';
 
 export type DateRangePreset = '7d' | '30d' | 'all';
@@ -14,6 +15,8 @@ interface DateFilterState {
   platform: string;
   /** Include `apisync-%` demo rows. Default false. */
   showDemo: boolean;
+  /** API + APP_ENV decide this. Production is always false. */
+  demoModeEnabled: boolean;
   /** Conversion state filter. `''` = all. */
   conversion: ConversionSelection;
   setPreset: (preset: DateRangePreset) => void;
@@ -37,14 +40,36 @@ function presetToStart(preset: DateRangePreset): Date | null {
 export function DateFilterProvider({ children }: { children: ReactNode }): JSX.Element {
   const [preset, setPreset] = useState<DateRangePreset>('30d');
   const [platform, setPlatform] = useState('');
-  const [showDemo, setShowDemo] = useState(false);
+  const [showDemo, setShowDemoState] = useState(false);
+  // Default false so production never flashes the Show-demo toggle before /auth/me.
+  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
   const [conversion, setConversion] = useState<ConversionSelection>('');
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetchMe(token)
+      .then((me) => {
+        setDemoModeEnabled(me.demo_mode_enabled);
+        if (!me.demo_mode_enabled) setShowDemoState(false);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  function setShowDemo(show: boolean): void {
+    if (!demoModeEnabled) {
+      setShowDemoState(false);
+      return;
+    }
+    setShowDemoState(show);
+  }
 
   const value = useMemo(
     () => ({
       preset,
       platform,
-      showDemo,
+      showDemo: demoModeEnabled && showDemo,
+      demoModeEnabled,
       conversion,
       setPreset,
       setPlatform,
@@ -52,7 +77,7 @@ export function DateFilterProvider({ children }: { children: ReactNode }): JSX.E
       setConversion,
       startDate: presetToStart(preset),
     }),
-    [preset, platform, showDemo, conversion],
+    [preset, platform, showDemo, demoModeEnabled, conversion],
   );
 
   return <DateFilterContext.Provider value={value}>{children}</DateFilterContext.Provider>;

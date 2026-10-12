@@ -37,6 +37,19 @@ describe('testDataExclusionSql', () => {
     expect(apiSyncExclusionSql('external_call_id', true)).toBe('');
   });
 
+  it('ignores show_demo when APP_ENV is production', () => {
+    const previous = process.env.APP_ENV;
+    process.env.APP_ENV = 'production';
+    process.env.DEMO_MODE_ENABLED = 'true';
+    try {
+      expect(testDataExclusionSql('external_call_id', true)).toContain("NOT LIKE 'demo-%'");
+    } finally {
+      if (previous === undefined) delete process.env.APP_ENV;
+      else process.env.APP_ENV = previous;
+      delete process.env.DEMO_MODE_ENABLED;
+    }
+  });
+
   it('rejects unsafe column identifiers', () => {
     expect(() => testDataExclusionSql("id; DROP TABLE pings")).toThrow(/invalid/);
   });

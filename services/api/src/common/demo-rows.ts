@@ -24,12 +24,20 @@ export const DEMO_EXTERNAL_ID_PREFIX = API_SYNC_ID_PREFIX;
 
 const COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
 
+/** Production never shows demo rows. Local default is on. Rows are not deleted. */
+export function isDemoModeEnabled(): boolean {
+  if (process.env.APP_ENV === 'production') return false;
+  const value = process.env.DEMO_MODE_ENABLED;
+  if (value === undefined || value === '') return true;
+  return value !== 'false' && value !== '0';
+}
+
 /**
  * ClickHouse SQL fragment. Empty when includeTestData is true (show_demo=true).
  * @param column typically `external_call_id` (pings) or `call_id` (scores / compliance)
  */
 export function testDataExclusionSql(column: string, includeTestData?: boolean): string {
-  if (includeTestData) return '';
+  if (isDemoModeEnabled() && includeTestData) return '';
   if (!COLUMN_RE.test(column)) {
     throw new Error(`invalid test-data exclusion column: ${column}`);
   }

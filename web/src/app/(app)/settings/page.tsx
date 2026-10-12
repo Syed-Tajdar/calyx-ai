@@ -17,6 +17,7 @@ import {
   IntegrationRecord,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { V1_ONLY } from '@/lib/v1-features';
 
 export default function SettingsPage(): JSX.Element {
   const router = useRouter();
@@ -29,11 +30,18 @@ export default function SettingsPage(): JSX.Element {
     const token = getToken();
     if (!token) return;
 
-    Promise.all([fetchIntegrations(token), fetchAlertRules(token)])
-      .then(([integrationsRes, rulesRes]) => {
-        setIntegrations(integrationsRes);
-        setRules(rulesRes.data);
-      })
+    const loads = V1_ONLY
+      ? fetchIntegrations(token).then((integrationsRes) => {
+          setIntegrations(integrationsRes);
+          setRules([]);
+        })
+      : Promise.all([fetchIntegrations(token), fetchAlertRules(token)]).then(
+          ([integrationsRes, rulesRes]) => {
+            setIntegrations(integrationsRes);
+            setRules(rulesRes.data);
+          },
+        );
+    loads
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
           router.replace('/login');
@@ -75,7 +83,11 @@ export default function SettingsPage(): JSX.Element {
     <div className="space-y-8">
       <PageHeader
         title="Settings"
-        description="Integrations, alert rules, and provider bindings for your tenant."
+        description={
+          V1_ONLY
+            ? 'Integrations for your tenant.'
+            : 'Integrations, alert rules, and provider bindings for your tenant.'
+        }
       />
 
       {loading && <PageLoader />}
@@ -85,8 +97,8 @@ export default function SettingsPage(): JSX.Element {
         <Tabs defaultValue="integrations">
           <TabsList>
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
-            <TabsTrigger value="alerts">Alerts</TabsTrigger>
-            <TabsTrigger value="providers">Providers</TabsTrigger>
+            {!V1_ONLY && <TabsTrigger value="alerts">Alerts</TabsTrigger>}
+            {!V1_ONLY && <TabsTrigger value="providers">Providers</TabsTrigger>}
           </TabsList>
           <TabsContent value="integrations" className="space-y-6">
             <AddIntegrationForm onCreated={handleIntegrationCreated} />
@@ -96,16 +108,20 @@ export default function SettingsPage(): JSX.Element {
               onUpdated={() => void refreshIntegrations()}
             />
           </TabsContent>
-          <TabsContent value="alerts">
-            <AlertRulesSection
-              rules={rules}
-              onCreated={handleRuleCreated}
-              onDeleted={handleRuleDeleted}
-            />
-          </TabsContent>
-          <TabsContent value="providers">
-            <ProviderBindingsSection />
-          </TabsContent>
+          {!V1_ONLY && (
+            <TabsContent value="alerts">
+              <AlertRulesSection
+                rules={rules}
+                onCreated={handleRuleCreated}
+                onDeleted={handleRuleDeleted}
+              />
+            </TabsContent>
+          )}
+          {!V1_ONLY && (
+            <TabsContent value="providers">
+              <ProviderBindingsSection />
+            </TabsContent>
+          )}
         </Tabs>
       )}
     </div>

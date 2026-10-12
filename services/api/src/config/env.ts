@@ -19,6 +19,8 @@ const envSchema = z.object({
   MOCK_MODE: boolFromEnv,
   /** When false, API skips synthetic /live pings and uses Kafka instead (even if MOCK_MODE=true). */
   MOCK_EMITTER_ENABLED: boolFromEnv,
+  /** Local default true. Production (APP_ENV=production) always treats this as false. */
+  DEMO_MODE_ENABLED: boolFromEnv,
   SINGLE_TENANT_MODE: boolFromEnv,
   REDIS_URL: z.string().default('redis://localhost:6379'),
   PROVIDER_CATALOG_PATH: z.string().optional(),
