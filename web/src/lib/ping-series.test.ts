@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  axisDateTicks,
   chartSeriesForPreset,
   grainForSpan,
   periodBadge,
@@ -48,5 +49,16 @@ describe('ping series period', () => {
     const all = chartSeriesForPreset([{ date: '2026-09-22', count: 9 }], 'all', today);
     assert.equal(all[all.length - 1].date, '2026-10-08');
     assert.equal(all.reduce((sum, point) => sum + point.count, 0), 9);
+  });
+
+  it('shows at most 8 x-axis labels for 30 daily points', () => {
+    const dates = Array.from({ length: 30 }, (_, i) =>
+      new Date(Date.UTC(2026, 8, 9 + i)).toISOString().slice(0, 10),
+    );
+    const ticks = axisDateTicks(dates);
+    assert.equal(ticks[0], dates[0]);
+    assert.equal(ticks[ticks.length - 1], dates[dates.length - 1]);
+    assert.ok(ticks.length <= 8);
+    assert.equal(axisDateTicks(dates.slice(0, 7)).length, 7);
   });
 });
