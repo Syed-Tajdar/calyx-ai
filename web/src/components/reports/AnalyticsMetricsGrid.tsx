@@ -1,6 +1,7 @@
 import { Copy, DollarSign, Phone, TrendingUp, Wallet } from 'lucide-react';
 import type { MetricsResult } from '@/lib/api';
 import { MetricCard } from '@/components/dashboard/MetricCard';
+import { V1_ONLY } from '@/lib/v1-features';
 
 interface AnalyticsMetricsGridProps {
   metrics: MetricsResult | null;
@@ -34,14 +35,18 @@ export function AnalyticsMetricsGrid({ metrics }: AnalyticsMetricsGridProps): JS
         value={`$${metrics.total_payout.toFixed(0)}`}
         icon={Wallet}
       />
-      <MetricCard label="CPA" value={`$${metrics.cpa.toFixed(2)}`} icon={DollarSign} />
+      {!V1_ONLY && (
+        <MetricCard label="CPA" value={`$${metrics.cpa.toFixed(2)}`} icon={DollarSign} />
+      )}
       <MetricCard label="RPC" value={`$${metrics.rpc.toFixed(2)}`} icon={TrendingUp} />
-      <MetricCard
-        label="ROI"
-        value={`${metrics.roi.toFixed(1)}%`}
-        trendUp={metrics.roi >= 0}
-        icon={TrendingUp}
-      />
+      {!V1_ONLY && (
+        <MetricCard
+          label="ROI"
+          value={`${metrics.roi.toFixed(1)}%`}
+          trendUp={metrics.roi >= 0}
+          icon={TrendingUp}
+        />
+      )}
       <MetricCard
         label="Duplicate rate"
         value={`${((metrics.duplicate_rate ?? 0) * 100).toFixed(1)}%`}

@@ -12,6 +12,7 @@ function goodEnv(): EnvConfig {
     CLICKHOUSE_DB: 'default',
     MOCK_MODE: true,
     MOCK_EMITTER_ENABLED: false,
+    DEMO_MODE_ENABLED: true,
     SINGLE_TENANT_MODE: false,
     REDIS_URL: 'redis://:prodredis@redis:6379',
     PROVIDERCONFIG_URL: 'http://providerconfig:8084',

@@ -293,6 +293,8 @@ export interface MeResult {
   tenant_id: string;
   tenant_name: string;
   role: string;
+  has_live_integration: boolean;
+  demo_mode_enabled: boolean;
 }
 
 export async function fetchMe(token: string): Promise<MeResult> {

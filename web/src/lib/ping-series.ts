@@ -100,6 +100,19 @@ function fillThroughToday(points: PingSeriesPoint[], today: Date): PingSeriesPoi
   return rollupDaily(daily, grainForSpan(daily.length));
 }
 
+/** At most `maxLabels` dates, evenly spaced, including the first and last. Chart points stay daily. */
+export function axisDateTicks(dates: string[], maxLabels = 8): string[] {
+  if (dates.length <= maxLabels) return dates;
+  const last = dates.length - 1;
+  const out: string[] = [];
+  for (let i = 0; i < maxLabels; i++) {
+    const idx = Math.round((i * last) / (maxLabels - 1));
+    const date = dates[idx];
+    if (out[out.length - 1] !== date) out.push(date);
+  }
+  return out;
+}
+
 export function chartSeriesForPreset(
   points: PingSeriesPoint[],
   preset: '7d' | '30d' | 'all',

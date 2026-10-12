@@ -45,6 +45,7 @@ export function FilterBar({
     preset,
     platform,
     showDemo,
+    demoModeEnabled,
     conversion,
     setPreset,
     setPlatform,
@@ -108,7 +109,7 @@ export function FilterBar({
           ))}
         </div>
       )}
-      {showDemoToggle && (
+      {showDemoToggle && demoModeEnabled && (
         <label className="flex cursor-pointer items-center gap-2 text-xs text-calyx-muted">
           <input
             type="checkbox"
