@@ -2,11 +2,22 @@
 
 **Branch:** `stage4b/retreaver-writeback`, from `main` @ `14c3068`
 **Spec:** `docs/retreaver-writeback-spec.md`
-**Status:** Phase 0 and Phase 1 done. **STOPPED** before Phase 2, waiting for the owner to name the
-sandbox call UUID. No Retreaver or Ringba write was made. No credentials were used or seen.
+**Status:** Phase 0 and Phase 1 done, plus the owner's three decisions of 2026-10-12 (§0).
+**STOPPED** before Phase 2, waiting for the owner to name the sandbox call UUID. No Retreaver or
+Ringba write was made. No credentials were used or seen.
 
 Every claim is labelled `[PROVEN]` (shown by a test or command in this run), `[PROVEN-docs]`
 (quoted from Retreaver's docs, with URL), `[INFERRED]` or `[UNKNOWN]`.
+
+---
+
+## 0. Owner decisions (2026-10-12) and what changed
+
+| # | Decision | Done in |
+|---|---|---|
+| 1 | Keep the R1 redaction helper's `[REDACTED]` output. `***` is only for chat / report display. | No code change. The helper is untouched; every write-back error and audit row still goes through it. |
+| 2 | Do **not** mark Retreaver "failed" when the read-back has not matched within the settle window. Same rule for both platforms: the write errors after retries → `failed`; read-back not matching yet → `pending` (unconfirmed); read-back shows a contradicting value → `failed`. | `f1df7e3` (§3.1 "Unsettled rule") |
+| 3 | Fix the UI toast that showed "not confirmed yet" for a confirmed write, as a separate commit with a test. Ringba otherwise unchanged. | `25412c8` (§3.2) |
 
 ---
 
@@ -24,14 +35,14 @@ Gates in this run:
 
 | Gate | Result |
 |---|---|
-| platform-sync `go test ./...` | ✅ 208 pass, 5 skip, 0 fail. Baseline: 146 pass, 4 skip. Every baseline test still passes `[PROVEN]`. |
+| platform-sync `go test ./...` | ✅ 217 pass, 5 skip, 0 fail. Baseline: 146 pass, 4 skip. Every baseline test still passes `[PROVEN]`. The extra skip is the DB-backed store test without `DATABASE_URL`; run with it, it passes on Postgres 16 `[PROVEN]`. |
 | Ringba write-back tests (`writeback/convert_test.go`) | ✅ File unchanged, all 15 green `[PROVEN]` |
 | Retreaver sync tests (`adapter/retreaver_*_test.go`, `syncer`) | ✅ Files unchanged, all green `[PROVEN]` |
-| API `jest` | ✅ 60 / 60. Baseline: 46 / 46. |
-| Web `node --test` | ✅ 19 / 19. Baseline: 9 / 9. |
+| API `jest` | ✅ 61 / 61. Baseline: 46 / 46. |
+| Web `node --test` | ✅ 23 / 23. Baseline: 9 / 9. |
 | Web `next build` | ✅ |
 | Migration 000032 on real Postgres 16 (up, down, up) | ✅ `[PROVEN]` |
-| Secret scan of every commit | ✅ No secrets. detect-secrets only flagged existing dev defaults and test fakes (§9.3). |
+| Secret scan of every commit | ✅ No secrets. detect-secrets only flagged existing dev defaults and test fakes (§9, item 4). |
 | v1 gates `pwsh-preview -V1` | ⏸ Not run. They need the Docker stack, and Phase 0–1 forbids Docker. They run on the owner's machine with Phase 4. |
 
 How this run was done: it ran in a cloud sandbox, not on the owner's machine. The sandbox cannot reach
@@ -99,7 +110,7 @@ revenue=<amount>, Void = PUT revenue=0** stands.
 guard with `RangeFetcher`.
 - platform-sync, `writeback.Writer`:
   - methods: `LookupCall` · `Convert` · `Void` · `ReadBack` · `IsConverted` · `ConvertSettled` ·
-    `VoidSettled` · `SettleWindow` · `FailOnUnsettled` · `CheckCredentials`;
+    `VoidSettled` · `SettleWindow` · `Revenue` · `CheckCredentials`;
   - plus an optional `RequestValidator`.
 - `Service` keeps every shared rule and hands only the platform steps to the writer for
   `integration.platform`. The shared rules are: kill switch, tenant flag, Live-only, credentials,
@@ -153,8 +164,26 @@ and auditing stay in platform-sync.
 | Read-back | Polls `GET v2` every 2 s within `WRITEBACK_SETTLE_SECONDS_RETREAVER` (default 20). |
 | Convert settled (provisional) | `revenue == amount`, and `converted == true` if present |
 | Void settled (provisional) | `revenue` is `0` or `null` |
-| Never settles | **Audited failure** `read-back mismatch` → 502, and the lock is released. Ringba stays `pending`. A Retreaver PUT is synchronous, so a read-back that disagrees is a mismatch, not a delay. Phase 3 confirms this or changes it. |
+| Never settles | The shared unsettled rule below (owner decision 2): `pending` unless the read-back contradicts the write. |
 | Audit | Every row gets `platform='retreaver'` and `read_back` JSON: before and after values for all nine fields, `settle_seconds`, `payout_changed`, `fired_pixels_delta`. Messages and `read_back` go through the redaction helper. Lookup failures are audited too. Ringba keeps its old behaviour here: no row. |
+
+**Unsettled rule — the same for Ringba and Retreaver** (owner decision 2, `f1df7e3`). It lives
+once in `Service` (`contradicts`, `pendingMessage`); each writer only supplies `Revenue(state)`.
+
+| What happened | Outcome | HTTP | Audit | Lock |
+|---|---|---|---|---|
+| The write (Ringba fire/void, Retreaver PUT) errors after retries | `failed` | 502 | `failed` | released |
+| Read-back matched within the settle window | `confirmed` | 200 | `confirmed` | released |
+| Read-back still shows the old value, or no read-back GET succeeded | `pending` (unconfirmed) | 202 | `pending` | held as `pending` (15 min), so a second click cannot re-send |
+| Read-back shows a **contradicting** value: a revenue > 0 that is neither what was written nor what the call had before | `failed` (`read-back contradicts the write`) | 502 | `failed` | released |
+
+- Ringba keeps its pending messages word for word ("fire accepted; not settled within 20s",
+  "void accepted; not settled within 20s") and its settle rules. Its one new outcome is the
+  contradiction row, e.g. a void whose read-back shows a different non-zero amount; before this change
+  that was `pending` `[PROVEN]` (`TestRingbaUnsettledRule`).
+- Retreaver's pending message: "write accepted; read-back not yet matching after 20s (unconfirmed)".
+- A `converted=false` flag with the right revenue is treated as not-yet-matching (pending), not as a
+  contradiction. The flag may lag the revenue; Phase 3 will show whether it does `[UNKNOWN]`.
 
 **Audit storage.** Migration `000032_writeback_audit_readback` adds `platform TEXT` and
 `read_back JSONB`, plus `insert_writeback_audit_v2(… , p_platform, p_read_back)` with EXECUTE granted
@@ -177,6 +206,13 @@ unchanged. Verified on Postgres 16:
   "This sets the call's revenue to $0 in Retreaver. Pixels or postbacks that already fired are not
   recalled. It is reversible — the call can be converted again afterwards."
 - **Ringba wording is unchanged.** `writeback-support.test.ts` pins every string.
+- **Toast fix** (owner decision 3, `25412c8`). `ConversionActions` used to test
+  `result.outcome === 'settled'`, a value platform-sync never sends (it sends `confirmed`, or
+  `pending` with 202). Every confirmed Ringba or Retreaver write therefore toasted "had not confirmed
+  yet". The text now comes from `writebackToast()` in `web/src/lib/writeback-toast.ts`:
+  - `confirmed` (and legacy `settled`) → "Confirmed by Ringba — now $18.40";
+  - anything else → the old "Sent. Ringba had not confirmed yet (pending) — it may take a moment."
+  - Titles ("Converted in …", "Cancelled in …", "Voided in …") are unchanged.
 - Screenshots were taken from a **harness page against a mocked API**. They are *not* Phase 4 evidence:
   - `docs/evidence/stage4b/retreaver-convert-popup.png`
   - `docs/evidence/stage4b/retreaver-void-popup.png`
@@ -195,9 +231,12 @@ unchanged. Verified on Postgres 16:
 | `f1c0daa` | API write-back registry: `supports_writeback` per integration |
 | `0e54c0d` | `platform-options` reports `supports_writeback` |
 | `11f5d31` | Web: Convert / Void for Retreaver driven by the backend, popup, void wording |
-| *(this file)* | Report |
+| `b442f33` | Report (Phase 0–1) |
+| `f1df7e3` | Owner decision 2: unsettled read-back is pending for every platform; contradiction is failed |
+| `25412c8` | Owner decision 3: toast fix (confirmed write no longer says "not confirmed yet") |
+| *(this file's update)* | Report updated with the decisions |
 
-Files changed: 31 including this report, all inside `services/platform-sync`, `services/api`, `web/src`, `db/postgres`,
+Files changed: 33 including this report, all inside `services/platform-sync`, `services/api`, `web/src`, `db/postgres`,
 `deploy/docker-compose.yml`, `.env.example` and `docs/`. No other service is touched.
 
 ---
@@ -232,8 +271,11 @@ No existing test file was modified (`git diff --name-status 14c3068..HEAD`: test
   both confirm
 - `TestRetreaverReconvertAfterVoid`: convert → void → convert $0.75; three PUTs, all confirmed
 - `TestRetreaverConvertRefusedWhenConverted` / `TestRetreaverVoidRefusedWhenNotConverted`: 409, no PUT
-- `TestRetreaverReadBackMismatchIsAuditedFailure`: PUT ignored, wrong amount stored, void not taken.
-  Each is an audited `failed`, 502, and the lock is released.
+- `TestRetreaverUnsettledReadBackIsPendingNotFailed`: convert PUT accepted but read-back still old;
+  void PUT accepted but read-back still converted; every read-back GET fails after the PUT. Each is
+  `pending` (no error), audited `pending`, the lock is held, exactly one PUT.
+- `TestRetreaverContradictingReadBackIsAuditedFailure`: convert $1 stored as $2; void stored as $0.50.
+  Each is an audited `failed`, 502, "read-back contradicts the write", and the lock is released.
 - `TestRetreaver429ThenSuccessThroughService`
 - `TestRetreaver4xxPutNotRetriedAndAudited`: 422 → 1 PUT, audited failed, the message names Retreaver
 - `TestRetreaverRedactionOnEveryFailurePath`: PUT 400 / 401 / 403 echo, 500 ×3 echo, 429 ×3,
@@ -251,7 +293,7 @@ No existing test file was modified (`git diff --name-status 14c3068..HEAD`: test
   - call not found → 404, and the message names Retreaver
   - missing `company_id`
 - `TestRetreaverPixelAndPayoutWatchRecorded`: a pixel firing on convert is recorded as `fired_pixels_delta=1`
-- `TestRetreaverSettleWindowFromEnv`: default 20 s, override, per-platform window, `FailOnUnsettled`
+- `TestRetreaverSettleWindowFromEnv`: default 20 s, override, per-platform window
 
 ### platform-sync — `internal/writeback/registry_test.go`
 - `TestRegistryRingbaRegisteredByNewService`
@@ -260,18 +302,24 @@ No existing test file was modified (`git diff --name-status 14c3068..HEAD`: test
 - `TestRingbaWebhookListErrorStaysBareAndUnaudited`
 - `TestRingbaVoidPassesCurrentRevenueAndPayout`
 - `TestRingbaResponseAndAuditShapeUnchanged`
+- `TestRingbaUnsettledRule`: void still converted at the old amount → `pending` with the pre-4b message
+  and the lock held; convert never settles → `pending` with the pre-4b message; void read-back at a
+  different non-zero amount → `failed` (502); fire error → `failed` (unchanged)
+- `TestContradictsRule`: the rule's table (no read-back, old value, written value, cleared, different
+  amount on convert, different non-zero amount on void)
 
 ### platform-sync — `internal/store/audit_test.go` (needs `DATABASE_URL`; passed on Postgres 16 here, skips otherwise)
 - `TestInsertWritebackAuditRingbaAndRetreaver`: the Ringba row keeps `platform` and `read_back` NULL;
   the Retreaver row stores both
 
-### API — `src/integrations/retreaver-writeback.spec.ts` (14 tests)
+### API — `src/integrations/retreaver-writeback.spec.ts` (15 tests)
 - registry list; `supportsWriteback` case-insensitive; `platform-options` and integration records carry `supports_writeback`
 - 403 for non-admin roles; CSRF required on the Retreaver paths; amount 0 → 400, $1000 accepted
 - forwarded convert body is exactly {integration_id, tenant_id, user_id, inbound_call_id, amount};
   void has no amount; neither has payout or session_notes
 - kill switch and tenant flag → 403, and the request is still forwarded so platform-sync audits it
-- 409 lock; 502 mismatch → 503 with the message; missing internal token → 503 with no forward
+- 409 lock; a `pending` 202 is passed through as 202 with `outcome: pending` intact; a 502
+  contradiction → 503 with the message; missing internal token → 503 with no forward
 
 ### Web — `src/lib/writeback-support.test.ts` (10 tests)
 - support comes from the backend; hidden before the backend answers and for trackdrive / callgrid;
@@ -279,6 +327,12 @@ No existing test file was modified (`git diff --name-status 14c3068..HEAD`: test
 - ready only when supported **and** Live **and** `writeback_enabled`; Test/paused (mock) → "No live …"
 - Ringba states unchanged
 - Retreaver pixel line and void wording are exact; Ringba wording is byte-identical
+
+### Web — `src/lib/writeback-toast.test.ts` (4 tests, owner decision 3)
+- a confirmed Ringba convert says "Confirmed by Ringba — now $18.40", never "not confirmed"
+- a confirmed Retreaver void says "Confirmed by Retreaver — now $0.00"
+- `pending` keeps the old Ringba wording exactly
+- legacy `settled` counts as confirmed; a missing amount shows $0.00
 
 ### Unchanged suites, still green `[PROVEN]`
 - Ringba write-back: `writeback/convert_test.go`, 15 tests
@@ -337,23 +391,20 @@ read from Retreaver yet. Planned, with GET only:
 
 ## 10. Open questions for the owner
 
-1. **Masking style.** The R1 helper masks secrets as `[REDACTED]`. The project note says `***`. I used
-   the R1 helper as the spec says. Do you want the helper switched to `***`? It also changes sync logs
-   and their tests.
+1. ~~Masking style~~ — **decided:** keep `[REDACTED]` (§0).
 2. **The update endpoint is "Legacy".** Only the legacy reference documents `PUT /api/v5/calls/{uuid}`;
    the new site does not mention it. Ask Retreaver support whether v5 PUT is supported long-term?
 3. **Read-back version.** The new docs call v4 "recommended". The spec and sync use v2, so I kept v2.
    Move write-back read-back to v4 later?
 4. **Re-convert a converted call with a new amount.** The PUT is absolute, so this is technically
    possible. The design refuses it (409, same as Ringba): void first, then convert. Keep it that way?
-5. **Unsettled Retreaver read-back = failure, not pending** (Ringba stays pending). OK, or should it
-   match Ringba? Phase 3 timings will show which is right.
-6. **Existing UI toast wording, not changed here.**
-   - What happens: `ConversionActions` checks `outcome === 'settled'`, but platform-sync returns
-     `'confirmed'`. So a confirmed write shows the "had not confirmed yet" wording.
-   - Scope: Ringba behaves the same today.
-   - Fix it in a separate item?
+5. ~~Unsettled read-back~~ — **decided:** pending, same rule for both platforms (§0, §3.1).
+6. ~~Toast wording~~ — **fixed** in `25412c8` (§3.2).
 7. **Call id in the URL.** For Retreaver calls the call-detail route id must be the Retreaver UUID; the
    D8b notes say `external_call_id` = UUID. If any route passes a different id, write-back refuses it
    with 400 (UUID check) and sends nothing. Phase 4 will confirm.
 8. **Gates.** The full `pwsh-preview -V1` gate needs Docker, so it waits for Phase 4 on your machine.
+9. **Pending lock and Retreaver.** A `pending` result holds the call's lock for 15 minutes (Ringba's
+   existing `pendingTTL`). For Retreaver that means a second convert or void on the same call is
+   refused (409) for up to 15 minutes after an unconfirmed write. Phase 3 timings will show whether
+   Retreaver needs a shorter hold.
