@@ -187,6 +187,7 @@
       DEDUP_TTL_HOURS: "240"
       DATABASE_URL: postgres://callloom_ingestion:${POSTGRES_INGESTION_PASSWORD:-ingestion_dev}@postgres:5432/callloom?sslmode=disable
       ANI_ENCRYPTION_KEY: ${ANI_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      MOCK_MODE: ${MOCK_MODE:-true}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -241,7 +242,7 @@
       JWT_SECRET: ${JWT_SECRET:-callloom_dev_jwt_secret_min_32_chars_long}
       CLICKHOUSE_URL: http://default:${CLICKHOUSE_PASSWORD:-callloom_dev}@clickhouse:8123
       CLICKHOUSE_DB: default
-      MOCK_MODE: "true"
+      MOCK_MODE: ${MOCK_MODE:-true}
       # Off = no fake /live UUIDs; Kafka consumer feeds real integration pings to WS.
       MOCK_EMITTER_ENABLED: "false"
       SINGLE_TENANT_MODE: "false"
@@ -447,7 +448,7 @@
       KAFKA_TOPIC_PINGS: callloom.pings.v1
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       ANI_ENCRYPTION_KEY: ${ANI_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
-      MOCK_MODE: "true"
+      MOCK_MODE: ${MOCK_MODE:-true}
       MOCK_DEDUP_PROOF: "0"
       WRITEBACK_ENABLED: ${WRITEBACK_ENABLED:-false}
       WRITEBACK_SETTLE_SECONDS: "20"
