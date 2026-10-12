@@ -77,15 +77,31 @@ func (s *IntegrationStore) GetAPISyncAny(ctx context.Context, tenantID, integrat
 
 func (s *IntegrationStore) InsertWritebackAudit(ctx context.Context, row AuditRow) (string, error) {
 	var id string
-	err := s.pool.QueryRow(ctx, `
+	var err error
+	if row.Platform == "" && row.ReadBack == "" {
+		// Ringba rows: the original 11-argument function, unchanged.
+		err = s.pool.QueryRow(ctx, `
 		SELECT insert_writeback_audit(
 			$1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10, $11
 		)::text`,
-		row.TenantID, nilUUID(row.UserID), nilUUID(row.IntegrationID),
-		row.InboundCallID, row.Action, row.Amount, row.Outcome,
-		nullIfEmpty(row.RingbaRef), nullIfEmpty(row.CampaignID),
-		nullIfEmpty(row.Message), nullIfEmpty(row.OfflineUploaded),
-	).Scan(&id)
+			row.TenantID, nilUUID(row.UserID), nilUUID(row.IntegrationID),
+			row.InboundCallID, row.Action, row.Amount, row.Outcome,
+			nullIfEmpty(row.RingbaRef), nullIfEmpty(row.CampaignID),
+			nullIfEmpty(row.Message), nullIfEmpty(row.OfflineUploaded),
+		).Scan(&id)
+	} else {
+		// Stage 4b: platform + read-back (migration 000032). Retreaver rows only.
+		err = s.pool.QueryRow(ctx, `
+		SELECT insert_writeback_audit_v2(
+			$1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb
+		)::text`,
+			row.TenantID, nilUUID(row.UserID), nilUUID(row.IntegrationID),
+			row.InboundCallID, row.Action, row.Amount, row.Outcome,
+			nullIfEmpty(row.RingbaRef), nullIfEmpty(row.CampaignID),
+			nullIfEmpty(row.Message), nullIfEmpty(row.OfflineUploaded),
+			nullIfEmpty(row.Platform), nullIfEmpty(row.ReadBack),
+		).Scan(&id)
+	}
 	if err != nil {
 		return "", fmt.Errorf("insert writeback audit: %w", err)
 	}
@@ -104,6 +120,10 @@ type AuditRow struct {
 	CampaignID      string
 	Message         string
 	OfflineUploaded string
+	// Platform is empty for Ringba rows (stored by the original function). Stage 4b.
+	Platform string
+	// ReadBack is the platform read-back JSON (writeback.ReadBackSummary). Never secrets.
+	ReadBack string
 }
 
 func nilUUID(s string) interface{} {
