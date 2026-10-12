@@ -76,4 +76,4 @@ func (w *ringbaWriter) VoidSettled(after CallState) bool { return !isConverted(a
 
 func (w *ringbaWriter) SettleWindow() time.Duration { return 0 }
 
-func (w *ringbaWriter) FailOnUnsettled() bool { return false }
+func (w *ringbaWriter) Revenue(c CallState) float64 { return c.Call.Revenue }

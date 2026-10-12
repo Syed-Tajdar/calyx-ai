@@ -315,7 +315,7 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 			res.Message = ferr.Error()
 			return res, fmt.Errorf("%w: %v", forPlatform(ErrFireRejected, platform), ferr)
 		}
-		after, settled, secs := s.poll(ctx, w, creds, req.InboundCallID, func(c CallState) bool { return w.ConvertSettled(c, req.Amount) })
+		after, settled, read, secs := s.poll(ctx, w, creds, req.InboundCallID, func(c CallState) bool { return w.ConvertSettled(c, req.Amount) })
 		res.HasConverted = w.IsConverted(after)
 		res.ConversionAmount = after.Call.Revenue
 		res.CampaignID = after.Call.CampaignID
@@ -329,11 +329,11 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 			return res, nil
 		}
 		res.Amount = req.Amount
-		if w.FailOnUnsettled() {
-			return a.mismatch(ctx, res, req.Amount, after, off, &before, fmt.Sprintf("expected revenue=%.2f converted=true", req.Amount))
+		if contradicts(w, read, before, after, req.Amount) {
+			return a.mismatch(ctx, res, req.Amount, after, off, &before, fmt.Sprintf("expected revenue=%.2f", req.Amount))
 		}
 		res.Outcome = "pending"
-		res.Message = fmt.Sprintf("fire accepted; not settled within %s", s.windowFor(w))
+		res.Message = pendingMessage(platform, "fire", s.windowFor(w))
 		id, _ := a.audit(ctx, req.Amount, "pending", after.Call.CampaignID, "", res.Message, off, &before, res.ReadBack)
 		res.AuditID = id
 		_ = s.lock.MarkPending(ctx, req.TenantID, action, req.InboundCallID)
@@ -365,7 +365,7 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 	}
 	ref := info.Ref
 	res.RingbaRef = ref
-	after, settled, secs := s.poll(ctx, w, creds, req.InboundCallID, w.VoidSettled)
+	after, settled, read, secs := s.poll(ctx, w, creds, req.InboundCallID, w.VoidSettled)
 	res.HasConverted = w.IsConverted(after)
 	res.ConversionAmount = after.Call.Revenue
 	res.VoidReversible = true
@@ -378,11 +378,11 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 		res.AuditID = id
 		return res, nil
 	}
-	if w.FailOnUnsettled() {
+	if contradicts(w, read, before, after, 0) {
 		return a.mismatch(ctx, res, voidAmt, after, off, &before, "expected revenue=0 or null")
 	}
 	res.Outcome = "pending"
-	res.Message = fmt.Sprintf("void accepted; not settled within %s", s.windowFor(w))
+	res.Message = pendingMessage(platform, "void", s.windowFor(w))
 	id, _ := a.audit(ctx, voidAmt, "pending", after.Call.CampaignID, ref, res.Message, off, &before, res.ReadBack)
 	res.AuditID = id
 	_ = s.lock.MarkPending(ctx, req.TenantID, action, req.InboundCallID)
@@ -391,28 +391,54 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 }
 
 // poll re-reads the call until settled or the platform's window ends. It returns the last
-// read-back, whether it settled, and the seconds from the first poll to the last read.
-func (s *Service) poll(ctx context.Context, w Writer, creds map[string]string, callID string, settledFn func(CallState) bool) (CallState, bool, float64) {
+// successful read-back, whether it settled, whether any read succeeded, and the seconds from
+// the first poll to the last read.
+func (s *Service) poll(ctx context.Context, w Writer, creds map[string]string, callID string, settledFn func(CallState) bool) (CallState, bool, bool, float64) {
 	start := time.Now()
 	deadline := start.Add(s.windowFor(w))
 	var last CallState
+	read := false
 	for {
 		c, err := w.ReadBack(ctx, creds, callID)
 		if err == nil {
-			last = c
+			last, read = c, true
 			if settledFn(c) {
-				return c, true, time.Since(start).Seconds()
+				return c, true, true, time.Since(start).Seconds()
 			}
 		}
 		if time.Now().After(deadline) {
-			return last, false, time.Since(start).Seconds()
+			return last, false, read, time.Since(start).Seconds()
 		}
 		select {
 		case <-ctx.Done():
-			return last, false, time.Since(start).Seconds()
+			return last, false, read, time.Since(start).Seconds()
 		case <-time.After(s.pollEvery()):
 		}
 	}
+}
+
+// contradicts is the shared unsettled rule (owner decision, 2026-10-12), the same for every
+// platform. The write itself succeeded (an error after retries is already a failure), but the
+// read-back never matched within the settle window:
+//
+//   - still showing the old value, or no read-back at all → pending / unconfirmed
+//   - showing a revenue that is neither what was written (target) nor what the call had
+//     before the write → contradicting → failed
+func contradicts(w Writer, read bool, before, after CallState, target float64) bool {
+	if !read {
+		return false
+	}
+	rev := w.Revenue(after)
+	prev := w.Revenue(before)
+	return rev >= 0.005 && math.Abs(rev-target) >= 0.005 && math.Abs(rev-prev) >= 0.005
+}
+
+// pendingMessage keeps Ringba's exact pre-4b wording.
+func pendingMessage(platform, verb string, window time.Duration) string {
+	if platform == "ringba" {
+		return fmt.Sprintf("%s accepted; not settled within %s", verb, window)
+	}
+	return fmt.Sprintf("write accepted; read-back not yet matching after %s (unconfirmed)", window)
 }
 
 // attempt carries what every audit row of one request shares.
@@ -430,9 +456,9 @@ func (a *attempt) audit(ctx context.Context, amount float64, outcome, campaign, 
 	return a.svc.writeAuditRow(ctx, a.req, a.action, amount, outcome, campaign, ref, msg, offline, a.platform, rb)
 }
 
-// mismatch audits a read-back that disagrees with what was written as a failure.
+// mismatch audits a read-back that contradicts what was written as a failure.
 func (a *attempt) mismatch(ctx context.Context, res Result, amount float64, after CallState, off string, before *CallState, expected string) (Result, error) {
-	msg := fmt.Sprintf("read-back mismatch after %s: %s, got %s", a.svc.windowForPlatform(a.platform), expected, describeReadBack(after))
+	msg := fmt.Sprintf("read-back contradicts the write after %s: %s, got %s", a.svc.windowForPlatform(a.platform), expected, describeReadBack(after))
 	res.Outcome = "failed"
 	res.Message = msg
 	id, _ := a.audit(ctx, amount, "failed", after.Call.CampaignID, "", msg, off, before, res.ReadBack)

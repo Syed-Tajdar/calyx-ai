@@ -226,13 +226,30 @@ describe('Retreaver forwarding to platform-sync', () => {
     expect((err as HttpException).getStatus()).toBe(409);
   });
 
-  it('maps a read-back mismatch (502) to 503 with the platform-sync message', async () => {
-    reply = { status: 502, body: { message: 'writeback: read-back does not match the write: …' } };
+  it('passes a pending (unconfirmed) result through as 202 with the outcome intact', async () => {
+    reply = {
+      status: 202,
+      body: {
+        outcome: 'pending',
+        platform: 'retreaver',
+        message: 'write accepted; read-back not yet matching after 20s (unconfirmed)',
+      },
+    };
+    const err = await svc()
+      .convertWriteback(TENANT, 'user-1', RETREAVER_INTEGRATION, RETREAVER_CALL, 1)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(HttpException);
+    expect((err as HttpException).getStatus()).toBe(202);
+    expect((err as HttpException).getResponse()).toMatchObject({ outcome: 'pending' });
+  });
+
+  it('maps a contradicting read-back (502) to 503 with the platform-sync message', async () => {
+    reply = { status: 502, body: { message: 'writeback: read-back contradicts the write: …' } };
     const err = await svc()
       .convertWriteback(TENANT, 'user-1', RETREAVER_INTEGRATION, RETREAVER_CALL, 1)
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ServiceUnavailableException);
-    expect((err as HttpException).message).toContain('read-back does not match');
+    expect((err as HttpException).message).toContain('read-back contradicts the write');
   });
 
   it('refuses with 503 when the internal token is missing, without calling platform-sync', async () => {

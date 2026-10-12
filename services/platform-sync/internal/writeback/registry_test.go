@@ -130,3 +130,76 @@ func TestRingbaResponseAndAuditShapeUnchanged(t *testing.T) {
 		t.Fatalf("ringba audit row must use the original insert: %+v", row)
 	}
 }
+
+// Shared unsettled rule (owner decision, 2026-10-12), Ringba side. Not settled within the
+// window → pending (unchanged); only a read-back showing a value that is neither what was
+// written nor the value before is a failure.
+func TestRingbaUnsettledRule(t *testing.T) {
+	t.Run("void, read-back still converted at the old amount → pending (unchanged)", func(t *testing.T) {
+		rb := &fakeRingba{call: models.RemoteCall{ExternalCallID: "RGBTEST01", HasConverted: true, Revenue: 5}}
+		audit := &memAudit{}
+		lock := NewMemoryLocker()
+		res, err := testSvc(&fakeStore{item: enabledItem()}, rb, lock, audit).Void(context.Background(), baseReq())
+		if err != nil || res.Outcome != "pending" || res.Message != "void accepted; not settled within 40ms" {
+			t.Fatalf("res=%+v err=%v", res, err)
+		}
+		if audit.rows[0].Outcome != "pending" {
+			t.Fatalf("rows %+v", audit.rows)
+		}
+		if ok, _ := lock.Acquire(context.Background(), "ten-a", "void", "RGBTEST01"); ok {
+			t.Fatal("pending keeps the lock")
+		}
+	})
+	t.Run("convert never settles → pending with the pre-4b message", func(t *testing.T) {
+		rb := &fakeRingba{call: models.RemoteCall{ExternalCallID: "RGBTEST01"}}
+		res, err := testSvc(&fakeStore{item: enabledItem()}, rb, NewMemoryLocker(), &memAudit{}).Convert(context.Background(), baseReq())
+		if err != nil || res.Outcome != "pending" || res.Message != "fire accepted; not settled within 40ms" {
+			t.Fatalf("res=%+v err=%v", res, err)
+		}
+	})
+	t.Run("void, read-back converted at a different amount → contradiction → failed", func(t *testing.T) {
+		rb := &fakeRingba{
+			call:      models.RemoteCall{ExternalCallID: "RGBTEST01", HasConverted: true, Revenue: 5},
+			afterVoid: models.RemoteCall{ExternalCallID: "RGBTEST01", HasConverted: true, Revenue: 3},
+		}
+		audit := &memAudit{}
+		res, err := testSvc(&fakeStore{item: enabledItem()}, rb, NewMemoryLocker(), audit).Void(context.Background(), baseReq())
+		if !errors.Is(err, ErrReadBackMismatch) || HTTPStatus(err) != 502 || res.Outcome != "failed" {
+			t.Fatalf("res=%+v err=%v", res, err)
+		}
+		if audit.rows[0].Outcome != "failed" || audit.rows[0].Platform != "" {
+			t.Fatalf("rows %+v", audit.rows)
+		}
+	})
+	t.Run("fire error after retries → failed (unchanged)", func(t *testing.T) {
+		rb := &fakeRingba{call: models.RemoteCall{ExternalCallID: "RGBTEST01"}, fireErr: fmt.Errorf("webhook HTTP 500")}
+		res, err := testSvc(&fakeStore{item: enabledItem()}, rb, NewMemoryLocker(), &memAudit{}).Convert(context.Background(), baseReq())
+		if !errors.Is(err, ErrFireRejected) || res.Outcome != "failed" {
+			t.Fatalf("res=%+v err=%v", res, err)
+		}
+	})
+}
+
+func TestContradictsRule(t *testing.T) {
+	w := NewRingbaWriter(&fakeRingba{})
+	st := func(rev float64) CallState { return CallState{Call: models.RemoteCall{Revenue: rev}} }
+	cases := []struct {
+		name                  string
+		read                  bool
+		before, after, target float64
+		want                  bool
+	}{
+		{"no read-back at all", false, 0, 7, 1, false},
+		{"still the old value (convert)", true, 0, 0, 1, false},
+		{"still the old value (void)", true, 5, 5, 0, false},
+		{"exactly what was written", true, 0, 1, 1, false},
+		{"cleared to zero on void", true, 5, 0, 0, false},
+		{"different amount on convert", true, 0, 2, 1, true},
+		{"different non-zero amount on void", true, 5, 0.5, 0, true},
+	}
+	for _, c := range cases {
+		if got := contradicts(w, c.read, st(c.before), st(c.after), c.target); got != c.want {
+			t.Errorf("%s: got %v want %v", c.name, got, c.want)
+		}
+	}
+}

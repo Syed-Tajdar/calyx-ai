@@ -38,10 +38,11 @@ type Writer interface {
 	VoidSettled(after CallState) bool
 	// SettleWindow is this platform's read-back window. Zero uses the Service default.
 	SettleWindow() time.Duration
-	// FailOnUnsettled reports whether a read-back that never settles is a failure (audited
-	// as failed) rather than pending. Ringba: false (pending). Retreaver: true, because the
-	// PUT is synchronous, so a read-back that disagrees is a mismatch, not a delay.
-	FailOnUnsettled() bool
+	// Revenue is the call's revenue as this platform's read-back reports it (null → 0). The
+	// Service uses it for the shared unsettled rule: a read-back that never settles is
+	// pending, unless it shows a contradicting value — a revenue that is neither what was
+	// written nor what the call had before — which is a failure. Same rule for every platform.
+	Revenue(c CallState) float64
 }
 
 // RequestValidator is an optional Writer hook. It runs after CheckCredentials and before the

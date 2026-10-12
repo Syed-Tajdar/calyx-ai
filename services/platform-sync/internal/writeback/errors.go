@@ -22,8 +22,10 @@ var (
 	ErrIntegrationMissing = errors.New("writeback: integration not found")
 	ErrGloballyDisabled   = errors.New("writeback: write-back is disabled")
 	ErrFireRejected       = errors.New("writeback: Ringba rejected the fire")
-	// ErrReadBackMismatch: the write was accepted but the read-back never matched it.
-	ErrReadBackMismatch = errors.New("writeback: read-back does not match the write")
+	// ErrReadBackMismatch: the write was accepted but the read-back shows a contradicting value
+	// (neither what was written nor the value before). A read-back that simply has not caught
+	// up yet is pending, not this.
+	ErrReadBackMismatch = errors.New("writeback: read-back contradicts the write")
 	// ErrInvalidCallID: the call id is not in the platform's id format (Retreaver: UUID).
 	ErrInvalidCallID = errors.New("writeback: invalid call id for this platform")
 )

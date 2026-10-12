@@ -27,6 +27,9 @@ type RetreaverAPI interface {
 //
 //	convert succeeded = revenue == amount, and converted == true if the field is present
 //	void succeeded    = revenue is 0 or null
+//
+// Not settled within the window → pending/unconfirmed, like Ringba, unless the read-back shows
+// a contradicting revenue (owner decision, 2026-10-12; shared rule in Service.unsettled).
 type retreaverWriter struct {
 	api    RetreaverAPI
 	settle time.Duration
@@ -149,4 +152,7 @@ func (w *retreaverWriter) VoidSettled(after CallState) bool {
 
 func (w *retreaverWriter) SettleWindow() time.Duration { return w.settle }
 
-func (w *retreaverWriter) FailOnUnsettled() bool { return true }
+func (w *retreaverWriter) Revenue(c CallState) float64 {
+	rev, _ := revenueOf(c)
+	return rev
+}

@@ -49,8 +49,8 @@ type fakeRetreaverAPI struct {
 
 	// Behaviour switches.
 	voidLeavesZero  bool                  // void stores 0 instead of null
-	ignorePut       bool                  // accept the PUT but change nothing (read-back mismatch)
-	applyAs         func(float64) float64 // store a different amount (read-back mismatch)
+	ignorePut       bool                  // accept the PUT but change nothing (read-back not yet matching)
+	applyAs         func(float64) float64 // store a different amount (contradicting read-back)
 	putStatuses     []int                 // statuses for successive PUTs before success
 	putBody         string                // body for failing PUTs
 	getStatus       int                   // non-zero: every GET answers this
@@ -344,45 +344,109 @@ func TestRetreaverVoidRefusedWhenNotConverted(t *testing.T) {
 	}
 }
 
-func TestRetreaverReadBackMismatchIsAuditedFailure(t *testing.T) {
-	cases := map[string]func(*fakeRetreaverAPI){
-		"put ignored":    func(f *fakeRetreaverAPI) { f.ignorePut = true },
-		"wrong amount":   func(f *fakeRetreaverAPI) { f.applyAs = func(v float64) float64 { return v * 2 } },
-		"void not taken": nil, // set below
+// Owner decision (2026-10-12): the PUT succeeded but the read-back has not matched within the
+// settle window → pending / unconfirmed, exactly like Ringba. The lock is held as "pending" so a
+// second click cannot re-send while the first is unconfirmed.
+func TestRetreaverUnsettledReadBackIsPendingNotFailed(t *testing.T) {
+	cases := map[string]struct {
+		setup func(*fakeRetreaverAPI)
+		void  bool
+	}{
+		"convert: PUT accepted, read-back still old": {setup: func(f *fakeRetreaverAPI) { f.ignorePut = true }},
+		"void: PUT accepted, read-back still converted": {setup: func(f *fakeRetreaverAPI) {
+			f.revenue, f.converted, f.ignorePut = f64(1), true, true
+		}, void: true},
+		"convert: PUT accepted, every read-back GET fails": {setup: nil},
 	}
-	for name, setup := range cases {
+	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			api := newFakeRetreaverAPI()
+			var handler http.Handler = api
+			if c.setup != nil {
+				c.setup(api)
+			} else {
+				// First GET (lookup) succeeds; every read-back GET after the PUT answers 503.
+				handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.Method == http.MethodGet && api.putCount() > 0 {
+						w.WriteHeader(503)
+						return
+					}
+					api.ServeHTTP(w, r)
+				})
+			}
+			audit := &memAudit{}
+			lock := NewMemoryLocker()
+			svc := rtSvc(t, handler, retreaverItem(), lock, audit, nil)
+			action := "convert"
+			var res Result
+			var err error
+			if c.void {
+				action = "void"
+				res, err = svc.Void(context.Background(), rtReq())
+			} else {
+				res, err = svc.Convert(context.Background(), rtReq())
+			}
+			if err != nil {
+				t.Fatalf("pending must not be an error: %v", err)
+			}
+			if res.Outcome != "pending" || !strings.Contains(res.Message, "unconfirmed") {
+				t.Fatalf("%+v", res)
+			}
+			if api.putCount() != 1 {
+				t.Fatalf("puts=%d", api.putCount())
+			}
+			last := audit.rows[len(audit.rows)-1]
+			if last.Outcome != "pending" || last.Platform != "retreaver" || last.Action != action {
+				t.Fatalf("row %+v", last)
+			}
+			if ok, _ := lock.Acquire(context.Background(), "ten-a", action, rtUUID); ok {
+				t.Fatal("pending must keep the lock (MarkPending), like Ringba")
+			}
+		})
+	}
+}
+
+// A read-back that shows a value which is neither what was written nor what the call had
+// before is a contradiction → audited failure (502), lock released so the operator can act.
+func TestRetreaverContradictingReadBackIsAuditedFailure(t *testing.T) {
+	cases := map[string]struct {
+		setup func(*fakeRetreaverAPI)
+		void  bool
+	}{
+		"convert $1 stored as $2": {setup: func(f *fakeRetreaverAPI) { f.applyAs = func(v float64) float64 { return v * 2 } }},
+		"void stored as $0.50": {setup: func(f *fakeRetreaverAPI) {
+			f.revenue, f.converted = f64(1), true
+			f.applyAs = func(float64) float64 { return 0.5 }
+		}, void: true},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			api := newFakeRetreaverAPI()
+			c.setup(api)
 			audit := &memAudit{}
 			lock := NewMemoryLocker()
 			svc := rtSvc(t, api, retreaverItem(), lock, audit, nil)
+			action := "convert"
 			var res Result
 			var err error
-			if name == "void not taken" {
-				api.revenue, api.converted, api.ignorePut = f64(1), true, true
+			if c.void {
+				action = "void"
 				res, err = svc.Void(context.Background(), rtReq())
 			} else {
-				setup(api)
 				res, err = svc.Convert(context.Background(), rtReq())
 			}
 			if !errors.Is(err, ErrReadBackMismatch) || HTTPStatus(err) != 502 {
 				t.Fatalf("err=%v", err)
 			}
-			if res.Outcome != "failed" || !strings.Contains(res.Message, "read-back mismatch") {
+			if res.Outcome != "failed" || !strings.Contains(res.Message, "read-back contradicts the write") {
 				t.Fatalf("%+v", res)
 			}
 			last := audit.rows[len(audit.rows)-1]
-			if last.Outcome != "failed" || !strings.Contains(last.Message, "read-back mismatch") || last.ReadBack == "" {
+			if last.Outcome != "failed" || !strings.Contains(last.Message, "contradicts") || last.ReadBack == "" {
 				t.Fatalf("row %+v", last)
 			}
-			// A mismatch is final, not pending: the lock is released so the operator can retry.
-			action := "convert"
-			if name == "void not taken" {
-				action = "void"
-			}
-			ok, _ := lock.Acquire(context.Background(), "ten-a", action, rtUUID)
-			if !ok {
-				t.Fatal("lock must be released after a mismatch")
+			if ok, _ := lock.Acquire(context.Background(), "ten-a", action, rtUUID); !ok {
+				t.Fatal("lock must be released after a contradiction")
 			}
 		})
 	}
@@ -641,8 +705,5 @@ func TestRetreaverSettleWindowFromEnv(t *testing.T) {
 	s.Register(NewRetreaverWriter(nil, 9*time.Second))
 	if s.windowForPlatform("retreaver") != 9*time.Second || s.windowForPlatform("ringba") != SettleWindow {
 		t.Fatal("per-platform settle window")
-	}
-	if !NewRetreaverWriter(nil, 0).FailOnUnsettled() {
-		t.Fatal("Retreaver: unsettled read-back is a mismatch")
 	}
 }
