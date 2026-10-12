@@ -43,6 +43,16 @@ Alert rules store `condition.field = 'overall_score'` and fire from Kafka topic 
 
 **Proposed server value:** `MOCK_MODE=false` (and keep `MOCK_EMITTER_ENABLED=false`). Documented in `deploy/.env.example`.
 
+**Rehearsal proof (`APP_ENV=production`, `MOCK_MODE=false`, `MOCK_EMITTER_ENABLED=false`, fake keys only):**
+
+| Check | Result |
+|---|---|
+| `docker compose … ps` | api, web, platform-sync, ingestion, consumer, postgres, redis, clickhouse, redpanda all **Up** |
+| Container env | api/platform-sync/ingestion: `APP_ENV=production`, `MOCK_MODE=false` |
+| `POST /auth/login` | **201** |
+| `GET /auth/me` | `tenant_name=Devdabs`, `demo_mode_enabled=false` |
+| Startup logs (api, platform-sync, ingestion) | **no** error/fatal/panic; platform-sync boot line `mock_mode:false` |
+
 ## A5 — Tenant rename
 
 - Stored: Postgres `tenants.name` for id `11111111-1111-1111-1111-111111111111`.
