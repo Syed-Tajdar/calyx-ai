@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
@@ -245,7 +246,21 @@ func (s *Service) lockHeartbeat(runCtx context.Context, stop <-chan struct{}, in
 }
 
 // manual=true → ErrAlreadyRunning on lock miss (HTTP 409). manual=false → skip via same error for RunAll.
+func demoSyncAllowed() bool {
+	if os.Getenv("APP_ENV") == "production" {
+		return false
+	}
+	v := os.Getenv("DEMO_MODE_ENABLED")
+	return v != "false" && v != "0"
+}
+
 func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manual bool) error {
+	if item.SyncMode != "real" && !demoSyncAllowed() {
+		s.logger.Info("demo sync skipped",
+			"integration_id", item.ID, "platform", item.Platform,
+			"sync_mode", item.SyncMode, "reason", "demo mode off")
+		return nil
+	}
 	runCtx, release, err := s.withLock(ctx, item.ID, "tick")
 	if err != nil {
 		return err

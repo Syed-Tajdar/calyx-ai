@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { isDemoModeEnabled } from '../common/demo-rows';
 import { DEMO_TENANT_NAME } from '../config/constants';
 import { loadEnv } from '../config/env';
 import { PostgresService } from '../database/postgres.service';
@@ -49,6 +50,7 @@ export class AuthService {
     tenant_name: string;
     role: string;
     has_live_integration: boolean;
+    demo_mode_enabled: boolean;
   }> {
     const result = await this.postgres.withTenant(user.tenant_id, async (client) =>
       client.query<{ name: string; has_live: boolean }>(
@@ -74,6 +76,7 @@ export class AuthService {
       tenant_name: tenantName,
       role: user.role,
       has_live_integration: Boolean(result.rows[0]?.has_live),
+      demo_mode_enabled: isDemoModeEnabled(),
     };
   }
 }

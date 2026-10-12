@@ -93,6 +93,7 @@ export class AuthController {
     tenant_name: string;
     role: string;
     has_live_integration: boolean;
+    demo_mode_enabled: boolean;
   }> {
     return this.authService.getMe(req.user);
   }

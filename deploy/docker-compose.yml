@@ -243,6 +243,7 @@
       CLICKHOUSE_URL: http://default:${CLICKHOUSE_PASSWORD:-callloom_dev}@clickhouse:8123
       CLICKHOUSE_DB: default
       MOCK_MODE: ${MOCK_MODE:-true}
+      DEMO_MODE_ENABLED: ${DEMO_MODE_ENABLED:-true}
       # Off = no fake /live UUIDs; Kafka consumer feeds real integration pings to WS.
       MOCK_EMITTER_ENABLED: "false"
       SINGLE_TENANT_MODE: "false"
@@ -449,6 +450,7 @@
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       ANI_ENCRYPTION_KEY: ${ANI_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       MOCK_MODE: ${MOCK_MODE:-true}
+      DEMO_MODE_ENABLED: ${DEMO_MODE_ENABLED:-true}
       MOCK_DEDUP_PROOF: "0"
       WRITEBACK_ENABLED: ${WRITEBACK_ENABLED:-false}
       WRITEBACK_SETTLE_SECONDS: "20"
