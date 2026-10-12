@@ -37,6 +37,18 @@ describe('write-back platform registry', () => {
     expect(supportsWriteback('')).toBe(false);
   });
 
+  it('platform-options reports supports_writeback per platform', () => {
+    const svc = new IntegrationsService({} as never);
+    const byPlatform = Object.fromEntries(
+      svc.listPlatformOptions().map((o) => [o.platform, o.supports_writeback]),
+    );
+    expect(byPlatform.ringba).toBe(true);
+    expect(byPlatform.retreaver).toBe(true);
+    for (const p of Object.keys(byPlatform).filter((k) => k !== 'ringba' && k !== 'retreaver')) {
+      expect(byPlatform[p]).toBe(false);
+    }
+  });
+
   it('stamps supports_writeback on every integration record', async () => {
     const rows = ['retreaver', 'ringba', 'trackdrive', 'callgrid'].map((platform, i) => ({
       id: `id-${i}`,

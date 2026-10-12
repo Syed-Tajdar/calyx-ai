@@ -488,12 +488,14 @@ export class IntegrationsService {
     platform: string;
     supports_webhook: boolean;
     supports_api_sync: boolean;
+    supports_writeback: boolean;
     api_sync_fields: ReturnType<typeof apiSyncCredentialFields>;
   }[] {
     return API_SYNC_PLATFORMS.map((platform) => ({
       platform,
       supports_webhook: supportsWebhook(platform),
       supports_api_sync: supportsApiSync(platform),
+      supports_writeback: supportsWriteback(platform),
       api_sync_fields: apiSyncCredentialFields(platform),
     }));
   }
