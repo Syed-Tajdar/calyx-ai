@@ -256,9 +256,11 @@ func demoSyncAllowed() bool {
 
 func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manual bool) error {
 	if item.SyncMode != "real" && !demoSyncAllowed() {
-		s.logger.Info("demo sync skipped",
-			"integration_id", item.ID, "platform", item.Platform,
-			"sync_mode", item.SyncMode, "reason", "demo mode off")
+		if s.logger != nil {
+			s.logger.Info("demo sync skipped",
+				"integration_id", item.ID, "platform", item.Platform,
+				"sync_mode", item.SyncMode, "reason", "demo mode off")
+		}
 		return nil
 	}
 	runCtx, release, err := s.withLock(ctx, item.ID, "tick")
