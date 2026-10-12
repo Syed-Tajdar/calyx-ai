@@ -117,6 +117,45 @@ Fake Live keys → decrypt/test fail → status error / "Re-enter credentials" (
 
 ### B4 — Reconciliation queries (copy-paste)
 
+**Converted columns (two meanings):**
+
+| Column | Definition | Matches |
+|---|---|---|
+| `converted` | `countIf(has_converted = 1)` — platform **flag** only | Ringba / Retreaver conversion reports (their flag) |
+| `converted_paid` | `countIf(has_converted = 1 AND revenue > 0)` — flag **and** revenue > 0 | Calyx **Converted** filter (`conversionFilterSql` / `conversionState` → `converted`) |
+
+Calyx splits the flag into **Converted** (paid) and **Converted · $0** (`converted_zero`). Do not compare Ringba/Retreaver report totals to Calyx "Converted" alone — use `converted` for the platforms, `converted_paid` for Calyx.
+
+**All-time by platform** (no date filter; laptop proof vs dashboard):
+
+```sql
+SELECT
+  platform,
+  count() AS calls,
+  round(sum(if(dup = 0, rev, 0)), 2) AS revenue,
+  countIf(conv = 1) AS converted,
+  countIf(conv = 1 AND rev > 0) AS converted_paid
+FROM (
+  SELECT
+    platform,
+    external_call_id,
+    argMax(revenue, received_at) AS rev,
+    argMax(platform_duplicate, received_at) AS dup,
+    argMax(has_converted, received_at) AS conv
+  FROM pings
+  WHERE tenant_id = '11111111-1111-1111-1111-111111111111'
+    AND external_call_id != ''
+    AND external_call_id NOT LIKE 'apisync-%'
+    AND external_call_id NOT LIKE 'demo-%'
+    AND external_call_id NOT LIKE 'smoke-%'
+  GROUP BY platform, external_call_id
+)
+GROUP BY platform
+ORDER BY platform;
+```
+
+**Laptop proof (deploy stack):** Retreaver → **3,652** calls / **$33,143.85** revenue / converted **1,136** / converted_paid **1,017**. Same calls and revenue as `GET /analytics/metrics?platform=retreaver` all-time.
+
 **Per platform per day** (deduped like the dashboard; day in account timezone):
 
 ```sql
@@ -125,15 +164,16 @@ SELECT
   platform,
   toDate(toTimeZone(event_at, 'America/New_York')) AS day,
   count() AS calls,
-  round(sumIf(revenue, platform_duplicate = 0), 2) AS revenue,
-  countIf(has_converted = 1) AS converted
+  round(sum(if(dup = 0, rev, 0)), 2) AS revenue,
+  countIf(conv = 1) AS converted,
+  countIf(conv = 1 AND rev > 0) AS converted_paid
 FROM (
   SELECT
     platform,
     external_call_id,
-    argMax(revenue, received_at) AS revenue,
-    argMax(platform_duplicate, received_at) AS platform_duplicate,
-    argMax(has_converted, received_at) AS has_converted,
+    argMax(revenue, received_at) AS rev,
+    argMax(platform_duplicate, received_at) AS dup,
+    argMax(has_converted, received_at) AS conv,
     max(if(occurred_at > toDateTime(0), occurred_at, received_at)) AS event_at
   FROM pings
   WHERE tenant_id = '11111111-1111-1111-1111-111111111111'
