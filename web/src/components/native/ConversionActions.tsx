@@ -17,6 +17,7 @@ import {
   type PlatformConnectionOption,
 } from '@/lib/api';
 import { isConfirmableConvertAmount } from '@/lib/writeback-amount';
+import { writebackToast } from '@/lib/writeback-toast';
 import { canSeeWritebackActions } from '@/lib/writeback-role';
 import {
   platformSupportsWriteback,
@@ -159,15 +160,13 @@ export function ConversionActions({
           : await voidCall(token, integration.id, callId);
 
       const verb = mode === 'convert' ? 'Converted' : copy.cancelVerb;
-      toast.success(
-        `${verb} in ${formatPlatformLabel(platform)}`,
-        {
-          description:
-            result.outcome === 'settled'
-              ? `Confirmed by ${formatPlatformLabel(platform)} — now $${result.conversion_amount.toFixed(2)}`
-              : `Sent. ${formatPlatformLabel(platform)} had not confirmed yet (${result.outcome}) — it may take a moment.`,
-        },
-      );
+      const t = writebackToast({
+        verb,
+        platformLabel: formatPlatformLabel(platform),
+        outcome: result.outcome,
+        conversionAmount: result.conversion_amount,
+      });
+      toast.success(t.title, { description: t.description });
       setMode(null);
       onChanged();
     } catch (err: unknown) {
