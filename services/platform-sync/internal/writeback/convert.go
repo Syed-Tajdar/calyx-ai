@@ -2,6 +2,7 @@ package writeback
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -10,10 +11,12 @@ import (
 
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/adapter"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/models"
+	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/redact"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/store"
 )
 
-// SettleWindow is the default wait for Ringba to confirm a convert or cancel.
+// SettleWindow is the default wait for a platform to confirm a convert or cancel (Ringba;
+// Retreaver has its own WRITEBACK_SETTLE_SECONDS_RETREAVER, same 20s default).
 // WRITEBACK_SETTLE_SECONDS overrides it. 12s was tight against an observed ~10.4s read-back.
 const SettleWindow = 20 * time.Second
 const settlePoll = 2 * time.Second
@@ -40,6 +43,11 @@ type Result struct {
 	OfflineUploaded  string  `json:"offline_conversion_uploaded"`
 	RingbaRef        string  `json:"ringba_response_ref,omitempty"`
 	VoidReversible   bool    `json:"void_reversible,omitempty"`
+	// Platform is set for every platform except Ringba, whose response shape is unchanged.
+	Platform string `json:"platform,omitempty"`
+	// ReadBack is the platform's read-back before and after the write (Retreaver). Nil for
+	// Ringba, whose read-back is the mapped call above.
+	ReadBack *ReadBackSummary `json:"read_back,omitempty"`
 }
 
 type RingbaAPI interface {
@@ -62,10 +70,12 @@ type BlobDecryptor interface {
 }
 
 type Service struct {
-	store        IntegrationLoader
-	audit        AuditSink
-	decryptor    BlobDecryptor
-	ringba       RingbaAPI
+	store     IntegrationLoader
+	audit     AuditSink
+	decryptor BlobDecryptor
+	// writers is the per-platform write-back registry (Stage 4b). NewService registers
+	// Ringba; main registers Retreaver. A platform without a writer is refused (403).
+	writers      map[string]Writer
 	lock         Locker
 	settleWindow time.Duration
 	settleEvery  time.Duration
@@ -81,7 +91,11 @@ func NewService(
 	ringba RingbaAPI,
 	lock Locker,
 ) *Service {
-	return &Service{store: st, audit: audit, decryptor: dec, ringba: ringba, lock: lock, globalEnabled: true}
+	s := &Service{store: st, audit: audit, decryptor: dec, lock: lock, globalEnabled: true}
+	if ringba != nil {
+		s.Register(NewRingbaWriter(ringba))
+	}
+	return s
 }
 
 // SetGlobalEnabled records WRITEBACK_ENABLED. A request that still reaches the service
@@ -117,6 +131,21 @@ func (s *Service) window() time.Duration {
 		return s.settleWindow
 	}
 	return SettleWindow
+}
+
+// windowFor is the writer's own settle window when it has one, else the Service window.
+func (s *Service) windowFor(w Writer) time.Duration {
+	if w != nil {
+		if d := w.SettleWindow(); d > 0 {
+			return d
+		}
+	}
+	return s.window()
+}
+
+func (s *Service) windowForPlatform(platform string) time.Duration {
+	w, _ := s.writerFor(platform)
+	return s.windowFor(w)
 }
 
 func (s *Service) pollEvery() time.Duration {
@@ -195,20 +224,21 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 	if !item.WritebackEnabled {
 		return s.reject(ctx, req, action, amount, ErrTenantDisabled)
 	}
-	if !strings.EqualFold(item.Platform, "ringba") {
-		return s.reject(ctx, req, action, amount, ErrNotRingba)
+	w, ok := s.writerFor(item.Platform)
+	if !ok {
+		return s.reject(ctx, req, action, amount, ErrPlatformUnsupported)
 	}
 	if item.SyncMode != "real" {
 		return s.reject(ctx, req, action, amount, ErrNotLive)
 	}
+	platform := w.Platform()
 
 	creds, err := s.decryptor.DecryptMap(item.APICredentialsBlob)
 	if err != nil {
 		return s.reject(ctx, req, action, amount, fmt.Errorf("Re-enter credentials"))
 	}
-	accountID := strings.TrimSpace(creds["account_id"])
-	if accountID == "" {
-		return s.reject(ctx, req, action, amount, fmt.Errorf("writeback: Ringba account_id missing on this tenant's credentials"))
+	if err := w.CheckCredentials(creds); err != nil {
+		return s.reject(ctx, req, action, amount, err)
 	}
 
 	gotLock, err := s.lock.Acquire(ctx, req.TenantID, action, req.InboundCallID)
@@ -228,68 +258,74 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 		}
 	}()
 
-	call, err := s.ringba.LookupCall(ctx, creds, req.InboundCallID)
+	a := &attempt{svc: s, req: req, action: action, platform: platform}
+	if platform != "ringba" {
+		res.Platform = platform
+	}
+
+	before, err := w.LookupCall(ctx, creds, req.InboundCallID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
-			_, _ = s.writeAudit(ctx, req, action, 0, "failed", "", "", err.Error(), "absent")
-			return Result{}, ErrCallNotFound
+			_, _ = a.audit(ctx, 0, "failed", "", "", err.Error(), "absent", nil, nil)
+			return Result{}, forPlatform(ErrCallNotFound, platform)
 		}
 		return Result{}, err
 	}
-	// Lookup used this tenant's account_id. Finding the call is the account bind.
-	// A call from another Ringba account is not returned by LookupCall.
+	call := before.Call
+	// Lookup used this tenant's credentials. Finding the call is the account bind.
+	// A call from another account is not returned by LookupCall.
 	if call.ExternalCallID != req.InboundCallID {
-		_, _ = s.writeAudit(ctx, req, action, req.Amount, "failed", call.CampaignID, "", "account mismatch", offlineLabel(call))
-		return Result{}, ErrAccountMismatch
+		_, _ = a.audit(ctx, req.Amount, "failed", call.CampaignID, "", "account mismatch", offlineLabel(call), &before, nil)
+		return Result{}, forPlatform(ErrAccountMismatch, platform)
 	}
 
 	off := offlineLabel(call)
 	res.OfflineUploaded = off
 	res.InboundCallID = req.InboundCallID
 	res.CampaignID = call.CampaignID
-	res.HasConverted = isConverted(call)
+	res.HasConverted = w.IsConverted(before)
 	res.ConversionAmount = call.Revenue
 
 	if action == "convert" {
-		if isConverted(call) {
-			id, _ := s.writeAudit(ctx, req, action, req.Amount, "failed", call.CampaignID, "", ErrAlreadyConverted.Error(), off)
+		if w.IsConverted(before) {
+			id, _ := a.audit(ctx, req.Amount, "failed", call.CampaignID, "", ErrAlreadyConverted.Error(), off, &before, nil)
 			res.AuditID = id
 			res.Outcome = "failed"
 			res.Message = ErrAlreadyConverted.Error()
 			return res, ErrAlreadyConverted
 		}
-		hooks, herr := s.ringba.ListConversionWebhooks(ctx, creds)
-		if herr != nil {
-			return Result{}, herr
+		info, ferr := w.Convert(ctx, creds, req.InboundCallID, req.Amount)
+		if bare, pre := asPreWrite(ferr); pre {
+			return Result{}, bare
 		}
-		hook, herr := pickConversionWebhook(hooks)
-		if herr != nil {
-			return Result{}, herr
-		}
-		res.WebhookName = hook.Name
-		if ferr := s.ringba.FireInboundConversion(ctx, hook.ID, req.InboundCallID, req.Amount); ferr != nil {
-			id, _ := s.writeAudit(ctx, req, action, req.Amount, "failed", call.CampaignID, "", ferr.Error(), off)
+		res.WebhookName = info.WebhookName
+		if ferr != nil {
+			id, _ := a.audit(ctx, req.Amount, "failed", call.CampaignID, "", ferr.Error(), off, &before, nil)
 			res.AuditID = id
 			res.Outcome = "failed"
 			res.Message = ferr.Error()
-			return res, fmt.Errorf("%w: %v", ErrFireRejected, ferr)
+			return res, fmt.Errorf("%w: %v", forPlatform(ErrFireRejected, platform), ferr)
 		}
-		after, settled := s.pollConvert(ctx, creds, req.InboundCallID, req.Amount)
-		res.HasConverted = isConverted(after)
-		res.ConversionAmount = after.Revenue
-		res.CampaignID = after.CampaignID
+		after, settled, secs := s.poll(ctx, w, creds, req.InboundCallID, func(c CallState) bool { return w.ConvertSettled(c, req.Amount) })
+		res.HasConverted = w.IsConverted(after)
+		res.ConversionAmount = after.Call.Revenue
+		res.CampaignID = after.Call.CampaignID
+		res.ReadBack = summarize(&before, &after, secs)
 		if settled {
 			res.Outcome = "confirmed"
 			res.Amount = req.Amount
 			res.Message = "confirmed"
-			id, _ := s.writeAudit(ctx, req, action, req.Amount, "confirmed", after.CampaignID, "", "confirmed", off)
+			id, _ := a.audit(ctx, req.Amount, "confirmed", after.Call.CampaignID, "", "confirmed", off, &before, res.ReadBack)
 			res.AuditID = id
 			return res, nil
 		}
-		res.Outcome = "pending"
 		res.Amount = req.Amount
-		res.Message = fmt.Sprintf("fire accepted; not settled within %s", s.window())
-		id, _ := s.writeAudit(ctx, req, action, req.Amount, "pending", after.CampaignID, "", res.Message, off)
+		if w.FailOnUnsettled() {
+			return a.mismatch(ctx, res, req.Amount, after, off, &before, fmt.Sprintf("expected revenue=%.2f converted=true", req.Amount))
+		}
+		res.Outcome = "pending"
+		res.Message = fmt.Sprintf("fire accepted; not settled within %s", s.windowFor(w))
+		id, _ := a.audit(ctx, req.Amount, "pending", after.Call.CampaignID, "", res.Message, off, &before, res.ReadBack)
 		res.AuditID = id
 		_ = s.lock.MarkPending(ctx, req.TenantID, action, req.InboundCallID)
 		release = false
@@ -297,8 +333,8 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 	}
 
 	// void
-	if !isConverted(call) {
-		id, _ := s.writeAudit(ctx, req, action, call.Revenue, "failed", call.CampaignID, "", ErrNotConverted.Error(), off)
+	if !w.IsConverted(before) {
+		id, _ := a.audit(ctx, call.Revenue, "failed", call.CampaignID, "", ErrNotConverted.Error(), off, &before, nil)
 		res.AuditID = id
 		res.Outcome = "failed"
 		res.Message = ErrNotConverted.Error()
@@ -306,89 +342,106 @@ func (s *Service) run(ctx context.Context, req ConvertRequest, action string) (r
 		return res, ErrNotConverted
 	}
 	voidAmt := call.Revenue
-	ref, verr := s.ringba.VoidCall(ctx, creds, req.InboundCallID, call.Revenue, call.Payout)
+	info, verr := w.Void(ctx, creds, req.InboundCallID, before)
+	if bare, pre := asPreWrite(verr); pre {
+		return Result{}, bare
+	}
 	if verr != nil {
-		id, _ := s.writeAudit(ctx, req, action, voidAmt, "failed", call.CampaignID, "", verr.Error(), off)
+		id, _ := a.audit(ctx, voidAmt, "failed", call.CampaignID, "", verr.Error(), off, &before, nil)
 		res.AuditID = id
 		res.Outcome = "failed"
 		res.Message = verr.Error()
 		res.Amount = voidAmt
-		return res, fmt.Errorf("%w: %v", ErrFireRejected, verr)
+		return res, fmt.Errorf("%w: %v", forPlatform(ErrFireRejected, platform), verr)
 	}
+	ref := info.Ref
 	res.RingbaRef = ref
-	after, settled := s.pollVoid(ctx, creds, req.InboundCallID)
-	res.HasConverted = isConverted(after)
-	res.ConversionAmount = after.Revenue
+	after, settled, secs := s.poll(ctx, w, creds, req.InboundCallID, w.VoidSettled)
+	res.HasConverted = w.IsConverted(after)
+	res.ConversionAmount = after.Call.Revenue
 	res.VoidReversible = true
 	res.Amount = voidAmt
+	res.ReadBack = summarize(&before, &after, secs)
 	if settled {
 		res.Outcome = "confirmed"
 		res.Message = "void confirmed; reversible via a later convert"
-		id, _ := s.writeAudit(ctx, req, action, voidAmt, "confirmed", after.CampaignID, ref, res.Message, off)
+		id, _ := a.audit(ctx, voidAmt, "confirmed", after.Call.CampaignID, ref, res.Message, off, &before, res.ReadBack)
 		res.AuditID = id
 		return res, nil
 	}
+	if w.FailOnUnsettled() {
+		return a.mismatch(ctx, res, voidAmt, after, off, &before, "expected revenue=0 or null")
+	}
 	res.Outcome = "pending"
-	res.Message = fmt.Sprintf("void accepted; not settled within %s", s.window())
-	id, _ := s.writeAudit(ctx, req, action, voidAmt, "pending", after.CampaignID, ref, res.Message, off)
+	res.Message = fmt.Sprintf("void accepted; not settled within %s", s.windowFor(w))
+	id, _ := a.audit(ctx, voidAmt, "pending", after.Call.CampaignID, ref, res.Message, off, &before, res.ReadBack)
 	res.AuditID = id
 	_ = s.lock.MarkPending(ctx, req.TenantID, action, req.InboundCallID)
 	release = false
 	return res, nil
 }
 
-func (s *Service) pollConvert(ctx context.Context, creds map[string]string, callID string, amount float64) (models.RemoteCall, bool) {
-	deadline := time.Now().Add(s.window())
-	var last models.RemoteCall
+// poll re-reads the call until settled or the platform's window ends. It returns the last
+// read-back, whether it settled, and the seconds from the first poll to the last read.
+func (s *Service) poll(ctx context.Context, w Writer, creds map[string]string, callID string, settledFn func(CallState) bool) (CallState, bool, float64) {
+	start := time.Now()
+	deadline := start.Add(s.windowFor(w))
+	var last CallState
 	for {
-		c, err := s.ringba.LookupCall(ctx, creds, callID)
+		c, err := w.ReadBack(ctx, creds, callID)
 		if err == nil {
 			last = c
-			if c.HasConverted && c.Revenue > 0 && math.Abs(c.Revenue-amount) < 0.011 {
-				return c, true
-			}
-			if c.HasConverted && c.Revenue > 0 {
-				return c, true
+			if settledFn(c) {
+				return c, true, time.Since(start).Seconds()
 			}
 		}
 		if time.Now().After(deadline) {
-			return last, false
+			return last, false, time.Since(start).Seconds()
 		}
 		select {
 		case <-ctx.Done():
-			return last, false
+			return last, false, time.Since(start).Seconds()
 		case <-time.After(s.pollEvery()):
 		}
 	}
 }
 
-func (s *Service) pollVoid(ctx context.Context, creds map[string]string, callID string) (models.RemoteCall, bool) {
-	deadline := time.Now().Add(s.window())
-	var last models.RemoteCall
-	for {
-		c, err := s.ringba.LookupCall(ctx, creds, callID)
-		if err == nil {
-			last = c
-			if !isConverted(c) {
-				return c, true
-			}
-		}
-		if time.Now().After(deadline) {
-			return last, false
-		}
-		select {
-		case <-ctx.Done():
-			return last, false
-		case <-time.After(s.pollEvery()):
-		}
+// attempt carries what every audit row of one request shares.
+type attempt struct {
+	svc      *Service
+	req      ConvertRequest
+	action   string
+	platform string
+}
+
+func (a *attempt) audit(ctx context.Context, amount float64, outcome, campaign, ref, msg, offline string, before *CallState, rb *ReadBackSummary) (string, error) {
+	if rb == nil && before != nil && before.ReadBack != nil {
+		rb = summarize(before, nil, 0)
 	}
+	return a.svc.writeAuditRow(ctx, a.req, a.action, amount, outcome, campaign, ref, msg, offline, a.platform, rb)
+}
+
+// mismatch audits a read-back that disagrees with what was written as a failure.
+func (a *attempt) mismatch(ctx context.Context, res Result, amount float64, after CallState, off string, before *CallState, expected string) (Result, error) {
+	msg := fmt.Sprintf("read-back mismatch after %s: %s, got %s", a.svc.windowForPlatform(a.platform), expected, describeReadBack(after))
+	res.Outcome = "failed"
+	res.Message = msg
+	id, _ := a.audit(ctx, amount, "failed", after.Call.CampaignID, "", msg, off, before, res.ReadBack)
+	res.AuditID = id
+	return res, fmt.Errorf("%w: %s", ErrReadBackMismatch, msg)
 }
 
 func (s *Service) writeAudit(ctx context.Context, req ConvertRequest, action string, amount float64, outcome, campaign, ref, msg, offline string) (string, error) {
+	return s.writeAuditRow(ctx, req, action, amount, outcome, campaign, ref, msg, offline, "", nil)
+}
+
+// writeAuditRow inserts one immutable audit row. The message passes through the redaction
+// helper: a platform error can echo a request URL, and Retreaver's key travels in the URL.
+func (s *Service) writeAuditRow(ctx context.Context, req ConvertRequest, action string, amount float64, outcome, campaign, ref, msg, offline, platform string, rb *ReadBackSummary) (string, error) {
 	if s.audit == nil {
 		return "", nil
 	}
-	return s.audit.InsertWritebackAudit(ctx, store.AuditRow{
+	row := store.AuditRow{
 		TenantID:        req.TenantID,
 		UserID:          req.UserID,
 		IntegrationID:   req.IntegrationID,
@@ -398,9 +451,18 @@ func (s *Service) writeAudit(ctx context.Context, req ConvertRequest, action str
 		Outcome:         outcome,
 		RingbaRef:       ref,
 		CampaignID:      campaign,
-		Message:         msg,
+		Message:         redact.RedactMessage(msg),
 		OfflineUploaded: offline,
-	})
+	}
+	if platform != "" && platform != "ringba" {
+		row.Platform = platform
+	}
+	if rb != nil {
+		if b, err := json.Marshal(rb); err == nil {
+			row.ReadBack = redact.RedactMessage(string(b))
+		}
+	}
+	return s.audit.InsertWritebackAudit(ctx, row)
 }
 
 func pickConversionWebhook(hooks []adapter.RingbaConversionWebhook) (adapter.RingbaConversionWebhook, error) {
