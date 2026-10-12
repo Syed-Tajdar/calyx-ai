@@ -19,6 +19,7 @@ import {
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { dateFilterToQuery, useDateFilter } from '@/lib/date-filter';
+import { V1_ONLY } from '@/lib/v1-features';
 
 export default function ReportsPage(): JSX.Element {
   const router = useRouter();
@@ -56,7 +57,11 @@ export default function ReportsPage(): JSX.Element {
     <div className="space-y-8">
       <PageHeader
         title="Financial Analytics"
-        description="CPA, RPC, ROI, and profit & loss summary."
+        description={
+          V1_ONLY
+            ? 'Revenue, payout, RPC, and gross profit from real calls.'
+            : 'CPA, RPC, ROI, and profit & loss summary.'
+        }
         action={
           <Button variant="outline" size="sm" asChild className="gap-2">
             <Link href="/coverage">
