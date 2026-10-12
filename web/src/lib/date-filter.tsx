@@ -41,7 +41,8 @@ export function DateFilterProvider({ children }: { children: ReactNode }): JSX.E
   const [preset, setPreset] = useState<DateRangePreset>('30d');
   const [platform, setPlatform] = useState('');
   const [showDemo, setShowDemoState] = useState(false);
-  const [demoModeEnabled, setDemoModeEnabled] = useState(true);
+  // Default false so production never flashes the Show-demo toggle before /auth/me.
+  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
   const [conversion, setConversion] = useState<ConversionSelection>('');
 
   useEffect(() => {
