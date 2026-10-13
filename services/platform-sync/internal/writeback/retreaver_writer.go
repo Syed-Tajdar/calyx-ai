@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 	"time"
 
@@ -104,11 +105,45 @@ func (w *retreaverWriter) LookupCall(ctx context.Context, creds map[string]strin
 }
 
 func (w *retreaverWriter) Convert(ctx context.Context, creds map[string]string, callID string, amount float64) (WriteInfo, error) {
-	return WriteInfo{}, w.api.SetRevenue(ctx, creds, callID, roundCents(amount))
+	return WriteInfo{}, retreaverWriteErr(w.api.SetRevenue(ctx, creds, callID, roundCents(amount)))
 }
 
 func (w *retreaverWriter) Void(ctx context.Context, creds map[string]string, callID string, _ CallState) (WriteInfo, error) {
-	return WriteInfo{}, w.api.SetRevenue(ctx, creds, callID, 0)
+	return WriteInfo{}, retreaverWriteErr(w.api.SetRevenue(ctx, creds, callID, 0))
+}
+
+// ErrRetreaverRecordingAccess is the message shown when Retreaver refuses a revenue edit because
+// the API user lacks the recording_access permission (Phase 3: 422 "Access denied to
+// 'recording_access'." on a recorded call).
+const ErrRetreaverRecordingAccess = "Retreaver refused the write: the Retreaver API user needs recording access to convert or void this call"
+
+// retreaverPhoneRE matches the E.164 numbers Retreaver echoes in error bodies (the campaign's
+// tracking number on a 422).
+var retreaverPhoneRE = regexp.MustCompile(`\+\d{10,15}`)
+
+// retreaverMessageErr replaces an error's text and keeps the original for errors.Is / As.
+type retreaverMessageErr struct {
+	msg string
+	err error
+}
+
+func (e *retreaverMessageErr) Error() string { return e.msg }
+func (e *retreaverMessageErr) Unwrap() error { return e.err }
+
+// retreaverWriteErr turns a failed PUT into the text the operator and the audit row see: the
+// recording_access refusal becomes a plain instruction, and phone numbers are masked in any other
+// error. Redaction of the key still happens in the transport and again on persist.
+func retreaverWriteErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "recording_access") {
+		return &retreaverMessageErr{msg: ErrRetreaverRecordingAccess, err: err}
+	}
+	if masked := retreaverPhoneRE.ReplaceAllString(err.Error(), "***"); masked != err.Error() {
+		return &retreaverMessageErr{msg: masked, err: err}
+	}
+	return err
 }
 
 func (w *retreaverWriter) ReadBack(ctx context.Context, creds map[string]string, callID string) (CallState, error) {
