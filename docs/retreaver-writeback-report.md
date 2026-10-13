@@ -3,8 +3,10 @@
 **Branch:** `stage4b/retreaver-writeback`, from `main` @ `14c3068`
 **Spec:** `docs/retreaver-writeback-spec.md`
 **Status:** Phase 0 and Phase 1 done, plus the owner's three decisions of 2026-10-12 (§0).
-**STOPPED** before Phase 2, waiting for the owner to name the sandbox call UUID. No Retreaver or
-Ringba write was made. No credentials were used or seen.
+Phase 2 GET-only reads done on 2026-10-13 (§5). **STOPPED 🙋**: three open items must be settled
+before the plan can be approved (§5.4). No Retreaver or Ringba write was made. Only GET requests
+were sent (5 in the final run). The api_key and company_id were decrypted in-process and never
+printed.
 
 Every claim is labelled `[PROVEN]` (shown by a test or command in this run), `[PROVEN-docs]`
 (quoted from Retreaver's docs, with URL), `[INFERRED]` or `[UNKNOWN]`.
@@ -27,7 +29,7 @@ Every claim is labelled `[PROVEN]` (shown by a test or command in this run), `[P
 |---|---|---|
 | 0 — Verify the docs | ✅ Done. No design change, so no 🙋 stop. Five corrections and additions listed in §2. | §2 |
 | 1 — Build behind the flag | ✅ Done. Fake Retreaver API, unit tests only, no Docker, no credentials, no network writes. | §3, §4 |
-| 2 — Sandbox proof and plan (GET only) | ⏸ Waiting. Needs the 🙋 sandbox call UUID. | §5 |
+| 2 — Sandbox proof and plan (GET only) | 🙋 Stopped. Reads done; $0 terms and no campaign/target/publisher pixels or postbacks proven. Company-level pixels cannot be listed by the API; the stored Company ID does not match the call's company. | §5 |
 | 3 — Sandbox run with probe | ⏸ Not started. Needs the owner's written approval of the Phase 2 plan. | §6 |
 | 4 — Local end-to-end through Calyx | ⏸ Not started. | §8 |
 
@@ -87,8 +89,12 @@ this branch changes no file in any of them (`git diff --stat`, §3.3).
 
 - ✏️ **The update page is now labelled "Legacy"** `[PROVEN-docs]`. Front matter: "Legacy reference for
   the Retreaver Core API. For the current Retreaver API documentation, visit learn.retreaver.com/api."
-  The new docs do not mention `PUT` or `/api/v5` at all. This does not change the design, because the
+  The new docs do not mention `PUT` at all. This does not change the design, because the
   endpoint is still documented. It is a risk to keep in mind (Q2).
+  - ✏️ Correction (2026-10-13): the new docs **do** mention `/api/v5`, but only as a read API.
+    "Calls API v5 … accepts the same parameters and returns the same fields as v4, plus one:
+    `inbound_leg_recording_url`" `[PROVEN-docs]` (https://learn.retreaver.com/api/calls). There is
+    still no `PUT` there.
 - 🔎 **`fired_pixels_count` also counts pixels that have not fired yet** `[INFERRED]` from the docs'
   own example. The V2 example shows `"fired_pixels_count": 5`. One of its 5 `fired_pixel` rows has
   `"status": "new", "fired_at": null`. So the count includes queued pixel records. The Phase 3 rule
@@ -348,12 +354,125 @@ redaction tests failed and printed the leaked (fake) key. I then restored the co
 
 ## 5. Phase 2 — sandbox proof and plan
 
-⏸ **Waiting for 🙋 the owner: the UUID of a test call on `CALYX-SANDBOX-DO-NOT-USE`.** Nothing has been
-read from Retreaver yet. Planned, with GET only:
-- read the call, its campaign, target and affiliate;
-- prove there are no pixels or postbacks and that the terms are $0;
-- write the a–i plan table from the spec;
-- commit, push, and STOP for written approval.
+Run on 2026-10-13 on the owner's machine (local stack `calyx-4b`). **GET only.** No PUT, POST or
+DELETE was sent to Retreaver or Ringba.
+
+### 5.1 How it was read
+
+- **Integration:** "My Test", added by the owner in Settings. Retreaver, `api_sync`, `sync_mode=mock`
+  (Test), `is_active=false` (paused), `writeback_enabled=false` `[PROVEN]` (Postgres row). It is
+  never Live on this machine.
+- **Probe:** `services/platform-sync/cmd/probe-retreaver-writeback-get`. It is not in any image,
+  because the Dockerfile builds only `./cmd/server`.
+  - It reads the credentials with `get_api_sync_integration_any()`, the same lookup as the
+    write-back path, and decrypts them in-process.
+  - The encryption key and `DATABASE_URL` come from the running platform-sync container through
+    **stdin**, never through a command line.
+  - The probe runs in a `golang:1.26.5-alpine` container on the `calyx-4b_default` network.
+  - Its HTTP transport **refuses every method except GET** and every host except
+    `api.retreaver.com`.
+  - Every URL and error goes through `internal/redact`.
+  - Printed objects are masked: phones, `company_id`, SIP fields, object/show keys, postback key
+    UUIDs, and URL paths. Only URL hosts are shown.
+  - It refuses an integration that is Live.
+- **Requests in the final run (5, all GET, 700 ms apart, so under the shared 2/s limit):**
+
+| # | Request (key redacted) | HTTP |
+|---|---|---|
+| 1 | `GET /api/v2/calls/a82a7a80-f1fd-46a5-a018-379dd7893ea7.json?api_key=[REDACTED]&company_id=[REDACTED]` | 200 |
+| 2 | `GET /campaigns/cid/3d4d4d1c.json?…` (from the call's `cid`) | 200 |
+| 3 | `GET /targets/149596.json?…` (from the call's `target_id`) | 200 |
+| 4 | `GET /api/v1/affiliates/afid/11111.json?…` (legacy afid lookup, from the call's `afid`) | **404** |
+| 5 | `GET /api/v1/affiliates/71582.json?…` (id lookup from https://learn.retreaver.com/api/affiliates, from `system_affiliate_id`) | 200 |
+
+  Two earlier runs of the same probe sent 4 GETs; they differed only in fixes to the masking and the
+  affiliate lookup. Request 4's 404 is `[UNKNOWN]`: the docs show the afid lookup, but this account
+  answers 404 for afid `11111`, while the id lookup returns the same publisher (afid `11111`).
+
+### 5.2 The call now (baseline for Phase 3) `[PROVEN]`
+
+| Field | Value |
+|---|---|
+| `converted` | `false` |
+| `revenue` | `null` |
+| `payout` | `null` |
+| `receivable` | `false` |
+| `payable` | `false` |
+| `fired_pixels_count` | **`1`** (see 🙋 B) |
+| `conversions_determined_at` | `2026-10-12T17:48:38.314Z` |
+| `postback_value` | `null` |
+| `updated_at` | `2026-10-12T17:48:45.838Z` |
+| other | `status=finished`, `total_duration=85`, `dialed_call_duration=74`, `connected=true`, `session_notes=null`, `duplicate=false`, all three `*_sale_timer_fired=null` |
+
+### 5.3 Pixels, postbacks and terms
+
+| Object | What GET shows | Verdict |
+|---|---|---|
+| Campaign `3d4d4d1c` "Calyx Sandox - Do not use" (id 54339) | `timers: []`, `postback_keys: []`, `conversion_propagation: false`. One conversion group, "Default Conversion Settings": `timer`, 90 s, `revenue 0`, `payout 0`, `postback: false`, `postback_uuid: null`. One target (149596). `record_calls: true`. | ✅ No campaign pixels or postbacks; $0 terms `[PROVEN]`. ⚠️ Recording is **on** (🙋 C). |
+| Target 149596 "Calyx - Test buyer" | `conversion_groups: []`, `timers: []`, `tag_values: []`, caps all `null`, not paused | ✅ No target conversion terms, timers or postbacks `[PROVEN]` |
+| Publisher 71582, afid `11111`, company name "Calyx- Test Sandbox" | `conversion_groups: []` | ✅ No publisher payout terms `[PROVEN]`. So a convert should not set `payout` `[INFERRED]`. |
+| The call's `fired_pixels` | 1 entry: host `api.blacklistalliance.net`, `fire_order 0`, created 17:46:53 (**at call start**), `status: "error"`, `webhook_name: null` | ⚠️ A pixel **exists** that is not on the campaign, target or publisher (🙋 B) |
+
+### 5.4 🙋 Open items: why Phase 2 stops here
+
+**A. The stored Company ID does not match the call's company `[PROVEN]`.**
+- The call's `company_id` is a 6-digit number.
+- The `company_id` saved in "My Test" is 14 characters long and **not all digits**. It is not the
+  API key, and it has no surrounding whitespace. Neither value is printed here.
+- Retreaver still answered every GET with 200, so it seems to resolve the company from the API key
+  and not check `company_id` on these reads `[INFERRED]`.
+- The Calyx writer compares the two values, so Phase 4 would refuse the call as an account mismatch
+  (403, audited) `[PROVEN]` (`retreaverWriter.LookupCall`). It is also `[UNKNOWN]` what a PUT
+  with a wrong `company_id` would do.
+- 🙋 **Owner:** in Settings, re-enter "My Test" with the numeric Company ID from Retreaver (Test
+  mode, then pause again). I re-run the GET probe to confirm `== true` before any write.
+
+**B. Company-level pixels cannot be proven absent with GET.**
+- The documented API has no endpoint that lists company-level pixels or webhooks. Both the legacy
+  reference and learn.retreaver.com/api were checked `[PROVEN-docs]`.
+- This call already shows one: a Blacklist Alliance lookup that fired at **call start**, not at
+  conversion. It is on none of the campaign, target or publisher, so it is configured at the
+  company level `[INFERRED]`.
+- Whether any company-level pixel or webhook fires on **conversion** is `[UNKNOWN]`.
+- 🙋 **Owner:** in the Retreaver UI, check every pixel/webhook in this company. Confirm that none
+  fires on a conversion (or on revenue/receivable) for campaign "Calyx Sandox - Do not use". If one
+  does, pause it or scope it away from this campaign first.
+- In Phase 3, `fired_pixels_count` must then stay at **1** after every step.
+
+**C. Recording is on for the sandbox campaign** (`record_calls: true`). The spec asked for
+recording off. A revenue edit does not touch recording `[INFERRED]`. 🙋 Accept as is, or turn
+recording off in Retreaver.
+
+Also for the owner to confirm: the campaign is named "Calyx Sandox - Do not use" in Retreaver. The
+spec calls it `CALYX-SANDBOX-DO-NOT-USE`. Is this the same sandbox campaign?
+
+### 5.5 Plan for Phase 3 (needs A–C settled, then the owner's written approval)
+
+- **Only call:** `a82a7a80-f1fd-46a5-a018-379dd7893ea7`.
+- **Amounts:** $1 at most.
+- **Body:** only `revenue`. Never `payout` or `session_notes`.
+- **Pacing:** one step at a time, all through the shared limiter.
+- The probe (`cmd/probe-retreaver-writeback`, not in any image) uses the stored "My Test"
+  credentials.
+- **Read-back fields after every step:** `converted`, `revenue`, `payout`, `receivable`,
+  `payable`, `fired_pixels_count`, `conversions_determined_at`, `postback_value`, `updated_at`.
+- **Stop at once if:** `fired_pixels_count` rises above 1, `payout` changes, the company check is
+  not `true`, any PUT returns 4xx/5xx, or anything else differs from "Expected".
+
+| Step | Request (key redacted) | Expected | Read-back fields | Undo |
+|---|---|---|---|---|
+| a. read | `GET /api/v2/calls/a82a7a80-…7ea7.json?api_key=[REDACTED]&company_id=[REDACTED]` | 200; the §5.2 baseline; company check `true` | all nine | — |
+| b. convert $1 | `PUT /api/v5/calls/a82a7a80-…7ea7.json?api_key=[REDACTED]&company_id=[REDACTED]`, body `{"call":{"revenue":1}}` | 200 | (see c) | step d |
+| c. read until settled (timed) | `GET /api/v2/calls/…json` every 2 s, at most 60 s | `revenue=1`, `receivable=true`, `converted=true` `[UNKNOWN]`, `payout=null`, `payable=false`, `fired_pixels_count=1`, `updated_at` moves | all nine + seconds to settle | step d |
+| d. void | `PUT /api/v5/calls/…json`, body `{"call":{"revenue":0}}` | 200 | (see e) | step f restores the convert, if wanted |
+| e. read | `GET /api/v2/calls/…json` (poll as in c) | `revenue` `0` or `null` `[UNKNOWN]`, `receivable=false`, `converted=false` `[UNKNOWN]`, `payout=null`, `fired_pixels_count=1` | all nine + seconds | — |
+| f. convert $1 again | `PUT …`, body `{"call":{"revenue":1}}`, then read as in c | as c; `fired_pixels_count` still 1, so a re-convert does not re-fire | all nine + seconds | step h |
+| g. convert $1 once more (proves absolute) | `PUT …`, body `{"call":{"revenue":1}}`, then read as in c. This is the probe only: the Calyx UI would answer 409 here, by design (Q4). | `revenue=1`, **not 2**; `fired_pixels_count=1` | all nine | step h |
+| h. void | `PUT …`, body `{"call":{"revenue":0}}`, then read as in e | as e | all nine + seconds | — |
+| i. final read | `GET /api/v2/calls/…json` | **End state:** not converted, `revenue` `0`/`null`, `receivable=false`, `payout=null`, `payable=false`, `fired_pixels_count=1` | all nine | — |
+
+In total: **5 PUTs** (b, d, f, g, h), each followed by at most 30 GETs. Every edit is also saved in
+Retreaver's version history `[PROVEN-docs]`.
 
 ## 6. Phase 3 — sandbox run
 
