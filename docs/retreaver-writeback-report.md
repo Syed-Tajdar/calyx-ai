@@ -3,9 +3,9 @@
 **Branch:** `stage4b/retreaver-writeback`, from `main` @ `14c3068`
 **Spec:** `docs/retreaver-writeback-spec.md`
 **Status:** Phase 0 and Phase 1 done, plus the owner's three decisions of 2026-10-12 (§0).
-Phase 2 GET-only reads done on 2026-10-13 (§5). **STOPPED 🙋**: three open items must be settled
-before the plan can be approved (§5.4). No Retreaver or Ringba write was made. Only GET requests
-were sent (5 in the final run). The api_key and company_id were decrypted in-process and never
+Phase 2 GET-only reads done on 2026-10-13 (§5). **STOPPED 🙋**: of the three open items, A and C
+are resolved and B (company-level pixels) is still open (§5.4). No Retreaver or Ringba write was made
+by Calyx tooling. Only GET requests were sent (14 in total). The api_key and company_id were decrypted in-process and never
 printed.
 
 Every claim is labelled `[PROVEN]` (shown by a test or command in this run), `[PROVEN-docs]`
@@ -29,7 +29,7 @@ Every claim is labelled `[PROVEN]` (shown by a test or command in this run), `[P
 |---|---|---|
 | 0 — Verify the docs | ✅ Done. No design change, so no 🙋 stop. Five corrections and additions listed in §2. | §2 |
 | 1 — Build behind the flag | ✅ Done. Fake Retreaver API, unit tests only, no Docker, no credentials, no network writes. | §3, §4 |
-| 2 — Sandbox proof and plan (GET only) | 🙋 Stopped. Reads done; $0 terms and no campaign/target/publisher pixels or postbacks proven. Company-level pixels cannot be listed by the API; the stored Company ID does not match the call's company. | §5 |
+| 2 — Sandbox proof and plan (GET only) | 🙋 Stopped. Reads done; $0 terms and no campaign/target/publisher pixels or postbacks proven; Company ID now matches; recording off. Still open: company-level pixels cannot be listed by the API (B). | §5 |
 | 3 — Sandbox run with probe | ⏸ Not started. Needs the owner's written approval of the Phase 2 plan. | §6 |
 | 4 — Local end-to-end through Calyx | ⏸ Not started. | §8 |
 
@@ -415,6 +415,36 @@ DELETE was sent to Retreaver or Ringba.
 | The call's `fired_pixels` | 1 entry: host `api.blacklistalliance.net`, `fire_order 0`, created 17:46:53 (**at call start**), `status: "error"`, `webhook_name: null` | ⚠️ A pixel **exists** that is not on the campaign, target or publisher (🙋 B) |
 
 ### 5.4 🙋 Open items: why Phase 2 stops here
+
+**Update 2026-10-13, after the owner's answers.** The GET probe was re-run with the re-added
+integration "My test" (`bb5b0fef…`, `mock`, paused, `writeback_enabled=false`): 5 GETs, same
+endpoints, same HTTP codes. Total GETs so far: 14.
+
+| Item | State |
+|---|---|
+| A. Company ID | ✅ **Resolved.** The owner re-entered it. `call.company_id == stored company_id` is now `true` `[PROVEN]`. |
+| B. Company-level pixels | 🙋 **Still open.** The owner checked the campaign's conversion criteria (timer / attempt / postback). One type must always be set; it is set to `timer` at $0 with postback off, which §5.3 already proves. That is the campaign's own setting. It does not answer whether a **company-level** pixel or webhook (like the Blacklist Alliance one) fires on conversion. |
+| C. Recording | ✅ **Resolved.** The owner turned it off. The campaign now shows `record_calls: false`, `updated_at 2026-10-13T16:25:38Z` `[PROVEN]`. |
+| Campaign name | ✅ The owner confirmed that "Calyx Sandox - Do not use" is the sandbox campaign. |
+| The call | Unchanged since §5.2: same nine fields, `fired_pixels_count=1` `[PROVEN]`. |
+
+⚠️ **Incident while re-adding the integration (no data affected).**
+- From API and platform-sync logs, "My test" ran a **real** (Live) sync for about a minute after
+  it was created:
+  - `POST /integrations` at 16:46:27Z;
+  - a credential test that took 1.4 s (the mock test is instant);
+  - a `POST …/sync` from 16:46:28 to 16:47:45 that ended in 503: "network error (transient, will
+    retry): context deadline exceeded";
+  - then two `PATCH …/sync-mode` (16:47:38, 16:48:33) and a pause at 16:49:03.
+- Only the real adapter makes HTTP calls; the mock adapter makes none. So the integration was in
+  Live mode during that sync `[INFERRED]`.
+- The 30-day fetch timed out before anything was published. ClickHouse has no Retreaver ping
+  after 16:04:21Z, which was the old integration's single mock ping `[PROVEN]`.
+- The final state is `mock` and paused `[PROVEN]`.
+- The red "error" badge in Settings is the stale status of that failed sync. It stays until a
+  successful sync and is harmless while the integration is paused.
+
+The original findings follow.
 
 **A. The stored Company ID does not match the call's company `[PROVEN]`.**
 - The call's `company_id` is a 6-digit number.
