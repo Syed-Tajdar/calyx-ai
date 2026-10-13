@@ -3,10 +3,11 @@
 **Branch:** `stage4b/retreaver-writeback`, from `main` @ `14c3068`
 **Spec:** `docs/retreaver-writeback-spec.md`
 **Status:** Phase 0 and Phase 1 done, plus the owner's three decisions of 2026-10-12 (§0).
-Phase 2 GET-only reads done on 2026-10-13 (§5). **STOPPED 🙋**: of the three open items, A and C
-are resolved and B (company-level pixels) is still open (§5.4). No Retreaver or Ringba write was made
-by Calyx tooling. Only GET requests were sent (14 in total). The api_key and company_id were decrypted in-process and never
-printed.
+Phase 2 done on 2026-10-14: A and C resolved, B closed by the owner's written risk acceptance (§5.4).
+Phase 3 approved and started on 2026-10-14, then **STOPPED 🙋 at step b**: Retreaver refused the
+first PUT with HTTP 422 "Access denied to 'recording_access'" and applied nothing (§6). Phase 4 skipped
+by the owner (§8). Requests so far: 1 PUT (refused) and 23 GETs. The api_key and company_id were
+decrypted in-process and never printed.
 
 Every claim is labelled `[PROVEN]` (shown by a test or command in this run), `[PROVEN-docs]`
 (quoted from Retreaver's docs, with URL), `[INFERRED]` or `[UNKNOWN]`.
@@ -29,9 +30,9 @@ Every claim is labelled `[PROVEN]` (shown by a test or command in this run), `[P
 |---|---|---|
 | 0 — Verify the docs | ✅ Done. No design change, so no 🙋 stop. Five corrections and additions listed in §2. | §2 |
 | 1 — Build behind the flag | ✅ Done. Fake Retreaver API, unit tests only, no Docker, no credentials, no network writes. | §3, §4 |
-| 2 — Sandbox proof and plan (GET only) | 🙋 Stopped. Reads done; $0 terms and no campaign/target/publisher pixels or postbacks proven; Company ID now matches; recording off. Still open: company-level pixels cannot be listed by the API (B). | §5 |
-| 3 — Sandbox run with probe | ⏸ Not started. Needs the owner's written approval of the Phase 2 plan. | §6 |
-| 4 — Local end-to-end through Calyx | ⏸ Not started. | §8 |
+| 2 — Sandbox proof and plan (GET only) | ✅ Done. $0 terms and no campaign/target/publisher pixels or postbacks proven; Company ID matches; recording off. B (company-level pixels) closed by the owner's written risk acceptance on 2026-10-14. | §5 |
+| 3 — Sandbox run with probe | 🙋 Stopped at step b. Owner approval, backfill done and no reconciliation confirmed. The first PUT was refused (422, `recording_access`); the call is unchanged. Needs a call without a recording, or an API user with recording access. | §6 |
+| 4 — Local end-to-end through Calyx | ⏭ Skipped by the owner on 2026-10-14 (laptop platform-sync must stay stopped). The same check runs on the server on write-back day. | §8 |
 
 Gates in this run:
 
@@ -428,6 +429,21 @@ endpoints, same HTTP codes. Total GETs so far: 14.
 | Campaign name | ✅ The owner confirmed that "Calyx Sandox - Do not use" is the sandbox campaign. |
 | The call | Unchanged since §5.2: same nine fields, `fired_pixels_count=1` `[PROVEN]`. |
 
+**Update 2026-10-14 — Phase 2 closed.**
+- Re-check on the laptop stack (`deploy`): "My test" (`53200af1…`), Retreaver, `mock`, paused,
+  `writeback_enabled=false` `[PROVEN]`. Laptop platform-sync stayed stopped; the probe read the key and
+  `DATABASE_URL` from the stopped container's saved config into stdin. 5 GETs, same endpoints and HTTP
+  codes as §5.1. The call and the campaign are unchanged from §5.2–§5.3 `[PROVEN]`.
+- The owner's Ridge Rise Media login has no access to campaign 54339 ("Couldn't find Campaign 54339")
+  and sees one company only, so the sandbox lives in a separate Retreaver company `[PROVEN]` (UI). The
+  Ridge Rise company page has no default webhooks and no postback keys, but that is not the sandbox
+  company.
+- From the sandbox side (owner relay): the 90 s timer conversion rule cannot be removed (it is $0 with
+  postback off, §5.3), the company pixel stays as an automatic rule, and the webhook was removed.
+- **B closed by owner decision:** "I accept the company-pixel risk for the sandbox call." (2026-10-14)
+- Phase 3 confirmations from the owner: plan approved, the server's first Retreaver backfill is done,
+  no reconciliation running. Phase 4: skip.
+
 ⚠️ **Incident while re-adding the integration (no data affected).**
 - From API and platform-sync logs, "My test" ran a **real** (Live) sync for about a minute after
   it was created:
@@ -507,7 +523,54 @@ Retreaver's version history `[PROVEN-docs]`.
 
 ## 6. Phase 3 — sandbox run
 
-⏸ Not started.
+Run on 2026-10-14 (UTC 2026-10-13T21:05Z) on the laptop stack, after the owner's written approval.
+**Stopped at step b.**
+
+### 6.1 Probe
+
+`services/platform-sync/cmd/probe-retreaver-writeback`, not in any image (the Dockerfile builds only
+`./cmd/server`). One plan step per run. It goes through the real transport
+(`adapter.RetreaverCallClient`: PUT v5 revenue only, GET v2, shared limiter, retry rules, redaction).
+Limits in code:
+- only call `a82a7a80-f1fd-46a5-a018-379dd7893ea7`; the transport also refuses any other path;
+- only GET and PUT, only to `api.retreaver.com`; only revenue 1 or 0;
+- refuses a Live integration;
+- stops on: company check false, `fired_pixels_count` ≠ 1, payout > 0, payable true, a PUT error,
+  a contradicting read-back, or no settle within 60 s (poll every 3 s).
+
+### 6.2 Results
+
+| Step | Request (key redacted) | Result |
+|---|---|---|
+| a. read | `GET /api/v2/calls/a82a7a80-…7ea7.json?api_key=[REDACTED]&company_id=[REDACTED]` | 200. Company check `true`. `converted=false`, `revenue=null`, `payout=null`, `receivable=false`, `payable=false`, `fired_pixels_count=1`, `updated_at=2026-10-12T17:48:45.838Z`. Matches §5.2 `[PROVEN]` |
+| b. convert $1 | `PUT /api/v5/calls/a82a7a80-…7ea7.json?api_key=[REDACTED]&company_id=[REDACTED]`, body `{"call":{"revenue":1}}` | **422.** Body: `{"call":{"errors":{"call_base":{"label":"Base","messages":["Access denied to 'recording_access'."]}},"campaign":{"id":54339,"name":"3d4d4d1c - Calyx Sandox - Do not use"},"number":{"number":"***","name":null}}}` `[PROVEN]`. Not retried (4xx). Probe stopped. |
+| re-read | `GET /api/v2/calls/…json` | 200. **Unchanged:** same nine fields, same `updated_at`, `fired_pixels_count=1` `[PROVEN]`. Retreaver applied nothing. |
+| c–i | — | Not run. |
+
+Requests in Phase 3: 1 PUT (refused) and 4 GETs, one at a time through the shared limiter.
+
+### 6.3 What this means
+
+- **PUT needs more than read rights** (closes the Phase 0 `[UNKNOWN]`, §2.1). Retreaver refuses to edit
+  this call for an API user without the `recording_access` permission `[PROVEN]`.
+- The call was recorded: recording was on for the campaign when the call was made on 2026-10-12, and was
+  turned off on 2026-10-13. That the refusal is tied to the call having a recording is `[INFERRED]`; it
+  is `[UNKNOWN]` whether Retreaver checks the permission on every edit.
+- **Product requirement:** a customer's Retreaver API user needs **recording access** for Convert/Void
+  on recorded calls. Most real calls are recorded.
+- Calyx already handles this safely `[PROVEN]` by the Phase 1 tests: a 422 is never retried, the write
+  is audited `failed` (502), and the key is redacted. Follow-ups in this pass: a clear message for this
+  refusal, and phone numbers masked in the stored error text (Retreaver's 422 body echoes the campaign's
+  tracking number).
+
+### 6.4 To finish Phase 3 🙋 (owner)
+
+One of:
+1. In the sandbox Retreaver company, give the API key's user **recording access** (or use a key of a
+   user who has it). Then re-run steps a–i on the same call.
+2. Place a **new sandbox call** now that recording is off (under 90 s, so the timer does not convert it)
+   and send its UUID. The probe's call constant changes to that UUID only after a GET-only re-check of the
+   new call (§5 rules).
 
 ## 7. Final rules
 
@@ -515,7 +578,9 @@ Retreaver's version history `[PROVEN-docs]`.
 
 ## 8. Phase 4 — local end-to-end
 
-⏸ Not started.
+⏭ Skipped by the owner on 2026-10-14. Laptop platform-sync must stay stopped (go-live Step 2.1), and the
+write-back routes run in platform-sync. The same screen check (popup, Convert $1 → read-back → audit,
+Void → read-back → audit) runs on the server on the owner's "write-back on" day.
 
 ---
 
@@ -532,6 +597,8 @@ Retreaver's version history `[PROVEN-docs]`.
    - Unchanged: `WRITEBACK_ENABLED` stays `false`. It is `${WRITEBACK_ENABLED:-false}` in both compose
      services and empty in `deploy/.env.example`.
    - Every integration's `writeback_enabled` stays `false` until the owner turns it on.
+   - **Customer setup requirement (from Phase 3):** before turning write-back on for a Retreaver
+     account, its API user needs **recording access**, or Retreaver answers 422 on recorded calls.
 4. **Secret scan:** every commit `9927b16..HEAD` was scanned (targeted greps plus detect-secrets).
    - No keys, tokens or `.env` files.
    - detect-secrets flagged only existing dev defaults in `.env.example` (my diff there is two comment
@@ -558,3 +625,6 @@ Retreaver's version history `[PROVEN-docs]`.
    existing `pendingTTL`). For Retreaver that means a second convert or void on the same call is
    refused (409) for up to 15 minutes after an unconfirmed write. Phase 3 timings will show whether
    Retreaver needs a shorter hold.
+10. **Recording access (new, Phase 3).** Retreaver refused the PUT with 422 "Access denied to
+    'recording_access'". Give the sandbox API user recording access, or send a new non-recorded sandbox
+    call UUID (§6.4). For customers, recording access becomes a setup requirement (§9).
