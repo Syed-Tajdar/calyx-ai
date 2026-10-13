@@ -385,8 +385,9 @@ DELETE was sent to Retreaver or Ringba.
 | 4 | `GET /api/v1/affiliates/afid/11111.json?…` (legacy afid lookup, from the call's `afid`) | **404** |
 | 5 | `GET /api/v1/affiliates/71582.json?…` (id lookup from https://learn.retreaver.com/api/affiliates, from `system_affiliate_id`) | 200 |
 
-  Two earlier runs of the same probe sent 4 GETs; they differed only in fixes to the masking and the
-  affiliate lookup. Request 4's 404 is `[UNKNOWN]`: the docs show the afid lookup, but this account
+  Before this run: a first run stopped at the database lookup before any request; a second run sent
+  requests 1–4 above. The final run differs only in fixes to the masking and the affiliate lookup.
+  In total, 9 GETs were sent to Retreaver. Request 4's 404 is `[UNKNOWN]`: the docs show the afid lookup, but this account
   answers 404 for afid `11111`, while the id lookup returns the same publisher (afid `11111`).
 
 ### 5.2 The call now (baseline for Phase 3) `[PROVEN]`
