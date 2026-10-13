@@ -46,7 +46,8 @@ Gates in this run:
 | Web `next build` | ✅ |
 | Migration 000032 on real Postgres 16 (up, down, up) | ✅ `[PROVEN]` |
 | Secret scan of every commit | ✅ No secrets. detect-secrets only flagged existing dev defaults and test fakes (§9, item 4). |
-| v1 gates `pwsh-preview -V1` | ⏸ Not run. They need the Docker stack, and Phase 0–1 forbids Docker. They run on the owner's machine with Phase 4. |
+| v1 gates `pwsh-preview -V1` | ⏸ Not run as a stack gate. They check the **running** stack, which on the laptop is built from older code, require laptop platform-sync running (it must stay stopped), and `verify-ingestion-slice` writes rows into the laptop ClickHouse. They run on the server on write-back day. |
+| Re-run on the owner's laptop, 2026-10-14, at `48a61de` | ✅ platform-sync `go test ./...` all ok (incl. 3 new refusal tests and a mutation check); API `jest` 64 / 64; web `node --test` 24 / 24; API `nest build` ✅; web `next build` ✅; `check-smoke-call-id-prefix` PASS (358 files) `[PROVEN]` |
 
 How this run was done: it ran in a cloud sandbox, not on the owner's machine. The sandbox cannot reach
 `proxy.golang.org`, so I did two things for local testing only, with no repo change:
@@ -559,9 +560,12 @@ Requests in Phase 3: 1 PUT (refused) and 4 GETs, one at a time through the share
 - **Product requirement:** a customer's Retreaver API user needs **recording access** for Convert/Void
   on recorded calls. Most real calls are recorded.
 - Calyx already handles this safely `[PROVEN]` by the Phase 1 tests: a 422 is never retried, the write
-  is audited `failed` (502), and the key is redacted. Follow-ups in this pass: a clear message for this
-  refusal, and phone numbers masked in the stored error text (Retreaver's 422 body echoes the campaign's
-  tracking number).
+  is audited `failed` (502), and the key is redacted.
+- **Follow-up done** (`48a61de`): the refusal now reads "Retreaver refused the write: the Retreaver API
+  user needs recording access to convert or void this call" in the result, the audit row and the UI
+  toast, instead of the raw body. E.164 numbers Retreaver echoes in any other write error (the campaign's
+  tracking number) are masked. Tests: `internal/writeback/retreaver_refusal_test.go` (convert and void
+  refusal, phone masking, wrapped error kept); removing the fix makes them fail `[PROVEN]`.
 
 ### 6.4 To finish Phase 3 🙋 (owner)
 
