@@ -4,10 +4,11 @@
 **Spec:** `docs/retreaver-writeback-spec.md`
 **Status:** Phase 0 and Phase 1 done, plus the owner's three decisions of 2026-10-12 (§0).
 Phase 2 done on 2026-10-14: A and C resolved, B closed by the owner's written risk acceptance (§5.4).
-Phase 3 approved and started on 2026-10-14, then **STOPPED 🙋 at step b**: Retreaver refused the
-first PUT with HTTP 422 "Access denied to 'recording_access'" and applied nothing (§6). Phase 4 skipped
-by the owner (§8). Requests so far: 1 PUT (refused) and 23 GETs. The api_key and company_id were
-decrypted in-process and never printed.
+Phase 3 **done** on 2026-10-14: the first call was refused (422 `recording_access`, nothing applied);
+on a second, non-recorded sandbox call the owner-approved revised plan ran clean — void, convert $1,
+convert $1 again (absolute), void — with no pixel fired and the call ending unconverted (§6). The
+provisional rules hold; no code change (§7). Phase 4 skipped by the owner (§8). Requests in total:
+5 PUTs (1 refused) and 44 GETs. The api_key and company_id were decrypted in-process and never printed.
 
 Every claim is labelled `[PROVEN]` (shown by a test or command in this run), `[PROVEN-docs]`
 (quoted from Retreaver's docs, with URL), `[INFERRED]` or `[UNKNOWN]`.
@@ -31,7 +32,7 @@ Every claim is labelled `[PROVEN]` (shown by a test or command in this run), `[P
 | 0 — Verify the docs | ✅ Done. No design change, so no 🙋 stop. Five corrections and additions listed in §2. | §2 |
 | 1 — Build behind the flag | ✅ Done. Fake Retreaver API, unit tests only, no Docker, no credentials, no network writes. | §3, §4 |
 | 2 — Sandbox proof and plan (GET only) | ✅ Done. $0 terms and no campaign/target/publisher pixels or postbacks proven; Company ID matches; recording off. B (company-level pixels) closed by the owner's written risk acceptance on 2026-10-14. | §5 |
-| 3 — Sandbox run with probe | 🙋 Stopped at step b. Owner approval, backfill done and no reconciliation confirmed. The first PUT was refused (422, `recording_access`); the call is unchanged. Needs a call without a recording, or an API user with recording access. | §6 |
+| 3 — Sandbox run with probe | ✅ Done. First call refused (422, `recording_access`, unchanged). Second call `d662e436…` (no recording): void → convert $1 → convert $1 → void all confirmed; `fired_pixels_count` 0 throughout; ends `converted=false`, `revenue=null`. Final rules = provisional rules. | §6, §7 |
 | 4 — Local end-to-end through Calyx | ⏭ Skipped by the owner on 2026-10-14 (laptop platform-sync must stay stopped). The same check runs on the server on write-back day. | §8 |
 
 Gates in this run:
@@ -567,18 +568,63 @@ Requests in Phase 3: 1 PUT (refused) and 4 GETs, one at a time through the share
   tracking number) are masked. Tests: `internal/writeback/retreaver_refusal_test.go` (convert and void
   refusal, phone masking, wrapped error kept); removing the fix makes them fail `[PROVEN]`.
 
-### 6.4 To finish Phase 3 🙋 (owner)
+### 6.4 Second sandbox call — GET-only re-check (2026-10-14, UTC ~19:25Z)
 
-One of:
-1. In the sandbox Retreaver company, give the API key's user **recording access** (or use a key of a
-   user who has it). Then re-run steps a–i on the same call.
-2. Place a **new sandbox call** now that recording is off (under 90 s, so the timer does not convert it)
-   and send its UUID. The probe's call constant changes to that UUID only after a GET-only re-check of the
-   new call (§5 rules).
+The owner sent a new call, `d662e436-2de5-4ce7-a522-e5dbda3bcc82`, placed after recording was turned
+off. GET probe, 5 GETs, same endpoints and codes as §5.1 `[PROVEN]`:
+
+| Check | Result |
+|---|---|
+| Campaign / target / publisher | same: `3d4d4d1c` (54339), target 149596, publisher 71582 |
+| Company check | `true` |
+| Recording | campaign `record_calls: false` |
+| Pixels / postbacks | `fired_pixels: []`, `fired_pixels_count=0`; no postback keys, `postback: false` |
+| **Starting state** | ⚠️ **already converted**: `converted=true`, `revenue=1`, `receivable=true`, `payout=0`, `payable=false`, `conversions_determined_at=2026-10-14T14:14:58.943Z`, call `dialed_call_duration=159` |
+
+Why converted: the campaign gained a second conversion group **"Calyx"** at 2026-10-14T14:05Z — `timer`,
+90 s, **revenue 1**, payout 0, `postback: false` `[PROVEN]`. The call ran past 90 s, so Retreaver converted
+it at $1 on its own. Side effect for the owner: every sandbox call over 90 s now auto-converts at $1, and
+those calls also sync to the production server.
+
+The approved plan assumed an unconverted start, so the run stopped before any write. **Revised plan,
+approved by the owner in writing (2026-10-14), with "no reconciliation running" re-confirmed:** a → d
+(void) → f (convert $1) → g (convert $1 again) → h (void) → i. Pixel baseline 0. The probe's call
+constant and pixel baseline were changed to match, nothing else.
+
+### 6.5 Second sandbox call — Phase 3 run `[PROVEN]`
+
+All requests key-redacted, as in §6.2: `PUT /api/v5/calls/d662e436-…cc82.json?api_key=[REDACTED]&company_id=[REDACTED]`
+with body `{"call":{"revenue":x}}`, and `GET /api/v2/calls/…json` for read-back (every 3 s).
+
+| Step | PUT body | Read-back after the write | Settle |
+|---|---|---|---|
+| a. read | — | `converted=true`, `revenue=1`, `payout=0`, `receivable=true`, `payable=false`, pixels 0, `updated_at=14:14:58.960Z` | — |
+| d. void | `{"call":{"revenue":0}}` | `converted=false`, **`revenue=null`**, `payout=0`, `receivable=false`, `payable=false`, pixels 0, `updated_at=19:30:32.906Z` | first read |
+| f. convert $1 | `{"call":{"revenue":1}}` | `converted=true`, `revenue=1`, `payout=0`, `receivable=true`, `payable=false`, pixels 0, `updated_at=19:30:54.619Z` | first read |
+| g. convert $1 again | `{"call":{"revenue":1}}` | **`revenue=1`, not 2**, for 32.7 s of polling; every field unchanged; `updated_at` **did not move** (no-op edit) | — |
+| h. void | `{"call":{"revenue":0}}` | `converted=false`, `revenue=null`, `receivable=false`, pixels 0, `updated_at=19:32:06.297Z` | first read |
+| i. final read | — | **End state: `converted=false`, `revenue=null`, `payout=0`, `receivable=false`, `payable=false`, `fired_pixels_count=0`** | — |
+
+Timing: each PUT took **~9–10 s** to return (the write's `updated_at` lands ~9.5 s after the request
+started). The first read-back, ~3 s after the PUT returned, already matched every time.
+
+Requests in this run: 4 PUTs and 16 GETs. `conversions_determined_at` never changed on a manual edit.
 
 ## 7. Final rules
 
-⏸ Phase 3 sets these. Provisional rules: §3.1.
+Phase 3 confirms the provisional rules of §3.1. **No code change.**
+
+| Rule | Final | Evidence |
+|---|---|---|
+| Convert succeeded | `revenue == amount`, and `converted == true` (present and true on every read) | §6.5 f |
+| Void succeeded | `revenue` is `null` or `0`. Retreaver stores **`null`**; `converted` and `receivable` turn `false` | §6.5 d, h |
+| Absolute amounts | Confirmed: re-writing $1 leaves $1. An identical write is a no-op (`updated_at` unchanged). Calyx keeps answering 409 for convert-on-converted (Q4) | §6.5 g |
+| Payout | Never touched by a revenue PUT (stayed 0) | §6.5 |
+| Pixels | `fired_pixels_count` unchanged by convert, re-convert and void on this campaign | §6.5 |
+| Settle window | Keep `WRITEBACK_SETTLE_SECONDS_RETREAVER` = **20**. The window starts after the PUT returns (`Service.poll`), and Retreaver matched within ~3 s of that. The PUT itself takes ~10 s, inside the 25 s HTTP timeout | §6.5 timing |
+| What Calyx shows after a void | not converted: `revenue=null` → 0, so `converted AND revenue > 0` is false (Stage 1–3 A2 rule) | §6.5 i |
+| Does the next sync see it | Yes: every real change moves `updated_at`, which the Retreaver sync window uses (`updated_at` + 15 m delta). A no-op does not need syncing | §6.5 d, f, h |
+| Recorded calls | Need an API user with **recording access**, or Retreaver answers 422 (§6.3, §9) | §6.2 |
 
 ## 8. Phase 4 — local end-to-end
 
@@ -627,8 +673,13 @@ Void → read-back → audit) runs on the server on the owner's "write-back on" 
 8. **Gates.** The full `pwsh-preview -V1` gate needs Docker, so it waits for Phase 4 on your machine.
 9. **Pending lock and Retreaver.** A `pending` result holds the call's lock for 15 minutes (Ringba's
    existing `pendingTTL`). For Retreaver that means a second convert or void on the same call is
-   refused (409) for up to 15 minutes after an unconfirmed write. Phase 3 timings will show whether
-   Retreaver needs a shorter hold.
+   refused (409) for up to 15 minutes after an unconfirmed write. ~~Phase 3 timings will show whether
+   Retreaver needs a shorter hold.~~ **Phase 3:** every write matched on the first read-back, so a
+   `pending` should be rare; the owner already decided to keep 15 minutes.
 10. **Recording access (new, Phase 3).** Retreaver refused the PUT with 422 "Access denied to
     'recording_access'". Give the sandbox API user recording access, or send a new non-recorded sandbox
-    call UUID (§6.4). For customers, recording access becomes a setup requirement (§9).
+    call UUID (§6.4). For customers, recording access becomes a setup requirement (§9). **Resolved for
+    the sandbox** by the second, non-recorded call; still a customer setup requirement.
+11. **Sandbox auto-convert rule (new).** The sandbox campaign now has a "Calyx" conversion group (90 s
+    timer, $1 revenue). Every sandbox call over 90 s converts at $1 on its own and syncs to the server.
+    Keep it, or set it back to $0?
