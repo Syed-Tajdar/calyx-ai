@@ -41,9 +41,9 @@ import (
 
 const (
 	tenantID       = "11111111-1111-1111-1111-111111111111"
-	sandboxCall    = "a82a7a80-f1fd-46a5-a018-379dd7893ea7"
+	sandboxCall    = "d662e436-2de5-4ce7-a522-e5dbda3bcc82" // second sandbox call (2026-10-14); the first was refused 422 recording_access
 	apiHost        = "api.retreaver.com"
-	baselinePixels = 1
+	baselinePixels = 0
 	pollEvery      = 3 * time.Second
 	pollMax        = 60 * time.Second
 )
@@ -247,7 +247,7 @@ func guard(o readOut) {
 		stop("company check is not true")
 	}
 	if o.FiredPixelsCount == nil || *o.FiredPixelsCount != baselinePixels {
-		stop("fired_pixels_count left its baseline of 1")
+		stop("fired_pixels_count left its baseline")
 	}
 	if o.Payout != nil && *o.Payout != 0 {
 		stop("payout changed")
