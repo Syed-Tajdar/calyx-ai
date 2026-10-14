@@ -11,12 +11,19 @@ import {
   convertCall,
   fetchIntegrations,
   fetchMe,
-  resolveWritebackIntegration,
+  fetchPlatformConnectionOptions,
   voidCall,
   type IntegrationRecord,
+  type PlatformConnectionOption,
 } from '@/lib/api';
 import { isConfirmableConvertAmount } from '@/lib/writeback-amount';
+import { writebackToast } from '@/lib/writeback-toast';
 import { canSeeWritebackActions } from '@/lib/writeback-role';
+import {
+  platformSupportsWriteback,
+  writebackCopy,
+  writebackView,
+} from '@/lib/writeback-support';
 import { getToken } from '@/lib/auth';
 import { formatPlatformLabel } from '@/lib/platform-options';
 
@@ -31,9 +38,6 @@ interface ConversionActionsProps {
 }
 
 type DialogMode = 'convert' | 'void' | null;
-
-/** Money actions only make sense for platforms with a proven write-back path. */
-const WRITEBACK_PLATFORMS = ['ringba'];
 
 function parseAmount(raw: string): number | null {
   const n = Number(raw);
@@ -61,8 +65,14 @@ export function ConversionActions({
   const [amountText, setAmountText] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const supported = WRITEBACK_PLATFORMS.includes(platform);
+  const [options, setOptions] = useState<PlatformConnectionOption[] | null>(null);
+
   const allowed = canSeeWritebackActions(role);
+  // Money actions only make sense for platforms with a write-back path. The backend says which
+  // (Stage 4b registry: Ringba, Retreaver) — the web no longer keeps its own list.
+  const supported = platformSupportsWriteback(options, platform);
+  const label = formatPlatformLabel(platform);
+  const copy = writebackCopy(platform, label);
 
   useEffect(() => {
     const token = getToken();
@@ -81,6 +91,23 @@ export function ConversionActions({
   }, []);
 
   useEffect(() => {
+    if (!allowed) return;
+    const token = getToken();
+    if (!token) return;
+    let cancelled = false;
+    fetchPlatformConnectionOptions(token)
+      .then((rows) => {
+        if (!cancelled) setOptions(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [allowed]);
+
+  useEffect(() => {
     if (!supported || !allowed) return;
     const token = getToken();
     if (!token) return;
@@ -97,15 +124,23 @@ export function ConversionActions({
     };
   }, [supported, allowed]);
 
-  const integration = useMemo(
-    () => (integrations ? resolveWritebackIntegration(integrations, platform) : null),
-    [integrations, platform],
+  const view = useMemo(
+    () =>
+      writebackView<IntegrationRecord>({
+        canSee: allowed,
+        platform,
+        platformLabel: label,
+        options,
+        integrations,
+      }),
+    [allowed, platform, label, options, integrations],
   );
+  const integration = view.kind === 'ready' ? view.integration : null;
 
   const amount = parseAmount(amountText);
   const amountInvalid = mode === 'convert' && !isConfirmableConvertAmount(amount);
 
-  if (!supported || !allowed) return null;
+  if (view.kind === 'hidden') return null;
 
   function openConvert(): void {
     // Under the "should have converted" rule the list also contains revenue = 0 calls, and the API
@@ -124,16 +159,14 @@ export function ConversionActions({
           ? await convertCall(token, integration.id, callId, amount ?? 0)
           : await voidCall(token, integration.id, callId);
 
-      const verb = mode === 'convert' ? 'Converted' : 'Cancelled';
-      toast.success(
-        `${verb} in ${formatPlatformLabel(platform)}`,
-        {
-          description:
-            result.outcome === 'settled'
-              ? `Confirmed by ${formatPlatformLabel(platform)} — now $${result.conversion_amount.toFixed(2)}`
-              : `Sent. ${formatPlatformLabel(platform)} had not confirmed yet (${result.outcome}) — it may take a moment.`,
-        },
-      );
+      const verb = mode === 'convert' ? 'Converted' : copy.cancelVerb;
+      const t = writebackToast({
+        verb,
+        platformLabel: formatPlatformLabel(platform),
+        outcome: result.outcome,
+        conversionAmount: result.conversion_amount,
+      });
+      toast.success(t.title, { description: t.description });
       setMode(null);
       onChanged();
     } catch (err: unknown) {
@@ -148,14 +181,7 @@ export function ConversionActions({
   }
 
   // Explain, rather than showing a button that will fail.
-  let unavailableReason = '';
-  if (integrations === null) {
-    unavailableReason = 'Checking connection…';
-  } else if (!integration) {
-    unavailableReason = `No live ${formatPlatformLabel(platform)} API connection — add one in Settings and set it to Live.`;
-  } else if (!integration.writeback_enabled) {
-    unavailableReason = `Write-back is turned off for this account.`;
-  }
+  const unavailableReason = view.kind === 'unavailable' ? view.reason : '';
 
   return (
     <div className="calyx-card p-4">
@@ -188,7 +214,7 @@ export function ConversionActions({
             onClick={() => setMode('void')}
           >
             <Undo2 className="h-4 w-4" />
-            Cancel conversion
+            {copy.cancelButton}
           </Button>
         ) : (
           <Button type="button" size="sm" className="gap-2" onClick={openConvert}>
@@ -218,6 +244,11 @@ export function ConversionActions({
             Convert this call for ${amount.toFixed(2)}?
           </p>
         )}
+        {copy.convertWarning && (
+          <p className="rounded-md border border-calyx-danger p-2 text-xs font-medium text-calyx-danger">
+            {copy.convertWarning}
+          </p>
+        )}
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-calyx-text">Amount (USD)</span>
           <Input
@@ -244,8 +275,8 @@ export function ConversionActions({
 
       <ConfirmDialog
         open={mode === 'void'}
-        title="Cancel this conversion"
-        confirmLabel="Confirm cancel"
+        title={copy.cancelTitle}
+        confirmLabel={copy.cancelConfirmLabel}
         destructive
         busy={busy}
         onConfirm={() => {
@@ -254,14 +285,11 @@ export function ConversionActions({
         onCancel={() => setMode(null)}
       >
         <p className="text-xs font-semibold uppercase tracking-wide text-calyx-muted">
-          {formatPlatformLabel(platform)} · Cancel
+          {formatPlatformLabel(platform)} · {copy.cancelTag}
         </p>
         <p className="break-all font-mono text-xs text-calyx-muted">{callId}</p>
-        <p className="text-2xl font-semibold text-calyx-text">Cancel this conversion?</p>
-        <p>
-          This voids the conversion and its payout in {formatPlatformLabel(platform)}. It is
-          reversible — the call can be converted again afterwards.
-        </p>
+        <p className="text-2xl font-semibold text-calyx-text">{copy.cancelHeading}</p>
+        <p>{copy.cancelBody}</p>
       </ConfirmDialog>
     </div>
   );

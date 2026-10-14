@@ -10,6 +10,7 @@ import {
 import { randomUUID } from 'crypto';
 import { isDemoModeEnabled } from '../common/demo-rows';
 import { PostgresService } from '../database/postgres.service';
+import { supportsWriteback } from '../common/platform-capabilities';
 import {
   decryptCredentialJson,
   encryptCredentialJson,
@@ -51,6 +52,12 @@ export interface IntegrationRecord {
    * Cancel are unavailable instead of surfacing a 403 after the operator clicks.
    */
   writeback_enabled: boolean;
+  /**
+   * Whether platform-sync has a write-back path for this platform (Stage 4b registry:
+   * Ringba, Retreaver). The UI shows Convert / Cancel only when this AND writeback_enabled
+   * are true, so the backend — not a list in the web app — decides.
+   */
+  supports_writeback: boolean;
 }
 
 export interface CreateIntegrationInput {
@@ -275,7 +282,7 @@ export class IntegrationsService {
   ): Promise<Record<string, unknown>> {
     // The global kill switch lives in platform-sync (WRITEBACK_ENABLED → SetGlobalEnabled).
     // This process always forwards when the internal token is set, including when the flag
-    // is false, so the refusal is audited before any Ringba call. Local checks used to
+    // is false, so the refusal is audited before any platform call. Local checks used to
     // return first and the audit row was never written.
     const token = process.env.WRITEBACK_INTERNAL_TOKEN ?? '';
     if (!token) {
@@ -488,12 +495,14 @@ export class IntegrationsService {
     platform: string;
     supports_webhook: boolean;
     supports_api_sync: boolean;
+    supports_writeback: boolean;
     api_sync_fields: ReturnType<typeof apiSyncCredentialFields>;
   }[] {
     return API_SYNC_PLATFORMS.map((platform) => ({
       platform,
       supports_webhook: supportsWebhook(platform),
       supports_api_sync: supportsApiSync(platform),
+      supports_writeback: supportsWriteback(platform),
       api_sync_fields: apiSyncCredentialFields(platform),
     }));
   }
@@ -649,6 +658,7 @@ export class IntegrationsService {
           ? (row.initial_lookback_days ?? DEFAULT_LOOKBACK_DAYS)
           : null,
       writeback_enabled: row.writeback_enabled ?? false,
+      supports_writeback: supportsWriteback(row.platform),
     };
   }
 }

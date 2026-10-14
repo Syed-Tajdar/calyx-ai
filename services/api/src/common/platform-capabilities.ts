@@ -17,6 +17,20 @@
  */
 export const PLATFORMS_REPORTING_CONVERSION_STATE = ['ringba', 'retreaver'] as const;
 
+/**
+ * Platforms with a write-back (Convert / Cancel) path in platform-sync — Stage 4b registry.
+ *
+ * Must match the Go registry (`writeback.Service.SupportedPlatforms()` in platform-sync:
+ * Ringba via NewService, Retreaver registered in main). A platform listed here only shows
+ * the controls; every write is still refused unless WRITEBACK_ENABLED is true and the
+ * integration's `writeback_enabled` is true (both false by default).
+ */
+export const WRITEBACK_PLATFORMS = ['ringba', 'retreaver'] as const;
+
+export function supportsWriteback(platform: string): boolean {
+  return (WRITEBACK_PLATFORMS as readonly string[]).includes((platform ?? '').toLowerCase());
+}
+
 export function reportsConversionState(platform: string): boolean {
   return (PLATFORMS_REPORTING_CONVERSION_STATE as readonly string[]).includes(
     (platform ?? '').toLowerCase(),

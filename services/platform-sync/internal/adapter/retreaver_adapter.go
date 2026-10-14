@@ -323,6 +323,12 @@ func (a *RetreaverAdapter) fetchWindowPage(
 }
 
 func mapRetreaverCall(raw json.RawMessage) models.RemoteCall {
+	return mapRetreaverCallOpts(raw, true)
+}
+
+// mapRetreaverCallOpts maps one call. monitorC3=false is for write-back read-backs (Stage 4b):
+// a call read mid-convert/void is not a sync observation and must not move the C3 counters.
+func mapRetreaverCallOpts(raw json.RawMessage, monitorC3 bool) models.RemoteCall {
 	raw = unwrapRetreaverCallPayload(raw)
 	var row struct {
 		UUID               string   `json:"uuid"`
@@ -371,7 +377,9 @@ func mapRetreaverCall(raw json.RawMessage) models.RemoteCall {
 	if externalIDForLog == "" {
 		externalIDForLog = row.CallUUID
 	}
-	recordRetreaverC3(externalIDForLog, row.Converted, row.Revenue)
+	if monitorC3 {
+		recordRetreaverC3(externalIDForLog, row.Converted, row.Revenue)
+	}
 	publisher := row.AFID
 	if publisher == "" {
 		publisher = row.ClientAFID

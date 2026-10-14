@@ -138,6 +138,8 @@ export interface IntegrationRecord {
   initial_lookback_days: number | null;
   /** Per-tenant write-back gate (default false). Drives whether Convert / Cancel are offered. */
   writeback_enabled?: boolean;
+  /** Backend write-back registry (Stage 4b): Ringba and Retreaver. */
+  supports_writeback?: boolean;
 }
 
 export interface ApiSyncCredentialField {
@@ -151,6 +153,8 @@ export interface PlatformConnectionOption {
   platform: string;
   supports_webhook: boolean;
   supports_api_sync: boolean;
+  /** Backend write-back registry (Stage 4b): Ringba and Retreaver. */
+  supports_writeback?: boolean;
   api_sync_fields?: ApiSyncCredentialField[];
 }
 
@@ -586,7 +590,7 @@ export async function backfillIntegration(
 }
 
 /**
- * Outcome of a Ringba write-back. Mirrors the platform-sync `writeback.Result` struct.
+ * Outcome of a write-back (Ringba or Retreaver). Mirrors the platform-sync `writeback.Result`.
  * The service re-reads the call from Ringba after writing (`WRITEBACK_SETTLE_SECONDS`, default 20s), so
  * `has_converted` / `conversion_amount` are what Ringba actually reports back — not what we sent.
  */
@@ -603,6 +607,10 @@ export interface WritebackResult {
   offline_conversion_uploaded?: string;
   ringba_response_ref?: string;
   void_reversible?: boolean;
+  /** Set for every platform except Ringba (Stage 4b). */
+  platform?: string;
+  /** Retreaver read-back before/after the write. */
+  read_back?: Record<string, unknown>;
 }
 
 /**
