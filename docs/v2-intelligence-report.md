@@ -162,7 +162,8 @@ git-ignored `.env`. 🙋 (Q1)
 
 #### 3.2 follow-up — first attempt, 2026-10-19 (owner Q1)
 
-The owner created the Recording Access credential (named **`calyxrecordings`**, not `calyx-server`) and gave
+The owner created the Recording Access credential for Calyx (the spec's `calyx-server`; created in Ringba under the
+name **`calyxrecordings`**) and gave
 the username, password and one recording link of a call older than 6 days. All three were kept only in the
 laptop's git-ignored `.env` (`git check-ignore .env` → ignored, untracked) and read by the probe
 `services/platform-sync/cmd/probe-v2-ringba-recording` (not in any image; prints no URL or credential; GET only,
