@@ -23,15 +23,25 @@ func NewProducer(client *kafka.Client, topic string, encryptionKey []byte) *Prod
 }
 
 func (p *Producer) Publish(ctx context.Context, tenantID, platform string, call models.RemoteCall, isDuplicate bool, receivedAt int64) error {
+	body, err := BuildMessageJSON(tenantID, platform, call, isDuplicate, receivedAt, p.encryptionKey)
+	if err != nil {
+		return err
+	}
+	return p.client.Write(ctx, p.topic, tenantID, body)
+}
+
+// BuildMessageJSON is the exact Kafka message body Publish writes, split out so tests can
+// inspect what leaves platform-sync without a broker. No behaviour change.
+func BuildMessageJSON(tenantID, platform string, call models.RemoteCall, isDuplicate bool, receivedAt int64, encryptionKey []byte) ([]byte, error) {
 	aniHash := ""
 	if call.CallerID != "" {
 		aniHash = crypto.HashANI(call.CallerID)
 	}
 	callKeyStored := ""
 	if call.CallKey != "" {
-		enc, err := crypto.EncryptSecret(call.CallKey, p.encryptionKey)
+		enc, err := crypto.EncryptSecret(call.CallKey, encryptionKey)
 		if err != nil {
-			return fmt.Errorf("encrypt call_key: %w", err)
+			return nil, fmt.Errorf("encrypt call_key: %w", err)
 		}
 		callKeyStored = hex.EncodeToString(enc)
 	}
@@ -78,11 +88,7 @@ func (p *Producer) Publish(ctx context.Context, tenantID, platform string, call 
 	if !call.OccurredAt.IsZero() {
 		msg.OccurredAt = call.OccurredAt.UTC().UnixMilli()
 	}
-	body, err := json.Marshal(msg)
-	if err != nil {
-		return err
-	}
-	return p.client.Write(ctx, p.topic, tenantID, body)
+	return json.Marshal(msg)
 }
 
 func boolPtr(v bool) *bool {
