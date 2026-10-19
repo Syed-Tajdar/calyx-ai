@@ -3,6 +3,7 @@ import { isRouteVisible } from '@/lib/v1-features';
 import {
   BarChart3,
   Brain,
+  MessageSquareText,
   LayoutDashboard,
   Map,
   Radio,
@@ -40,6 +41,11 @@ const ALL_NAV_GROUPS: NavGroup[] = [
       { href: '/reports', label: 'Reports', icon: BarChart3 },
       { href: '/coverage', label: 'Coverage', icon: Map },
     ],
+  },
+  {
+    id: 'ai',
+    label: 'Intelligence',
+    items: [{ href: '/ask', label: 'Ask AI', icon: MessageSquareText }],
   },
   {
     id: 'system',

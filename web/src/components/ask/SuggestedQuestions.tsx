@@ -4,10 +4,10 @@ interface SuggestedQuestionsProps {
 }
 
 const SUGGESTIONS = [
-  'What is my total revenue?',
-  'How many pings do I have?',
-  'Which publisher has the highest revenue?',
-  'What is my TCPA exposure?',
+  'Which publisher had the lowest conversion yesterday?',
+  'Texas revenue this week vs last week',
+  'Which campaigns dropped in the last 7 days?',
+  'Revenue by platform in the last 30 days',
 ] as const;
 
 export function SuggestedQuestions({ onSelect, disabled }: SuggestedQuestionsProps): JSX.Element {

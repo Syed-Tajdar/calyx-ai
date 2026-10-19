@@ -12,6 +12,7 @@ import { ErrorBanner } from '@/components/ui/PageStatus';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ApiError, AskHistoryRecord, fetchAskHistory, postAsk } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { V1_ONLY } from '@/lib/v1-features';
 
 export default function AskPage(): JSX.Element {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function AskPage(): JSX.Element {
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [budget, setBudget] = useState<{ used_today: number; daily_limit: number } | null>(null);
 
   useEffect(() => {
     const token = getToken();
@@ -45,23 +47,31 @@ export default function AskPage(): JSX.Element {
         const res = await postAsk(token, question);
         setHistory((prev) => [
           {
-            id: res.query_id,
+            id: res.id ?? `local-${Date.now()}`,
             question: res.question,
             answer: res.answer,
-            intent: res.intent,
-            cache_hit: res.cache_hit,
-            row_count: res.row_count,
-            tokens_used: res.tokens_used,
+            status: res.status,
+            date_from: res.date_range?.from ?? null,
+            date_to: res.date_range?.to ?? null,
+            numbers: res.numbers ?? [],
+            tokens: res.tokens_used,
             created_at: new Date().toISOString(),
           },
           ...prev,
         ]);
+        setBudget(res.budget);
         return res;
       } catch (err: unknown) {
         if (err instanceof ApiError && err.status === 401) {
           router.replace('/login');
         }
-        setError('Failed to get an answer. Try again.');
+        setError(
+          err instanceof ApiError && err.status === 429
+            ? err.message || "Today's Ask AI budget is used up. It resets at midnight Eastern time."
+            : err instanceof ApiError && err.message
+              ? err.message
+              : 'Failed to get an answer. Try again.',
+        );
         throw err;
       } finally {
         setAsking(false);
@@ -80,9 +90,7 @@ export default function AskPage(): JSX.Element {
           <li key={h.id} className="rounded-lg border border-calyx-border bg-calyx-surface p-3">
             <p className="line-clamp-2 text-sm text-calyx-text">{h.question}</p>
             <div className="mt-2 flex flex-wrap gap-1">
-              <Badge variant={h.cache_hit ? 'secondary' : 'default'}>
-                {h.cache_hit ? 'cached' : h.intent}
-              </Badge>
+              <Badge variant={h.status === 'answered' ? 'default' : 'secondary'}>{h.status.replace('_', ' ')}</Badge>
             </div>
           </li>
         ))}
@@ -94,9 +102,14 @@ export default function AskPage(): JSX.Element {
     <div className="space-y-8">
       <PageHeader
         title="Ask AI"
-        description="Natural-language reporting over your ping and revenue data."
+        description="Ask about your call data in plain English. Answers use only Calyx numbers, in Eastern time, and show the numbers they used."
       />
-      <IntelligenceSubNav />
+      {!V1_ONLY && <IntelligenceSubNav />}
+      {budget && (
+        <p className="text-xs text-calyx-muted">
+          Today: {budget.used_today.toLocaleString('en-US')} of {budget.daily_limit.toLocaleString('en-US')} AI tokens used.
+        </p>
+      )}
 
       {error && <ErrorBanner message={error} />}
 
