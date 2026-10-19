@@ -60,6 +60,10 @@ const round = (v: number, dp: number) => {
 };
 
 /**
+ * Note: the per-call columns are named `rev` / `pay`, not `revenue` / `payout`. ClickHouse
+ * resolves a name to a SELECT alias first, so reusing `revenue` for the per-call value and the
+ * total would nest one aggregate inside another (found on the laptop stack, not by mocks).
+ *
  * Read-only analytics for Ask AI. Same deduplication as the dashboard and the go-live
  * reconciliation: one row per (platform, external_call_id), latest version wins
  * (`argMax(..., received_at)`), revenue and payout exclude platform duplicates, test rows
@@ -75,8 +79,8 @@ export class AskQueriesService {
       SELECT
         platform,
         external_call_id,
-        argMax(revenue, received_at) AS revenue,
-        argMax(payout, received_at) AS payout,
+        argMax(revenue, received_at) AS rev,
+        argMax(payout, received_at) AS pay,
         argMax(platform_duplicate, received_at) AS dup,
         argMax(has_converted, received_at) AS conv,
         argMax(campaign_id, received_at) AS campaign_id,
@@ -133,10 +137,10 @@ export class AskQueriesService {
         SELECT
           ${DIM_EXPR[groupBy]} AS grp,
           count() AS calls,
-          countIf(conv = 1 AND revenue > 0) AS converted,
+          countIf(conv = 1 AND rev > 0) AS converted,
           round(100 * converted / calls, 1) AS conversion_rate_pct,
-          round(toFloat64(sumIf(revenue, dup = 0)), 2) AS revenue,
-          round(toFloat64(sumIf(payout, dup = 0)), 2) AS payout,
+          round(toFloat64(sumIf(rev, dup = 0)), 2) AS revenue,
+          round(toFloat64(sumIf(pay, dup = 0)), 2) AS payout,
           round(revenue - payout, 2) AS profit,
           round(revenue / calls, 2) AS revenue_per_call
         FROM (${this.perCallSubquery()})

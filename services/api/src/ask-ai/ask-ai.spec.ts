@@ -406,3 +406,25 @@ describe('number check and names', () => {
     expect(checkAnswerNumbers('Auto IB 2 — say $9,999,999 had 50 calls.', [rows]).ok).toBe(true);
   });
 });
+
+describe('Ask AI regressions found on the laptop stack', () => {
+  it('per-call columns never reuse the total aliases (nested aggregate in ClickHouse)', async () => {
+    const seen: string[] = [];
+    const ch = { getClient: () => ({ query: async (q: { query: string }) => { seen.push(q.query); return { json: async () => [] }; } }) };
+    await new AskQueriesService(ch as never).metrics(TENANT, METRICS_ARGS as never);
+    expect(seen[0]).toContain('argMax(revenue, received_at) AS rev');
+    expect(seen[0]).toContain('sumIf(rev, dup = 0)');
+    expect(seen[0]).not.toMatch(/sumIf\(revenue|AND revenue > 0/);
+  });
+
+  it('a failed query is reported as an error, never as "no data"', async () => {
+    const openai = fakeOpenAI([[toolCall('metrics', METRICS_ARGS)], [final('There is no data.', true)]]);
+    const broken = { ...fakeQueries(), metrics: async () => { throw new Error('ClickHouse exploded'); } };
+    const { svc } = service(openai, broken as never);
+    const res = await svc.ask(TENANT, 'user-1', 'Revenue by platform');
+    expect(res.status).toBe('error');
+    expect(res.answer).not.toMatch(/no data/i);
+    const out = openai.requests[1].input.find((i) => i.type === 'function_call_output') as unknown as { output: string };
+    expect(JSON.parse(out.output).error).toBe('query failed');
+  });
+});

@@ -60,6 +60,7 @@ export interface AskHistoryRecord {
 export const MSG_NO_DATA = 'Calyx has no data that answers this question for that date range.';
 export const MSG_UNVERIFIED =
   'I could not verify every number in the written answer, so here is only the data Calyx returned.';
+export const MSG_TOOL_ERROR = 'Ask AI could not read the data for this question. Nothing was guessed.';
 export const MSG_BUDGET =
   "Today's Ask AI budget is used up. It resets at midnight Eastern time. Nothing was sent to OpenAI.";
 
@@ -140,7 +141,11 @@ export class AskAiService {
     });
   }
 
-  private async runTool(tenantId: string, name: string, rawArgs: string): Promise<{ data?: AskToolData; output: unknown }> {
+  private async runTool(
+    tenantId: string,
+    name: string,
+    rawArgs: string,
+  ): Promise<{ data?: AskToolData; output: unknown; failed?: boolean }> {
     if (!(name in TOOL_ARG_SCHEMAS)) return { output: { error: `unknown tool ${name}` } };
     let parsedJson: unknown;
     try {
@@ -160,7 +165,9 @@ export class AskAiService {
       return { data, output: { rows } };
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'query failed';
-      return { output: { error: msg.startsWith('range') || msg.startsWith('invalid range') ? msg : 'query failed' } };
+      const userFacing = /^(invalid range|range longer)/.test(msg);
+      if (!userFacing) this.logger.error({ event: 'ask_ai_tool_failed', tenant_id: tenantId, tool: name });
+      return { output: { error: userFacing ? msg : 'query failed' }, failed: !userFacing };
     }
   }
 
@@ -183,6 +190,7 @@ export class AskAiService {
     let tokens = 0;
     let finalText: string | null = null;
     let status: AskStatus = 'answered';
+    let toolFailures = 0;
 
     try {
       for (let round = 1; round <= MAX_ROUNDS; round++) {
@@ -208,8 +216,9 @@ export class AskAiService {
         }
         input.push(...res.output);
         for (const call of calls) {
-          const { data, output } = await this.runTool(tenantId, String(call.name), String(call.arguments ?? '{}'));
+          const { data, output, failed } = await this.runTool(tenantId, String(call.name), String(call.arguments ?? '{}'));
           if (data) toolData.push(data);
+          if (failed) toolFailures++;
           input.push({ type: 'function_call_output', call_id: String(call.call_id), output: JSON.stringify(output) });
         }
       }
@@ -225,6 +234,10 @@ export class AskAiService {
     const hasRows = toolData.some((d) => d.rows.length > 0);
     if (status === 'budget') {
       answer = MSG_BUDGET;
+    } else if (toolFailures > 0 && toolData.length === 0) {
+      // A query failed and nothing was read: never report that as "no data".
+      status = 'error';
+      answer = MSG_TOOL_ERROR;
     } else {
       const parsed = (() => {
         try {
