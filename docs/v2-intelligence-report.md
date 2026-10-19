@@ -299,3 +299,47 @@ entered only in Settings and never shown again. `providerconfig` per-tenant bind
 See §6: about **$110–170 a month** at today's volume with Deepgram redaction on, inside the ~$200 budget, with
 a recommended daily minutes cap of **800**.
 
+## 5. Workflow facts (for 2D) — docs and code only, no writes
+
+### 5.1 Ringba publisher pause
+
+| Question | Answer |
+|---|---|
+| Documented API? | **Yes, but only by example.** `PATCH https://api.ringba.com/v2/{accountId}/Publishers/{publisherId}`; example body includes `"enabled": true`; "This request can be used to modify any of the settings described in the Request Body section of the 'POST Create New Publisher' request". `GET` single publisher returns `"enabled": true` [PROVEN-docs] https://developers.ringba.com/ (Publishers › Edit a Publisher). |
+| Does `enabled:false` equal the UI pause? | **[UNKNOWN].** `enabled` is not described in the Create Publisher parameter table. The UI behaviour is documented: "When you use the pause button on the Publisher list screen, Ringba pauses the publisher across all campaigns" [PROVEN-docs] https://support.ringba.com/hc/en-us/articles/17993410144663. Ringba states "All functions found within the Ringba portal are also available programmatically through our API" [PROVEN-docs] https://developers.ringba.com/. To be proven on the 2D sandbox publisher (read → PATCH `enabled:false` → read `enabled` → re-enable). No private web-app calls were inspected. |
+| Read-back | `GET /v2/{accountId}/Publishers/{publisherId}` returns `enabled` [PROVEN-docs] → read-back is possible. |
+| Token permission | "There are 3 user roles: Admin, Publisher, and Buyer … a 403 response means your current role does not have permission" [PROVEN-docs] https://developers.ringba.com/. **No per-token scopes are documented**: a token acts as the user who created it [INFERRED]. Editing publishers is almost certainly Admin [INFERRED]. Whether the **server's** Ringba token is an Admin token is [UNKNOWN] 🙋 Q9 (check in Ringba → Security → API Access Tokens who created it). A read-only token is not possible, so the Live sync token can write. |
+| Per-campaign pause | **RTB campaigns:** `PATCH .../campaigns/{campaignId}/rtb/publishers/{publisherId}` `{"enabled": false}` — "If set to false, RTB will be disabled for this publisher" [PROVEN-docs]. **Standard campaigns:** pause the publisher's **numbers**, `PATCH .../numbers/{numberId}` `{"enabled": false}` — "calls to the number will be paused but the number will remain associated with your account" [PROVEN-docs]. Both per the same help article (per-campaign routes). Source: https://developers.ringba.com/ |
+
+### 5.2 Retreaver affiliate pause
+
+| Question | Answer |
+|---|---|
+| Endpoint | `PUT https://api.retreaver.com/api/v1/affiliates/{id}.json` (also `.../affiliates/afid/{client_afid}.json`) with `{"affiliate":{"paused":true}}` — "To pause an affiliate so it is excluded from active routing"; "Paused affiliates are excluded from active routing" [PROVEN-docs] https://learn.retreaver.com/api/affiliates |
+| Does GET return `paused`? | **No, not in the documented response** (id, afid, first_name, last_name, company_name, alternative_id, created_at, updated_at) [PROVEN-docs] same URL. **Read-back is therefore [UNKNOWN]**: the 2D sandbox plan must first GET the test affiliate and see whether an undocumented `paused` key appears; if not, Calyx can only confirm the PUT's own response and track state itself. 🙋 Q10 |
+| Per-campaign pause | **None documented** [PROVEN-docs] (no campaign-affiliate endpoint; Numbers have no paused field, https://learn.retreaver.com/api/numbers). A Retreaver pause is always global for that affiliate. |
+| Permission | Not documented (the key is company-wide). The Stage 4b PUT on calls needed recording access; whether affiliate PUT needs another permission is [UNKNOWN]. |
+
+### 5.3 Do we store the publisher per call?
+
+[PROVEN] (`services/platform-sync/internal/models/models.go`, adapters, ClickHouse `pings`):
+
+| Field | Ringba | Retreaver | ClickHouse |
+|---|---|---|---|
+| Publisher id | `publisherId` (`ringba_adapter.go:244,326`) | `afid`, else `client_afid` (`retreaver_adapter.go:343-344,383-386`); `system_affiliate_id` is **not** read | `publisher_id` |
+| Publisher name | `publisherName` (`:245,362`) | `affiliate_name` (`:363,469`) | `publisher_name` |
+| Campaign id / name | `campaignId` / `campaignName` | `system_campaign_id` / **name not mapped** | `campaign_id` / `campaign_name` |
+| Buyer | `buyerId` / `buyer` | **not mapped** | `buyer_id` / `buyer_name` |
+
+So an alert maps to the exact entity: Ringba `publisherId` → `PATCH /Publishers/{publisherId}`; Retreaver
+`afid` → `PUT /affiliates/afid/{afid}.json` (the documented alternate form) [INFERRED]. Retreaver campaign name
+and buyer are missing, which matters for Ask AI and per-campaign rules; mapping them is a sync change 🙋 Q4.
+
+### 5.4 Alert engine and email (facts in §1)
+
+Today: event-driven on `call_scored`, stdout only, no scheduler, no store, no email. For 2D: a scheduled
+evaluator every 15 minutes in the API (no scheduler library is installed; add `@nestjs/schedule` or a guarded
+`setInterval` with a Postgres advisory lock so only one API instance evaluates), `alert_events` table for the
+bell, and an SMTP sender (`nodemailer`) with `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`,
+`SMTP_FROM`, `ALERT_EMAIL_TO` (secret refused in production like the others). 🙋 Q11: which mailbox/provider.
+
