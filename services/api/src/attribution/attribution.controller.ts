@@ -1,5 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FeatureGate } from '../common/feature-gate';
 import { CurrentTenant } from '../common/tenant.decorator';
 import {
   AttributionEventRecord,
@@ -8,6 +9,7 @@ import {
 } from './attribution.service';
 
 @Controller('attribution')
+@FeatureGate('attribution')
 @UseGuards(AuthGuard('jwt'))
 export class AttributionController {
   constructor(private readonly attributionService: AttributionService) {}

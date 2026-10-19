@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { z } from 'zod';
+import { FeatureGate } from '../common/feature-gate';
 import { CurrentTenant } from '../common/tenant.decorator';
 import {
   AskAiService,
@@ -13,6 +14,7 @@ const askBodySchema = z.object({
 });
 
 @Controller('ask')
+@FeatureGate('ask_ai')
 @UseGuards(AuthGuard('jwt'))
 export class AskAiController {
   constructor(private readonly askAiService: AskAiService) {}

@@ -1,0 +1,9 @@
+# web: build with NEXT_PUBLIC_FEATURE_ASK_AI=true
+/scoring               404
+/scoring/scorecards    404
+/intelligence          404
+/ask                   200
+/compliance            404
+/attribution           404
+/dashboard             200
+/login                 200

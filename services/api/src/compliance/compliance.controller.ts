@@ -1,6 +1,7 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { z } from 'zod';
+import { FeatureGate } from '../common/feature-gate';
 import { CurrentTenant } from '../common/tenant.decorator';
 import {
   ComplianceService,
@@ -24,6 +25,7 @@ const exposureQuerySchema = z.object({
 });
 
 @Controller('compliance')
+@FeatureGate('compliance')
 @UseGuards(AuthGuard('jwt'))
 export class ComplianceController {
   constructor(private readonly complianceService: ComplianceService) {}
