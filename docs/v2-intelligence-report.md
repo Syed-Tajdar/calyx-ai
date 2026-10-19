@@ -121,3 +121,42 @@ a single-call read, **not** a change to the Live sync. A small, optional sync ch
 `recording_url != null` → `has_recording` — would let the queue skip unrecorded Retreaver calls without an
 API call; it needs owner approval because the spec freezes the Live sync 🙋 (Q4).
 
+## 3. Recording access test (read-only, one call per platform)
+
+### 3.1 Retreaver `[PROVEN]`
+
+Probe `services/platform-sync/cmd/probe-v2-recording-head` (stored "My test" credentials, decrypted
+in-process; laptop platform-sync stayed stopped). Call: sandbox `a82a7a80-f1fd-46a5-a018-379dd7893ea7`
+(recorded on 2026-10-12). Requests: GET v2 call, GET v5 call, 1 HEAD and 2 Range GETs of 10 and 4 bytes. No
+audio stored; the URL never printed.
+
+| Fact | Result |
+|---|---|
+| `recording_url` (v2) | present; host `callpixels.s3.amazonaws.com`, `.mp3`, **no query string** (no signature, no key) |
+| `inbound_leg_recording_url` (v5) | absent on this call |
+| Auth needed? | **No.** HEAD without credentials → `200`, `audio/mpeg`, 598,144 bytes, `Accept-Ranges: bytes`, no `WWW-Authenticate`, no redirect |
+| Range support | yes: `206`, `Content-Range: bytes 0-9/598144` |
+| Format | ID3v2.3 tag (1,370 bytes), then **MPEG-2 Layer III, 22,050 Hz, joint stereo** |
+
+[INFERRED] from these facts:
+- **Retreaver recording links are public and permanent**: anyone holding the link can download the audio.
+  They are as sensitive as Ringba's (more: no 6-day limit). Never log, store or render them.
+- **Two channels.** Joint stereo suggests a two-leg recording (caller and agent on separate channels), which
+  would make speaker labelling exact with Deepgram `multichannel`. Not proven: joint stereo can also carry
+  the same audio on both channels. 🙋 Ask Retreaver support (Q6), or prove it in 2B on one call.
+- ~64 kbit/s (598 KB for ~74 s): about **0.5 MB per minute** for the archive.
+- This was the sandbox company; that Ridge Rise Media uses the same storage is [INFERRED].
+
+### 3.2 Ringba `[UNKNOWN]` 🙋
+
+Not run. This machine has no Ringba API key (only dev webhook rows, no `api_sync` Ringba integration) and no
+Recording Access credentials. What the research doc says stands as [PROVEN-docs] (§5.1, §4): Basic Auth with
+Recording Access credentials, a redirect with a `Location` valid "as little as 6 hours", and no auth for the
+first 6 days.
+
+To finish it (owner action): create the Ringba Recording Access credential `calyx-server`, then run one
+no-redirect GET on the **server** (where the Live Ringba key is) with a probe like 3.1 extended for Ringba:
+fetch one call's `recordingUrl` via Get Call Log, `HEAD`/no-redirect → read only `Location` host and status,
+with and without Basic Auth, and 4 bytes for the format. Recording Access credentials would go only in a
+git-ignored `.env`. 🙋 (Q1)
+
