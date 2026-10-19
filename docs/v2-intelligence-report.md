@@ -160,6 +160,31 @@ fetch one call's `recordingUrl` via Get Call Log, `HEAD`/no-redirect → read on
 with and without Basic Auth, and 4 bytes for the format. Recording Access credentials would go only in a
 git-ignored `.env`. 🙋 (Q1)
 
+#### 3.2 follow-up — first attempt, 2026-10-19 (owner Q1)
+
+The owner created the Recording Access credential (named **`calyxrecordings`**, not `calyx-server`) and gave
+the username, password and one recording link of a call older than 6 days. All three were kept only in the
+laptop's git-ignored `.env` (`git check-ignore .env` → ignored, untracked) and read by the probe
+`services/platform-sync/cmd/probe-v2-ringba-recording` (not in any image; prints no URL or credential; GET only,
+no redirect followed; at most 4 audio bytes; nothing saved).
+
+| Step | Result [PROVEN] |
+|---|---|
+| Link given | host `ringba-recordings.s3.amazonaws.com`, `.mp3`, query parameters `AWSAccessKeyId`, `Expires`, `x-amz-security-token`, `Signature` — i.e. a **pre-signed S3 URL**, the address the browser lands on *after* Ringba's redirect, not Ringba's permanent recording link |
+| 1. GET without auth | HTTP 400, S3 `ExpiredToken` — "The provided token has expired." (the `Expires` time had not passed; the temporary **security token** inside the link had) |
+| 2. GET with Basic Auth | HTTP 400, S3 `InvalidArgument` — "Only one auth mechanism allowed…" (Basic Auth cannot be added to a pre-signed S3 link) |
+| 3. 4 bytes | not read |
+
+What this proves: Ringba's resolved recording links are **short-lived S3 links whose embedded session token
+expires within hours** even when `Expires` is later — matching "may be good for as little as 6 hours"
+([PROVEN-docs] https://support.ringba.com/hc/en-us/articles/38047032942103). Never store them (design §4.1
+already resolves at transcription time).
+
+**Not yet proven:** the auth behaviour of the **permanent** link. 🙋 Owner: copy the recording link from the
+Ringba **Call Log** (the permanent link that redirects, on a Ringba host — not the S3 address the browser shows
+after opening it) into the same `.env` key `RINGBA_RECORDING_TEST_URL`. The probe then runs unchanged. The
+expired link has been removed from `.env`; username and password stay until 2B.
+
 ## 4. Design proposal
 
 ### 4.1 Transcription: worker queue, synchronous Deepgram request, upload the bytes
