@@ -186,6 +186,10 @@ Ringba **Call Log** (the permanent link that redirects, on a Ringba host — not
 after opening it) into the same `.env` key `RINGBA_RECORDING_TEST_URL`. The probe then runs unchanged. The
 expired link has been removed from `.env`; username and password stay until 2B.
 
+**Owner decision (2026-10-19): deferred to Phase 2B.** The permanent-link auth test is proven on the
+server in 2B, when the transcription worker resolves its first real Ringba recording (no-redirect GET with the
+`calyxrecordings` credentials → `Location` → bytes to Deepgram). The probe stays available for a manual run.
+
 ## 4. Design proposal
 
 ### 4.1 Transcription: worker queue, synchronous Deepgram request, upload the bytes
