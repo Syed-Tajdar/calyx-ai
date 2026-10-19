@@ -59,6 +59,13 @@ const envSchema = z.object({
    * Empty = never trust XFF (use socket remoteAddress).
    */
   TRUSTED_PROXIES: z.string().default(''),
+  /** v2 Phase 2A: Ask AI on numbers. Off unless exactly "true". */
+  FEATURE_ASK_AI: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  /** Default gpt-5-mini (applied in the Ask AI service). */
+  OPENAI_MODEL: z.string().optional(),
+  /** Default 300000 tokens per tenant per Eastern day (applied in the Ask AI service). */
+  ASK_AI_TOKEN_BUDGET_DAILY: z.coerce.number().int().positive().optional(),
   SESSION_COOKIE_NAME: z.string().default('calyx_session'),
   CSRF_COOKIE_NAME: z.string().default('calyx_csrf'),
 });
@@ -111,6 +118,9 @@ export function assertProductionSecrets(env: EnvConfig): void {
   named(bad, 'POSTGRES_INGESTION_PASSWORD', process.env.POSTGRES_INGESTION_PASSWORD, ['ingestion_dev']);
   named(bad, 'POSTGRES_SYNC_PASSWORD', process.env.POSTGRES_SYNC_PASSWORD, ['sync_dev']);
   named(bad, 'REDIS_PASSWORD', process.env.REDIS_PASSWORD, [DEV_REDIS]);
+  if (env.FEATURE_ASK_AI === 'true') {
+    named(bad, 'OPENAI_API_KEY', env.OPENAI_API_KEY, ['sk-dev', 'changeme', 'change_me', 'placeholder']);
+  }
   if (bad.length) {
     throw new Error(
       `APP_ENV=production refuses to start with placeholder/missing secrets: ${bad.join(', ')}`,
