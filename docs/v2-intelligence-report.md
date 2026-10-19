@@ -92,3 +92,32 @@ hides `/scoring`, `/intelligence`, `/ask`, `/compliance`, `/attribution` from na
 `ScoreCard.tsx`, `components/settings/ProviderBindingsSection.tsx` (already labels Deepgram/OpenAI rows,
 `lib/provider-domains.ts:11-35`), `components/settings/AlertRulesSection.tsx`, `components/ask/ChatWindow.tsx`.
 
+## 2. Recording data we already sync
+
+| Question | Answer |
+|---|---|
+| Ringba recording URL stored? | **No.** The adapter requests and maps only `hasRecording` (`services/platform-sync/internal/adapter/ringba_adapter.go:252,331,368-369`); `recordingUrl` appears only in probe CLIs (`cmd/probe-ringba-sandbox/main.go:99,137-138`) [PROVEN] |
+| Retreaver recording URL stored? | **No.** The row struct and mapping have no recording field (`retreaver_adapter.go:334-363,448-470`), so `recording_known` stays 0 [PROVEN] |
+| Where the flag lives | `models.RemoteCall.HasRecording / RecordingKnown` (`internal/models/models.go:46-48`) → Kafka `callloom.pings.v1` (`producer/producer.go:65-66`) → ClickHouse `pings.has_recording`, `pings.recording_known` (`db/clickhouse/migrations/000011_pings_ringba_parity_b1.up.sql:8-9`). No URL column [PROVEN] |
+| Share of real calls with a recording (laptop) | **[UNKNOWN].** The laptop has 3,652 Retreaver calls and **no** Ringba API data; all Retreaver rows have `recording_known = 0` [PROVEN] (query below) |
+
+Server query for Aryan (read-only; Ringba only, because Retreaver has no flag yet):
+
+```sql
+SELECT platform, count() AS calls, countIf(rk = 1) AS known, countIf(hr = 1) AS recorded,
+       round(100 * countIf(hr = 1) / nullIf(countIf(rk = 1), 0), 1) AS pct_recorded,
+       round(100 * countIf(conv = 1 AND rev > 0 AND hr = 1) / nullIf(countIf(conv = 1 AND rev > 0 AND rk = 1), 0), 1) AS pct_converted_recorded
+FROM (SELECT platform, external_call_id, argMax(has_recording, received_at) hr, argMax(recording_known, received_at) rk,
+             argMax(has_converted, received_at) conv, argMax(revenue, received_at) rev
+      FROM pings WHERE external_call_id != '' AND external_call_id NOT LIKE 'demo-%' AND external_call_id NOT LIKE 'smoke-%' AND external_call_id NOT LIKE 'apisync-%'
+      GROUP BY platform, external_call_id)
+GROUP BY platform FORMAT PrettyCompactMonoBlock;
+```
+
+**Design consequence:** v2 does **not** need to store URLs, and must not (§3, rules). The transcription
+worker fetches the call once more at transcription time (Ringba: Get Call Log by id, `recordingUrl`;
+Retreaver: `GET /api/v2/calls/{uuid}.json`, `recording_url`) through the shared per-company limiter. That is
+a single-call read, **not** a change to the Live sync. A small, optional sync change — Retreaver
+`recording_url != null` → `has_recording` — would let the queue skip unrecorded Retreaver calls without an
+API call; it needs owner approval because the spec freezes the Live sync 🙋 (Q4).
+
