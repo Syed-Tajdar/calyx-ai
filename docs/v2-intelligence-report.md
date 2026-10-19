@@ -343,3 +343,61 @@ evaluator every 15 minutes in the API (no scheduler library is installed; add `@
 bell, and an SMTP sender (`nodemailer`) with `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`,
 `SMTP_FROM`, `ALERT_EMAIL_TO` (secret refused in production like the others). 🙋 Q11: which mailbox/provider.
 
+## 6. Monthly cost model (~8,200 calls/month, ~35% converted)
+
+Assumptions [INFERRED, to be replaced by the server numbers after §2's query]: converted 2,870 calls;
+should-have-converted another ~10% of calls (820); **~90% of those recorded**; average recorded length of these
+calls **~6 minutes** (Retreaver overview showed an average call of 5:10 across all calls; converted calls run
+longer); on-demand ~300 calls.
+
+| Item | Volume | Unit price | Per month |
+|---|---|---|---|
+| Deepgram Nova-3 (mono), auto | ~3,330 calls × 6 min ≈ **20,000 min** | $0.0043/min [PROVEN-docs] | $86 |
+| Deepgram redaction | 20,000 min | $0.0020/min [PROVEN-docs] | $40 |
+| Deepgram on demand + Spanish uplift | ~2,000 min | $0.0063–0.0072/min | $14 |
+| OpenAI QA, `gpt-5-mini` (default) | ~3,600 calls × (~4k input + ~0.8k output tokens) | $0.25 / $2.00 per 1M [PROVEN-docs] | $10 |
+| OpenAI Ask AI | ~1,500 questions × (~6k in + ~0.5k out) | same | $4 |
+| B2 archive | ~0.5 MB/min → ~11 GB added a month; ~130 GB after a year, ~265 GB at 24 months | $6.95/TB, 10 GB free | $1–2 |
+| **Total** | | | **≈ $155 / month** (≈ $115 without Deepgram redaction) |
+
+- With `gpt-5-nano` ($0.05/$0.40) OpenAI drops to ~$2; the accuracy test (2C.6) decides. Batch tier halves it
+  for backfills.
+- **Recommended caps:** `TRANSCRIBE_DAILY_MINUTES_CAP=800` (≈ $150/month worst case),
+  `ASK_AI_TOKEN_BUDGET_DAILY=300000`, `QA_TOKEN_BUDGET_DAILY=1500000`. The Providers tab shows the month-to-date
+  estimate.
+- Free credit: "Every new account receives $200 in free credit" at Deepgram [PROVEN-docs] https://deepgram.com/pricing.
+
+## 7. Open questions for the owner 🙋
+
+1. **Ringba recording test:** create Recording Access credential `calyx-server` and agree to run the §3.2 probe
+   on the server (no full audio, nothing stored).
+2. **Ringba plan** (Business or Professional) for the research doc's recording-cost note.
+3. **Recording share:** Aryan runs the §2 query on the server so the cost model uses real numbers.
+4. **Sync changes** (the spec freezes the Live sync): approve small, additive mappings — Retreaver
+   `recording_url` presence → `has_recording`, Retreaver `campaign_name`, `buyer` — or keep the sync frozen and
+   fetch per call at transcription time (works, costs one GET per transcribed call).
+5. **Should-have-converted** volume: today's rule (`revenue > 0 OR duration ≥ required`) may be large; confirm it
+   should be auto-transcribed, or only `revenue > 0`.
+6. **Retreaver recordings:** ask support whether joint-stereo files are two legs (caller/agent), the retention
+   period, and confirm the links are public by design.
+7. **Deepgram:** account-level MIP opt-out and its price impact.
+8. **OpenAI:** apply for Zero Data Retention / Modified Abuse Monitoring?
+9. **Ringba token role:** is the server's Ringba API token an Admin token? Publisher pause needs it; there are no
+   scoped tokens.
+10. **Retreaver pause read-back:** accept "PUT response only" if the sandbox GET shows no `paused` field?
+11. **Email for alerts:** which SMTP provider / sender address / recipient list.
+12. **Call summary:** the meeting notes asked for a short summary per call. Add a 2–3 sentence `summary` field to
+    the 2C QA JSON (no extra API call, ~+100 output tokens)?
+
+## 8. Gates and safety in this phase
+
+- Product code: **unchanged**. Added: docs and one read-only probe (`go vet` clean, not in any image).
+- Requests to vendors: Retreaver 2 GETs + 1 HEAD + 2 Range GETs (14 bytes). Ringba: none. Docs pages: public
+  only; no authenticated calls, no private endpoints.
+- Laptop platform-sync stayed **stopped**; `WRITEBACK_ENABLED`, the Live sync and the write-back code untouched.
+- Full `pwsh-preview -V1` gates were not run: they test the running laptop stack, which is built from older
+  code and needs laptop platform-sync running (forbidden). No product code changed, so they cannot regress;
+  they run on the server with Phase 2A.
+- Secret scan: every commit scanned (key-shaped strings, S3 object paths, phone numbers). Clean.
+
+**STOP.** Waiting for the owner's written approval before Phase 2A.
