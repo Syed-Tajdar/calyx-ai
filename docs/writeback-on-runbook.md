@@ -37,8 +37,9 @@ All of these must be true before Step 1.
 2. **Test calls in the same accounts the server uses.** Calyx refuses a call that belongs to another
    account (403, audited), so:
    - **Ringba:** a **fresh** call on a sandbox campaign in the **same Ringba account** as the server's Live
-     Ringba integration: internal buyer and publisher, $0 terms, **recording off**, no prior convert or
-     void on it. Note its `inboundCallId` (`RGB…`).
+     Ringba integration: internal buyer and publisher, $0 terms, **recording off**, **no pixels, webhooks
+     or postbacks** on the campaign, its buyer/target or its publisher, and no prior convert or void on the
+     call. Note its `inboundCallId` (`RGB…`).
    - **Retreaver:** a call in the **same Retreaver company** as the server's Live Retreaver integration
      (Ridge Rise Media). ⚠️ The Stage 4b sandbox calls (`a82a7a80…`, `d662e436…`) are in a **different**
      company; the server's integration cannot write to them. Create a sandbox campaign in Ridge Rise Media
@@ -77,6 +78,9 @@ $DC exec -T postgres psql -U callloom -d callloom -c "SELECT version, dirty FROM
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
 ENVF=$(grep -l '^NEXT_PUBLIC_API_URL=' .env deploy/.env 2>/dev/null); echo "env file: [$ENVF]"
+# Exactly one file, or stop.
+[ "$(printf '%s\n' $ENVF | wc -l)" -eq 1 ] && [ -f "$ENVF" ] && echo "env file: OK" || echo "env file: NOT EXACTLY ONE - stop"
+mkdir -p ~/calyx-backups/writeback-on && chmod 700 ~/calyx-backups/writeback-on
 cp "$ENVF" ~/calyx-backups/writeback-on/env-before.bak && chmod 600 ~/calyx-backups/writeback-on/env-before.bak
 
 # The internal token must be a real value (not empty, not the dev default). Prints only yes/no.
@@ -93,7 +97,8 @@ $DC exec -T platform-sync printenv WRITEBACK_ENABLED   # true
 $DC logs platform-sync --tail 30 | grep -i -E 'writeback|error'
 ```
 
-**Stop** if `token: MISSING`, either `printenv` is not `true`, or the log shows
+**Stop** before editing anything if the check prints `NOT EXACTLY ONE`. **Stop** if `token: MISSING`,
+either `printenv` is not `true`, or the log shows
 `WRITEBACK_ENABLED is on but WRITEBACK_INTERNAL_TOKEN is empty`.
 
 Every integration still has `writeback_enabled = false`, so nothing can be written yet.
@@ -113,21 +118,21 @@ ORDER BY platform;"
 Expect exactly **one** Ringba and **one** Retreaver row with `sync_mode = real` and `is_active = t`.
 If there are more, or fewer, **stop** and send the output.
 
-Then enable only those rows:
+Then enable **exactly those two rows by id**. Copy the two `id` values from the SELECT output above into
+the command (replace both placeholders; keep the quotes):
 
 ```bash
+RINGBA_ID='<ringba id from the SELECT>'
+RETREAVER_ID='<retreaver id from the SELECT>'
 $DC exec -T postgres psql -U callloom -d callloom -c "
 UPDATE integrations
    SET writeback_enabled = TRUE, updated_at = NOW()
- WHERE deleted_at IS NULL
-   AND connection_mode = 'api_sync'
-   AND sync_mode = 'real'
-   AND is_active
-   AND platform IN ('ringba', 'retreaver')
-RETURNING id, platform, name, writeback_enabled;"
+ WHERE id IN ('$RINGBA_ID', '$RETREAVER_ID')
+RETURNING id, platform, name, sync_mode, is_active, writeback_enabled;"
 ```
 
-You must see **`UPDATE 2`** with both rows `t`. Anything else: Step 6, then send the output.
+You must see **`UPDATE 2`**, one `ringba` and one `retreaver` row, both `sync_mode = real`,
+`is_active = t`, `writeback_enabled = t`. Anything else: Step 6, then send the output.
 
 ## Step 4 — Owner's $1 check in the server UI 🙋
 
@@ -189,6 +194,7 @@ Fastest first. Step 6a alone stops every write within a minute.
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
 ENVF=$(grep -l '^NEXT_PUBLIC_API_URL=' .env deploy/.env 2>/dev/null); echo "env file: [$ENVF]"
+[ "$(printf '%s\n' $ENVF | wc -l)" -eq 1 ] && [ -f "$ENVF" ] && echo "env file: OK" || echo "env file: NOT EXACTLY ONE - stop"
 umask 077
 grep -v '^WRITEBACK_ENABLED=' "$ENVF" > "$ENVF.new" && echo 'WRITEBACK_ENABLED=false' >> "$ENVF.new"
 mv "$ENVF.new" "$ENVF" && chmod 600 "$ENVF"
