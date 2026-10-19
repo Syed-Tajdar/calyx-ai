@@ -160,3 +160,142 @@ fetch one call's `recordingUrl` via Get Call Log, `HEAD`/no-redirect → read on
 with and without Basic Auth, and 4 bytes for the format. Recording Access credentials would go only in a
 git-ignored `.env`. 🙋 (Q1)
 
+## 4. Design proposal
+
+### 4.1 Transcription: worker queue, synchronous Deepgram request, upload the bytes
+
+- **Queue in Postgres** (`transcription_jobs`: call, platform, reason `converted | should_convert | on_demand |
+  backfill`, state, attempts, next_try_at, unique on `(tenant, platform, external_call_id)` → idempotent).
+  A call is enqueued when it **becomes** converted or should-have-converted (the consumer already sees every
+  new ping version) or by the admin button. Platform duplicates and calls under `TRANSCRIBE_MIN_SECONDS` are
+  skipped at enqueue.
+- **Worker** (Go, a new `transcriber` package inside the existing **scoring** service, so no new container):
+  1. single-call read of the platform for the recording link (§2), through the shared per-company limiter;
+  2. **fetch the audio once** into memory (Ringba: no-redirect GET → `Location`, Basic Auth with the Recording
+     Access credentials; Retreaver: plain GET);
+  3. SHA-256 → upload to the archive (§4.8);
+  4. **upload the same bytes** to Deepgram: `POST /v1/listen` with `Content-Type: audio/mpeg`
+     ([PROVEN-docs] https://developers.deepgram.com/docs/pre-recorded-audio). No URL is ever sent to Deepgram,
+     so no credentialed or public link leaves Calyx;
+  5. store utterances, publish `call_transcript_ready` (now carrying a transcript id, not the text) → QA (2C).
+- **Synchronous, not callback.** Pay-per-call recordings are minutes long, well under Deepgram's limits
+  ("Maximum 2 GB", [PROVEN-docs] same URL). A synchronous request needs no public endpoint, and the current
+  `/scoring/deepgram/callback` route (plain-string secret, skipped in mock mode, made-up payload, §1) stays
+  **unused and is removed in 2B**. Deepgram callbacks would only offer Basic Auth in the URL and "The
+  `dg-token` header is not guaranteed" ([PROVEN-docs] https://developers.deepgram.com/docs/callback).
+- **Caps and retries:** before each job the worker checks today's minutes against
+  `TRANSCRIBE_DAILY_MINUTES_CAP` (hard stop: jobs stay queued with state `capped`); retries with backoff on
+  429/5xx/network, never on 4xx; "no recording" is a final state with a reason.
+
+### 4.2 Language
+
+- Request: `model=nova-3`, `detect_language=true` for normal campaigns ([PROVEN-docs] "`model=nova-3-general&detect_language=true`",
+  https://developers.deepgram.com/docs/language-detection). Nova-3 supports "Spanish: `es`, `es-419`"
+  ([PROVEN-docs] https://developers.deepgram.com/docs/models-languages-overview).
+- Campaigns whose name contains `Spanish` / `Español` (ACA Spanish, Debt Spanish) send `language=multi` for
+  code-switching ($0.0052/min instead of $0.0043, [PROVEN-docs] https://deepgram.com/pricing). The mapping is
+  config, editable in the QA tab.
+- ⚠️ **Redaction is weaker in Spanish:** "Specific entity types … are available for English only"; for non-English
+  audio "only numbers are redacted" ([PROVEN-docs] https://developers.deepgram.com/docs/redaction). So:
+  English `redact=pci&redact=ssn`; Spanish `redact=numbers`; **plus** Calyx's own scrub (the existing
+  `scoring/internal/pii/redactor.go` SSN/card patterns) on every transcript before it is stored or sent to
+  OpenAI. Exact parameter names are now confirmed: `redact=pci`, `redact=ssn`, `redact=numbers` [PROVEN-docs].
+
+### 4.3 Speakers (caller vs agent)
+
+- Default: `diarize_model=latest` ("Resolves to the latest GA batch diarizer (currently v2)", compatible with
+  Nova-3; the boolean `diarize` is deprecated) [PROVEN-docs] https://developers.deepgram.com/docs/diarization,
+  with `utterances=true`, `smart_format=true`, `punctuate=true`. Diarization is "Included" in the price
+  [PROVEN-docs] https://deepgram.com/pricing.
+- Role labelling (speaker 0/1 → caller/agent) is one extra field in the 2C OpenAI QA pass (the model reads the
+  first utterances: greeting, "thank you for calling" → agent). No separate LLM call.
+- Retreaver records **joint stereo** (§3.1). If 2B proves the two channels are the two legs, use
+  `multichannel=true` for Retreaver instead of diarization: exact roles, no guessing. Ringba format is
+  [UNKNOWN] until §3.2 runs. 🙋 Q6
+
+### 4.4 Storage
+
+| Data | Store | Why |
+|---|---|---|
+| Jobs, transcripts (utterances: speaker, role, start, end, text, language), QA results (versioned JSON + typed columns for score, outcome, flags), caller facts (key, value, quote, ts), vertical packs and versions, feedback labels, recordings metadata, playback audit, alerts, alert events | **Postgres**, RLS on `tenant_id` like every other table | Relational, editable (QA re-runs, feedback, pack versions), small (~10k rows a month), RLS already proven |
+| QA columns needed by Pings filters and Reports (score, outcome, flags, qualified, should-have-converted reason) | **ClickHouse** `call_qa` (ReplacingMergeTree by version), written by the QA step | Joins with `pings` at analytics speed, same pattern as `call_scores` |
+| Audio | **Archive bucket only** (§4.8) | Never DB, never server disk |
+
+The old ClickHouse `transcripts` (one text blob) and `call_scores` tables stay for the mock path and are not
+used by v2. Retention: archived audio **24 months**, fixed (owner decision); transcripts, QA and facts have
+**no automatic deletion** until the owner's data-retention decision.
+
+### 4.5 Providers' data handling
+
+- **Deepgram:** requests "participate in the Model Improvement Program (MIP) by default, and Deepgram retains
+  them" ([PROVEN-docs] https://developers.deepgram.com/trust-security/your-data). Opt out with
+  "`mip_opt_out=true` as a query parameter of all API requests"
+  ([PROVEN-docs] https://developers.deepgram.com/docs/the-deepgram-model-improvement-partnership-program); with
+  it, audio is "Retained only for the duration needed to process the request". **Calyx sends
+  `mip_opt_out=true` on every request (enforced in code and tested)**, and the owner asks Deepgram for
+  account-level enforcement. The price impact of opting out is [UNKNOWN] ("refer to our Docs for pricing
+  impacts") 🙋 Q7.
+- **OpenAI:** "data sent to the OpenAI API is not used to train or improve OpenAI models"; abuse-monitoring logs
+  are "retained for up to 30 days" ([PROVEN-docs] https://developers.openai.com/api/docs/guides/your-data).
+  "Responses are stored by default … set `store: false`"
+  ([PROVEN-docs] https://developers.openai.com/api/docs/guides/migrate-to-responses). **Calyx sends
+  `store: false` on every call.** Zero Data Retention needs "prior approval by OpenAI" (same your-data URL);
+  recommended to apply for, because transcripts are call content (they are already redacted). 🙋 Q8
+- Only redacted transcript text goes to OpenAI; never audio, phone numbers, recording links or caller names
+  beyond what was said.
+
+### 4.6 Ask AI method: tool-calling (recommended), not text-to-SQL
+
+- OpenAI **Responses API** ("Responses is recommended for all new projects", [PROVEN-docs]
+  https://developers.openai.com/api/docs/guides/migrate-to-responses) with **strict function calling**
+  ("We recommend always enabling strict mode", [PROVEN-docs]
+  https://developers.openai.com/api/docs/guides/function-calling).
+- About 6 fixed tools that wrap the **existing, tested analytics queries in the API** (the same dedup view as
+  the dashboard): `metrics(group_by, from, to, filters)`, `compare_periods(...)`, `top(n, metric, group_by, …)`,
+  `trend(metric, by_day, …)`, `campaigns_changed(days, threshold)`, `list_dimensions(kind)`. Dimensions:
+  platform, campaign, publisher, buyer, state, day; Eastern time by default.
+- The model only chooses tools and arguments (validated by zod); **the API runs the queries with the tenant
+  from the JWT under RLS**; the answer must cite the tool results, which the UI shows as the "numbers used"
+  table. No free SQL, so the current template/validator approach (§1) is retired.
+- Lives in the **NestJS API** (it already owns analytics, auth, RLS and CSRF), so the Go `ask-ai` service stays
+  off. Campaign or publisher names inside tool results are passed as data, never as instructions (tested with
+  an injection string in a campaign name).
+
+### 4.7 Keys
+
+Server env, as the owner prefers: `DEEPGRAM_API_KEY`, `OPENAI_API_KEY`, `OPENAI_MODEL`, archive credentials.
+Added to `assertProductionSecrets` in `services/api/src/config/env.ts:95-119` and to a
+`refuseProductionPlaceholders()` in the scoring service (copied from `platform-sync/internal/config/config.go:92-114`),
+passed through `deploy/docker-compose.yml` as `${VAR:-}` (today none is passed, §1). Ringba Recording Access
+credentials are **per integration**, encrypted like the API key (same `CREDENTIAL_ENCRYPTION_KEY` blob),
+entered only in Settings and never shown again. `providerconfig` per-tenant bindings are not used.
+
+### 4.8 Recording archive
+
+- **Provider:** Backblaze B2 (cheapest at our size): "$6.95 / TB / mo", first 10 GB "always free", egress free
+  up to 3× storage ([PROVEN-docs] https://www.backblaze.com/cloud-storage/pricing). Application key **limited to
+  the one bucket** ([PROVEN-docs] https://www.backblaze.com/docs/cloud-storage-application-keys) with
+  listFiles/readFiles/writeFiles/deleteFiles. **SSE-B2** (AES-256) set as the bucket default explicitly
+  ([PROVEN-docs] https://www.backblaze.com/docs/cloud-storage-server-side-encryption). R2 is the fallback:
+  $0.015/GB-month, free egress ([PROVEN-docs] https://developers.cloudflare.com/r2/pricing/).
+- **Layout:** `recordings/{tenant_id}/{platform}/{yyyy}/{mm}/{sha256}.mp3`. Content-addressed, so a re-upload
+  is a no-op; no phone number or call id in the key.
+- **Client:** none exists in the repo (§1). Add the AWS S3 SDK (S3-compatible endpoint): `aws-sdk-go-v2/service/s3`
+  in the worker (upload, delete) and `@aws-sdk/client-s3` in the API (streamed `GetObject` for playback and the
+  evidence pack).
+- **Lifecycle:** a B2 lifecycle rule on the `recordings/` prefix (hide after `RECORDING_RETENTION_MONTHS`, delete
+  1 day later, [PROVEN-docs] https://www.backblaze.com/docs/cloud-storage-lifecycle-rules) **and** a daily
+  Calyx cleanup job that deletes objects past retention and marks the DB row `expired` (transcript and QA
+  stay).
+- **Tables:** `call_recordings` (call, sha256, bytes, duration, content type, object key, downloaded_at UTC,
+  Deepgram request id and model, transcript version, state `archived | not_archived | expired`) and
+  `recording_access_audit` (append-only, immutable trigger like `writeback_audit`: who, when, call, `play |
+  download | evidence_pack`).
+- Audio contains what callers said out loud (card numbers are redacted only in the **text**): playback is
+  admin-only through the API proxy, never a public or signed URL in the page.
+
+### 4.9 Cost
+
+See §6: about **$110–170 a month** at today's volume with Deepgram redaction on, inside the ~$200 budget, with
+a recommended daily minutes cap of **800**.
+
