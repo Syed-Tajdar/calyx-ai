@@ -439,9 +439,9 @@ Extra items: **A** route 404s → branch `v1/hide-intel-routes`; **B** full `pws
 | Usage logging only | ✅ logs: tenant, status, tokens, tool names, ms. No question or answer text in logs |
 | Feature switch, off by default | ✅ API `FEATURE_ASK_AI`, web `NEXT_PUBLIC_FEATURE_ASK_AI`; off → `/ask` 404 and hidden |
 | Admin only, CSRF | ✅ 403 for non-admins; POST covered by the existing global CSRF guard |
-| Tests (fake OpenAI) | ✅ API 87/87 (23 new), web 26/26, API and web builds pass |
-| Full `pwsh-preview -V1` gates | ⏸ **Blocked**: Docker Desktop on the laptop stopped responding and its engine does not start (§2A.5) |
-| Screenshots | ⏸ With the gates (they need the rebuilt stack and a fake OpenAI server) |
+| Tests (fake OpenAI) | ✅ API 89/89 (25 new), web 26/26, API and web builds pass |
+| Full `pwsh-preview -V1` gates | ✅ **All three pass** on the laptop stack rebuilt from this branch (§2A.5) |
+| Screenshots | ✅ Against the real laptop data and a local fake OpenAI; numbers cross-checked independently (§2A.5) |
 | Real smoke test (~5 questions) | ⏸ Server only, after owner approval (by design) |
 
 ## 2A.2 Design as built
@@ -521,20 +521,59 @@ Per question: ~3–4 model calls of ~2–4k input tokens and a few hundred outpu
 **$0.003–0.006 with `gpt-5-mini`** ($0.25/$2.00 per 1M). 50 questions a day ≈ **$5–9 a month**. The default cap
 of 300,000 tokens per tenant per day (~75–100 questions) bounds the worst case at about $25/month.
 
-## 2A.5 Gates (item B)
+## 2A.5 Gates (item B) and screenshots — 2026-10-19 [PROVEN]
 
-The rebuild-and-gate run did not happen in this session: **Docker Desktop on the laptop stopped responding,
-and after a restart its engine does not come up** (the app runs, the socket refuses connections). Nothing
-was started. When Docker is back, the run is, in order:
+**Docker first had to be revived:** the laptop disk had 1.8 GB free and Docker Desktop's engine would not
+start. Freed space (removed regenerable `node_modules`/`.next` in two finished worktrees and the npm cache:
+12 GB free), force-restarted Docker Desktop.
 
-1. Pause/Test check of every laptop integration, listed in this report **before** platform-sync starts.
-   Last read (2026-10-19, non-secret columns): `callgrid · CallGrid Dev Postback · webhook · mock · active`,
-   `retreaver · My test · api_sync · mock · paused`, `retreaver · Retreaver Dev Postback · webhook · mock · active`,
-   `ringba · Ringba Dev Pixel · webhook · mock · active`, `trackdrive · TrackDrive Dev Postback · webhook · mock · active`.
-   No `real` integration exists; the webhook rows are dev seeds (no credentials, no outbound calls).
-2. Rebuild `api`, `web`, `platform-sync` from this branch; migrate (000033).
-3. `pwsh-preview scripts/verify-system.ps1 -V1`, `verify-presentation.ps1 -V1`, `verify-ingestion-slice.ps1`.
-4. Screenshots of Ask AI against a local fake OpenAI (`OPENAI_BASE_URL`), then stop platform-sync again.
+**1. Laptop integrations before platform-sync started** (non-secret columns; nothing changed):
+
+| platform | name | mode | sync_mode | is_active | writeback_enabled |
+|---|---|---|---|---|---|
+| callgrid | CallGrid Dev Postback | webhook | mock (Test) | t | f |
+| retreaver | My test | api_sync | mock (Test) | **f (paused)** | f |
+| retreaver | Retreaver Dev Postback | webhook | mock (Test) | t | f |
+| ringba | Ringba Dev Pixel | webhook | mock (Test) | t | f |
+| trackdrive | TrackDrive Dev Postback | webhook | mock (Test) | t | f |
+
+Every integration is Test; the only API-sync one is paused; the webhook rows are inbound-only dev seeds (the
+ingestion gate posts to them, so they stay active). No Live integration exists. The laptop `.env` has
+`WRITEBACK_ENABLED=true` and `COMPOSE_PROFILES=intelligence` from earlier local work; it was **not edited** —
+every compose command overrode both from the shell (`WRITEBACK_ENABLED=false`, `COMPOSE_PROFILES=` empty).
+platform-sync logged `mock_mode: true, writeback_enabled: false`; no sync ran.
+
+**2. Rebuild:** `api`, `web`, `platform-sync`, `ingestion`, `consumer` built from `v2/intelligence`
+(`a4bfefa`); `up -d`; migration version **33, dirty false**.
+
+**3. Gates:**
+
+| Gate | Result |
+|---|---|
+| `verify-system.ps1 -V1` | **SYSTEM VERIFY PASS** — Docker 9/9, Healthz 5/5, LiveStatus PASS, API PASS (v1), Web routes 13/13, WebSocket PASS, SmokePrefix PASS, BrowserCSP PASS, Unit tests PASS, Web build PASS, Pipeline 4/4 |
+| `verify-presentation.ps1 -V1` | **PRESENTATION VERIFY PASS** — API checks 19/19 |
+| `verify-ingestion-slice.ps1` (no `-V1` switch exists) | **INGESTION SLICE VERIFY PASS** — dedup, content-hash republish, `call_key` ciphertext |
+| Laptop Retreaver all time after the gates | **3,652 calls / $33,143.85** (unchanged; gate rows use the `smoke-` prefix) |
+
+**4. Screenshots** (`docs/evidence/v2-2a/`), with Ask AI switched on for the laptop only through a temporary
+compose override (`FEATURE_ASK_AI=true`, web built with `NEXT_PUBLIC_FEATURE_ASK_AI=true`, `OPENAI_BASE_URL`
+→ a local fake Responses API on the host; no real key, nothing left the laptop):
+- `ask-ai-answers.jpg`: "Revenue by platform in the last 30 days" → **retreaver, 883 calls, 338 converted
+  (38.3%), $8,393.36 revenue**, with "Numbers used" (payout $6,687.38, profit $1,705.98) and the range
+  2026-09-19 → 2026-10-18 Eastern; and "Which publisher had the lowest conversion in the last 30 days?"
+  answered with the minimum-calls filter. Sidebar shows **Intelligence › Ask AI** only.
+- **Independent cross-check:** a separately written ClickHouse query for Retreaver, 2026-09-19..2026-10-18
+  Eastern, returned **883 / 338 / $8,393.36 / $6,687.38** — identical.
+- `ask-ai-before-fix-query-error.jpg`: the first run, which found a real bug the mocks could not: the query
+  reused `revenue` as both the per-call column and the total alias, and ClickHouse rejected it ("aggregate
+  inside another aggregate" — the same class as the go-live recon queries). It also showed that a failed query
+  was reported as "no data". **Both fixed** (per-call columns `rev`/`pay`; a failed query now gives status
+  `error` "Ask AI could not read the data…", never "no data"), with two regression tests.
+
+**5. Put back:** fake OpenAI stopped; `api` and `web` rebuilt and recreated with the flags **off**; proof:
+`GET /ask/history` → **404**, `POST /ask` → **404** (admin session), `/analytics/metrics` → 200. Laptop
+**platform-sync stopped again** (`Exited (0)`). The web `/ask` page itself still loads on this branch alone
+(only hidden from the menu); the real web 404 comes with `v1/hide-intel-routes`.
 
 ## 2A.6 For Aryan (read-only, server)
 
@@ -623,4 +662,4 @@ The rule matches the Calyx "should have converted" filter (`services/api/src/pin
    first, then rebase `v2/intelligence` (two small, expected conflicts in `web/src/lib/v1-features.ts` and
    `ask-ai.controller.ts`).
 
-**STOP** after the gates and screenshots (pending Docker) and the owner's smoke-test approval.
+**STOP.** Phase 2A is done on the laptop. Next: the owner's approval for the real ~5-question smoke test on the server.
