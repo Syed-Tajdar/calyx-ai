@@ -693,3 +693,18 @@ The rule matches the Calyx "should have converted" filter (`services/api/src/pin
    `ask-ai.controller.ts`).
 
 **STOP.** Phase 2A is done on the laptop. Next: the owner's approval for the real ~5-question smoke test on the server.
+
+---
+
+# Merge to main (owner-approved 2026-10-20)
+
+| Step | Result [PROVEN] |
+|---|---|
+| a. `v1/hide-intel-routes` + Alerts gated under `workflows` (decision 2a) | merged → `main` `734b54c`. The gate scripts now **assert** the v1-closed routes answer 404 under `-V1` (web routes and presentation endpoints). Full gates PASS (system, presentation 20/20, ingestion) |
+| b. `v1/retreaver-mapping` + "Buyer (target)" label (decision 1) | merged → `main` `715a054`. Full gates PASS; laptop Retreaver all time still 3,652 / $33,143.85 |
+| c. `v2/intelligence` rebased on `main` | two expected conflicts resolved: `ask-ai.controller.ts` (kept the global `@FeatureGate('ask_ai')`; the duplicate handler check was removed so the gate is the one source of truth) and `web/src/lib/v1-features.ts` (main's version, which already maps `/ask` to `NEXT_PUBLIC_FEATURE_ASK_AI`) |
+| Flags wired (item 4) | API env `FEATURE_ASK_AI`, `FEATURE_TRANSCRIPTION`, `FEATURE_QA`, `FEATURE_WORKFLOWS`, `FEATURE_ASK_AI_TRANSCRIPTS`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `ASK_AI_TOKEN_BUDGET_DAILY` as `${VAR:-}`; web build args `NEXT_PUBLIC_FEATURE_{ASK_AI,TRANSCRIPTION,QA,WORKFLOWS}` default `false` in `web/Dockerfile` and compose |
+| Tests | API 221/221, web 32/32 |
+| Full gates on the rebased branch (flags off, migration 33) | SYSTEM VERIFY PASS (Docker 9/9, Healthz 5/5, API v1, Web routes 13/13, WebSocket, BrowserCSP, unit, web build, pipeline 4/4), PRESENTATION 20/20, INGESTION PASS |
+| Default build: `/ask` closed | web `/ask` 404; API `GET /ask/history` 404, `POST /ask` 404 (admin session and anonymous); `/scoring`, `/compliance`, `/attribution` 404; `/dashboard` 200 |
+| Deploy pack (item 8) | `docs/deploy-v1-hotfix-and-2a.md`; every SQL in it was run on the laptop ClickHouse 24.8.14 (same as the server) without error; recon-30days returned 883 / $8,393.36, identical to the 2A cross-check |
