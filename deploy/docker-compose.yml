@@ -276,6 +276,17 @@
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       ASK_AI_TOKEN_BUDGET_DAILY: ${ASK_AI_TOKEN_BUDGET_DAILY:-}
+      # Workflows (Phase 2D). Kill switch off by default: rules alert/suggest, never pause.
+      WORKFLOW_ACTIONS_ENABLED: ${WORKFLOW_ACTIONS_ENABLED:-false}
+      WORKFLOW_RINGBA_PAUSE_VERIFIED: ${WORKFLOW_RINGBA_PAUSE_VERIFIED:-false}
+      WORKFLOW_MAX_AUTO_PAUSES_DAILY: ${WORKFLOW_MAX_AUTO_PAUSES_DAILY:-}
+      # Alert email. Off while SMTP_HOST is empty; the in-app bell works without it.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-callloom_dev}
       POSTGRES_API_PASSWORD: ${POSTGRES_API_PASSWORD:-api_dev}
       POSTGRES_INGESTION_PASSWORD: ${POSTGRES_INGESTION_PASSWORD:-ingestion_dev}
@@ -468,6 +479,9 @@
       WRITEBACK_SETTLE_SECONDS: "20"
       WRITEBACK_SETTLE_SECONDS_RETREAVER: ${WRITEBACK_SETTLE_SECONDS_RETREAVER:-20}
       WRITEBACK_INTERNAL_TOKEN: ${WRITEBACK_INTERNAL_TOKEN:-dev_writeback_internal_token_change_me}
+      # Workflows (Phase 2D) publisher pause: kill switch + Ringba proof flag, both off by default.
+      WORKFLOW_ACTIONS_ENABLED: ${WORKFLOW_ACTIONS_ENABLED:-false}
+      WORKFLOW_RINGBA_PAUSE_VERIFIED: ${WORKFLOW_RINGBA_PAUSE_VERIFIED:-false}
       SYNC_INTERVAL_SEC: "120"
       DEDUP_TTL_HOURS: "240"
     depends_on:
