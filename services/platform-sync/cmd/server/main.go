@@ -20,6 +20,7 @@ import (
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/crypto"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/dedup"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/producer"
+	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/publisherpause"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/redact"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/store"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/syncer"
@@ -168,6 +169,32 @@ func main() {
 		}))
 	} else if cfg.WritebackEnabled {
 		logger.Error("WRITEBACK_ENABLED is on but WRITEBACK_INTERNAL_TOKEN is empty — routes not registered")
+	}
+
+	// v2 Phase 2D: publisher pause / unpause. Same bearer token as write-back. The routes exist
+	// whenever the token is set so the API always gets an audited answer; with
+	// WORKFLOW_ACTIONS_ENABLED off (default) every request is refused (403) before any platform
+	// call, and Ringba stays refused until WORKFLOW_RINGBA_PAUSE_VERIFIED is on.
+	if cfg.WritebackAuthToken != "" {
+		pp := publisherpause.NewService(
+			publisherpause.Config{
+				ActionsEnabled:      cfg.WorkflowActionsEnabled,
+				RingbaPauseVerified: cfg.WorkflowRingbaPauseVerified,
+			},
+			st, st, decryptor,
+			publisherpause.NewRedisLocker(redisClient),
+			adapter.NewRingbaPublisherClient(),
+			adapter.NewRetreaverAffiliateClient(),
+		)
+		logger.Info("publisher pause routes",
+			"workflow_actions_enabled", cfg.WorkflowActionsEnabled,
+			"workflow_ringba_pause_verified", cfg.WorkflowRingbaPauseVerified)
+		mux.HandleFunc("POST /publisher/pause", writeback.RequireBearer(cfg.WritebackAuthToken,
+			publisherpause.Handler(pp, publisherpause.ActionPause, logger)))
+		mux.HandleFunc("POST /publisher/unpause", writeback.RequireBearer(cfg.WritebackAuthToken,
+			publisherpause.Handler(pp, publisherpause.ActionUnpause, logger)))
+	} else if cfg.WorkflowActionsEnabled {
+		logger.Error("WORKFLOW_ACTIONS_ENABLED is on but WRITEBACK_INTERNAL_TOKEN is empty — publisher routes not registered")
 	}
 
 	server := &http.Server{Addr: ":" + cfg.Port, Handler: mux}
