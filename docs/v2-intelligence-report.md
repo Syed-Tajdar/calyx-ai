@@ -709,3 +709,157 @@ The rule matches the Calyx "should have converted" filter (`services/api/src/pin
 | Default build: `/ask` closed | web `/ask` 404; API `GET /ask/history` 404, `POST /ask` 404 (admin session and anonymous); `/scoring`, `/compliance`, `/attribution` 404; `/dashboard` 200 |
 | d. Phase 0 + 2A merged to `main` | **`c5c4a8d`** `merge: v2 Phase 0 + Phase 2A (Ask AI on numbers) — every feature flag OFF`; tree identical to the gated `v2/intelligence` (`aa0e747`) |
 | Deploy pack (item 8) | `docs/deploy-v1-hotfix-and-2a.md`; every SQL in it was run on the laptop ClickHouse 24.8.14 (same as the server) without error; recon-30days returned 883 / $8,393.36, identical to the 2A cross-check |
+
+---
+
+# Phase 2D — Workflows: alert → action, with publisher pause (built with fake APIs) — STOP before any real pause
+
+Contract: `docs/v2-2d-contract.md`. Migration: `000034_workflows`. Every switch defaults **off**.
+
+## 2D.1 Scoreboard
+
+| Item | Result |
+|---|---|
+| Schema (rules, alert events, protected publishers, pause records, immutable action audit, per-integration toggle, settings-audit values, two `SECURITY DEFINER` functions for platform-sync, one tenant-list function for the scheduler) | ✅ up / down / up clean on laptop Postgres 16; applied by `migrate` (version 34, dirty f) |
+| Alerts on call data (7 triggers, Eastern time, dashboard dedup), dry run, evaluator every 15 min (one instance, advisory lock) | ✅ |
+| Notify / Suggest / Auto with all guardrails (kill switch, Live + toggle, min sample 20, 7 days Suggest before Auto, 3 auto pauses/day, protected publishers, cooldown 6 h, admin, CSRF, 409 lock, audit on every attempt) | ✅ |
+| Publisher pause/unpause in platform-sync (Ringba `PATCH /Publishers/{id}` `enabled`, read-back; Retreaver `PUT` affiliate `paused`, confirmed by response when GET has no `paused`) | ✅ fake APIs only; **Ringba stays link-only** until `WORKFLOW_RINGBA_PAUSE_VERIFIED` after the sandbox proof |
+| Alert centre (bell + `/alerts`), Settings → Alerts tab, pause confirm popup with the bold global-pause warning | ✅ screenshots §2D.4 |
+| Email (SMTP via nodemailer 10.0.12), off while `SMTP_HOST` is empty; in-app bell works without email (Q11) | ✅ |
+| Sandbox proof on `CALYX-TEST-PUB-DO-NOT-USE` | 🙋 **Plan only (§2D.6). No pause/unpause until the owner approves in writing** |
+
+## 2D.2 Design as built
+
+**API (`services/api/src/workflows/`)**, all routes under `/workflows/*`, `@FeatureGate('workflows')` (404 when
+`FEATURE_WORKFLOWS` is not `true`), admin only (403):
+- rules CRUD + dry run (saved or unsaved); strict per-trigger params; `no_calls` needs campaign scope;
+  `integration_unhealthy` can only notify; Suggest/Auto need publisher scope; Auto refused until 7 days in
+  Suggest (`suggest_since`), re-checked by the evaluator; a Ringba-only rule cannot be Auto while Ringba is
+  unverified (a both-platform rule's Ringba matches fall back to Suggest with a link).
+- triggers, one ClickHouse query per rule over the dashboard dedup (latest row, revenue without duplicates, test
+  rows out, Ringba + Retreaver, converted = flag and revenue > 0), Eastern time: conversion rate below X%,
+  short-call share above Y%, repeat-caller share above Y%, volume vs the 7-day average for the same hours,
+  revenue vs the same window last week, no calls for X hours inside Eastern active hours, integration
+  unhealthy (notify only). Every value is a parameter; per-call columns never reuse an aggregate alias.
+  QA triggers are accepted by the schema and skipped with a log until 2C.
+- minimum sample: rate/share triggers need `min_calls` in the window; comparison triggers need it in the larger
+  of the two windows (a collapse to zero still fires, a tiny publisher never does); `no_calls` needs it in the
+  7 days before. 🙋 Owner: confirm this reading.
+- evaluator: every 15 min, only when `FEATURE_WORKFLOWS=true`, one instance (`pg_try_advisory_lock`); each tick
+  first unpauses due timers, then evaluates active rules; cooldown per rule × entity.
+- actions: alert row → email (if asked and configured) → mode. Auto guardrails in contract order; every API-side
+  block writes an audit row `rejected`; platform-sync answers are mapped (403 → `pause_blocked`, 404/409/502).
+  A publisher maps to the tenant's **single** Live integration for that platform; zero or several → no pause.
+- toggle "Allow Calyx to pause publishers": Live integrations only, every change audited in
+  `integration_settings_audit` (`allow_pause_on` / `allow_pause_off`).
+
+**platform-sync (`internal/publisherpause`, `internal/adapter/publisher_pause.go`)**: `POST /publisher/pause|unpause`
+behind the internal Bearer token (strict JSON). Refusal order: integration missing → tenant mismatch → kill switch →
+platform → not `real` → inactive → toggle off → Ringba unverified → invalid id → Redis lock (409). Ringba:
+read → `PATCH {"enabled":<bool>}` → read-back must equal (`confirmed`/`ok`, else 502 `mismatch`). Retreaver: afid
+lookup, on 404 a paged list scan, `PUT {"affiliate":{"paused":<bool>}}`; read-back compares `paused` if present,
+else `confirmed_by_response`/`none` (Q10). Already in the target state → `confirmed`, nothing written. Retries only
+429/5xx (max 3, `Retry-After`). One audit row per attempt; `request_redacted` is method + path with `{accountId}`,
+never a query string.
+
+**Web**: bell in the top bar (open count), `/alerts` (history, statuses, the numbers used, Acknowledge, Pause
+publisher → confirm popup with last-7-days calls and revenue and **"Pausing stops this publisher on ALL campaigns
+on <platform>."**, Unpause; Ringba unverified → link to Ringba's publisher list instead of a button; Retreaver
+response-confirmed → "Paused (confirmed by Retreaver's response)"), Settings → Alerts (server switch status, rules
+with mode availability and reasons, dry run, protected publishers, per-integration toggle, action audit). The old
+mock `AlertRulesSection` is removed; the legacy mock alerts API stays closed.
+
+## 2D.3 Tests [PROVEN]
+
+- API Jest **307/307** (14 suites; 61 new): every trigger in ET on dedup data (incl. DST), min sample, modes,
+  Auto before 7 days, kill switch → alert only + audit `rejected`, toggle off, Test integration never, daily
+  limit, protected → Suggest, cooldown, Ringba unverified → link only, platform 403/404/409/502, unpause manual
+  and timer, 403 non-admin on all routes, 404 when off, email off/on (fake transport), SQL params only,
+  `integration_unhealthy` never pauses. `nest build` ✅.
+- Web **48/48** (16 new); `next build` ✅ with the flag off and on.
+- Go: `gofmt -l` clean, `go vet ./...` clean, `go test ./...` all packages ok; `internal/publisherpause` 30 tests +
+  adapter 11 (Ringba confirmed / mismatch / already paused / unverified; Retreaver response-confirmed / read-back ok
+  / mismatch / afid fallback; every refusal; 409; 429→ok; 4xx not retried; 404; strict decoding; bearer required;
+  no key in any audit, log, error or response). Hygiene in passing: `gofmt` on 10 old files and three old probes'
+  discarded `context` cancel funcs (both gates failed before 2D).
+- Real Postgres: all migrations applied to a throwaway database and the full flow run as `callloom_api` (found and
+  fixed a missing-UPDATE-grant bug in protected publishers).
+
+## 2D.4 Full v1 gates and screenshots (2026-10-20) [PROVEN]
+
+Laptop stack rebuilt from this branch (`api`, `web`, `platform-sync`), migration 34, every switch off:
+**SYSTEM VERIFY PASS** (Docker 9/9, Healthz 5/5, API v1, Web routes 13/13, WebSocket, BrowserCSP, unit, web build,
+pipeline 4/4), **PRESENTATION 20/20**, **INGESTION PASS**; `/alerts` web 404 and `/workflows/rules` API 404 (anonymous);
+Retreaver all time still 3,652 / $33,143.85. platform-sync logged `workflow_actions_enabled:false,
+workflow_ringba_pause_verified:false`.
+
+Screenshots (`docs/evidence/v2-2d/`), workflows switched on **for the laptop only** with the **kill switch off**:
+- `settings-alerts-tab.jpg`: server status line (actions off, Ringba not verified, 0/3 auto pauses, email off), rule list, new-rule form.
+- `alert-centre-suggested.jpg`: a rule "conversion below 10% over 720 h, min 20, Suggest" fired for Retreaver publisher
+  **ID27: 45 calls, 3 converted, 6.7%**. An independent ClickHouse query for the same window returned exactly
+  ID27 45/3/6.7% as the only publisher below 10% (next: ID4 22.7%).
+- `pause-confirm-popup.jpg`: the bold "Pausing stops this publisher on ALL campaigns on Retreaver." with last-7-days numbers.
+- `pause-blocked-kill-switch.jpg`: pressing Pause → "Publisher actions are switched off on the server
+  (WORKFLOW_ACTIONS_ENABLED). Nothing was sent to the platform."; alert → `pause_blocked`; **one** audit row
+  `rejected`; no `publisher_pauses` row; platform-sync received **no** request. The demo rule was deleted and the
+  switches turned back off afterwards; laptop platform-sync stopped.
+
+## 2D.5 Deploy note (later; owner decides)
+
+- Images: `api`, `web`, `platform-sync`. Migration `000034_workflows` (additive).
+- Env (all off): `FEATURE_WORKFLOWS`, `NEXT_PUBLIC_FEATURE_WORKFLOWS` (web build-time), `WORKFLOW_ACTIONS_ENABLED=false`
+  (API **and** platform-sync), `WORKFLOW_RINGBA_PAUSE_VERIFIED=false`, `WORKFLOW_MAX_AUTO_PAUSES_DAILY` (default 3),
+  `SMTP_HOST/PORT/USER/PASSWORD/FROM`, `ALERT_EMAIL_TO` (email off while `SMTP_HOST` empty; production refuses
+  `SMTP_HOST` without a real password). `WRITEBACK_ENABLED` and the sync are untouched.
+- Order to switch on later: `FEATURE_WORKFLOWS` (alerts + suggestions only) → after the sandbox proof and owner
+  approval, per integration "Allow Calyx to pause publishers" → `WORKFLOW_ACTIONS_ENABLED=true` → Auto only on rules
+  that ran ≥ 7 days in Suggest.
+
+## 2D.6 Sandbox plan — GET only now; the writes need the owner's written approval 🙋
+
+**Owner preparation:** create a publisher named exactly `CALYX-TEST-PUB-DO-NOT-USE` in **Ringba** and an affiliate with
+the same name in **Retreaver** — no numbers, no campaigns, no traffic — **in the same accounts the server's Live
+integrations use** (Ringba account of `Ringa Account`; Retreaver company Ridge Rise Media). Confirm the Ringba API
+token's user role (Q9: Admin needed for `PATCH /Publishers`).
+
+**Step 0 (GET only, on the server, read-only probe — no write is possible: its transport refuses every method but GET):**
+
+```bash
+cd ~/deployments/calyx-ai && DC="docker compose -p deploy -f deploy/docker-compose.yml"
+# integration ids (no secrets):
+$DC exec -T postgres psql -U callloom -d callloom -c "SELECT id, platform, name, sync_mode, is_active FROM integrations WHERE deleted_at IS NULL AND connection_mode='api_sync' ORDER BY platform;"
+# then, per integration id, the probe reads the encryption key and DATABASE_URL from the platform-sync container env on stdin:
+docker inspect deploy-platform-sync-1 --format '{{range .Config.Env}}{{println .}}{{end}}' \
+ | awk -F= '/^CREDENTIAL_ENCRYPTION_KEY=/{sub(/^[^=]*=/,"");k=$0} /^DATABASE_URL=/{sub(/^[^=]*=/,"");d=$0} END{print k; print d}' \
+ | docker run --rm -i --network deploy_default -v "$PWD/services/platform-sync":/src -w /src golang:1.25-alpine \
+     go run ./cmd/probe-publisher-pause -integration <id> -name CALYX-TEST-PUB-DO-NOT-USE
+```
+
+It finds the test publisher by exact name, prints its id and whether `enabled` (Ringba) / `paused` (Retreaver) is
+visible, proves **no numbers** (and no campaigns where the API shows membership; otherwise UNKNOWN), and prints the
+write plan below with "NOT EXECUTED". Output goes into this report.
+
+**Write plan (per platform, only after written approval; one step at a time; stop on any surprise):**
+
+| Step | Ringba request (account id redacted) | Retreaver request (key redacted) | Expected | Undo |
+|---|---|---|---|---|
+| a. read | `GET /v2/{accountId}/Publishers/{testId}` | `GET /api/v1/affiliates/{testId}.json` | Ringba `enabled=true`; Retreaver `paused` visible? (Q10) | — |
+| b. pause | `PATCH …/Publishers/{testId}` `{"enabled":false}` | `PUT /api/v1/affiliates/{testId}.json` `{"affiliate":{"paused":true}}` | 200 | step d |
+| c. read | as a | as a | Ringba `enabled=false` (+ the UI shows the publisher paused); Retreaver `paused=true` if visible, else confirmed by the PUT response | step d |
+| d. unpause | `{"enabled":true}` | `{"affiliate":{"paused":false}}` | 200 | — |
+| e. read | as a | as a | back to the step-a state | — |
+
+Pass for Ringba = step c shows `enabled=false` **and** the Ringba UI lists the publisher as paused → then
+`WORKFLOW_RINGBA_PAUSE_VERIFIED=true` becomes possible (owner decision). The probe gets an execute mode only after
+approval, limited to the test publisher's id.
+
+## 2D.7 Open questions for the owner
+
+1. Minimum-sample reading for comparison triggers (§2D.2) — OK?
+2. Pings has no publisher/campaign filter, so alert links open `/pings` unfiltered. Add a publisher filter later?
+3. No per-publisher Ringba URL is known; the link opens Ringba's publisher list and shows the id to look for.
+4. Several Live integrations for one platform → pause blocked ("cannot tell which one owns this publisher"). OK?
+5. Test publisher creation + Ringba token role (§2D.6) — needed before Step 0.
+
+**STOP.** Phase 2D is built and gated. No pause or unpause is sent to Ringba or Retreaver until the owner approves the
+sandbox plan in writing.
