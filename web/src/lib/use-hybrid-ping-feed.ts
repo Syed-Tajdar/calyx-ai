@@ -83,6 +83,8 @@ function pingMatchesFilters(row: PingRecord, filters: PingFetchFilters): boolean
   if (filters.from) {
     if (new Date(pingEventAt(row)).getTime() < new Date(filters.from).getTime()) return false;
   }
+  if (filters.publisher && row.publisher_id !== filters.publisher) return false;
+  if (filters.campaign && row.campaign_id !== filters.campaign) return false;
   if (filters.search) {
     const needle = filters.search.toLowerCase();
     const hay = row.external_call_id.toLowerCase();

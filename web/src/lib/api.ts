@@ -353,6 +353,10 @@ export interface PingFetchFilters {
   from?: string;
   to?: string;
   search?: string;
+  /** Exact publisher id (e.g. from an alert link). */
+  publisher?: string;
+  /** Exact campaign id. */
+  campaign?: string;
   /** Include mock `apisync-%` rows. Default false (API hides them). */
   show_demo?: boolean;
   /** Conversion state. Omitted = no conversion filtering. */
@@ -377,6 +381,8 @@ export async function fetchPings(
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.search) params.set('search', filters.search);
+  if (filters.publisher) params.set('publisher', filters.publisher);
+  if (filters.campaign) params.set('campaign', filters.campaign);
   if (filters.show_demo) params.set('show_demo', 'true');
   if (filters.conversion) params.set('conversion', filters.conversion);
   if (filters.raw) params.set('raw', 'true');
@@ -393,6 +399,8 @@ export async function downloadPingsExport(
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.search) params.set('search', filters.search);
+  if (filters.publisher) params.set('publisher', filters.publisher);
+  if (filters.campaign) params.set('campaign', filters.campaign);
   if (filters.show_demo) params.set('show_demo', 'true');
   if (filters.conversion) params.set('conversion', filters.conversion);
   if (filters.raw) params.set('raw', 'true');

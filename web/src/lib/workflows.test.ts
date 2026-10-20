@@ -103,7 +103,9 @@ describe('alert row controls', () => {
     assert.equal(alertButton({ scope: 'campaign', platform: 'retreaver', action: 'suggested' }), null);
   });
   it('Pings link (no publisher filter exists on the Pings page)', () => {
-    assert.equal(pingsLinkFor({ entity_id: 'ID30', platform: 'retreaver' }), '/pings');
+    assert.equal(pingsLinkFor({ entity_id: 'ID30', platform: 'retreaver' }), '/pings?publisher=ID30&platform=retreaver');
+    assert.equal(pingsLinkFor({ entity_id: 'C 9', platform: 'ringba', scope: 'campaign' }), '/pings?campaign=C+9&platform=ringba');
+    assert.equal(pingsLinkFor({ entity_id: '', platform: null, scope: 'tenant' }), '/pings');
   });
 });
 
