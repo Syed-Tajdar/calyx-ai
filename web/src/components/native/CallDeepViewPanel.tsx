@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { buyerLabel } from '@/lib/buyer-label';
 import type { CallDeepView } from '@/lib/api';
 import { conversionStateLabel } from '@/lib/conversion-label';
 import { SHOW_MOCK_PANELS } from '@/lib/v1-features';
@@ -235,7 +236,7 @@ export function CallDeepViewPanel({ view, loading }: CallDeepViewPanelProps): JS
                 syncPath={syncPath}
               />
             </Field>
-            <Field label="Buyer">
+            <Field label={buyerLabel(ping.platform)}>
               <NamedId name={ping.buyer_name ?? ''} id={ping.buyer_id ?? ''} syncPath={syncPath} />
             </Field>
           </dl>

@@ -8,7 +8,7 @@
 | Field (ClickHouse `pings`) | Source in the Retreaver v2 call | Note |
 |---|---|---|
 | `campaign_name` | `campaign_name` (trimmed) | v2 sends it flat; v4/v5 nest it in `campaign` (not read: we sync v2) [PROVEN-docs] https://learn.retreaver.com/api/calls |
-| `buyer_id`, `buyer_name` | the target: `system_target_id` → `target_id` → `callpixels_target_id`; `target_name` | Retreaver has **no buyer field**; the docs describe the target as who "the caller was connected to" [INFERRED-docs]. Empty buyer when no target (TargetID keeps its old "0"). 🙋 Owner: keep buyer = target, or leave buyer empty? |
+| `buyer_id`, `buyer_name` | the target: `system_target_id` → `target_id` → `callpixels_target_id`; `target_name` | Retreaver has **no buyer field**; the docs describe the target as who "the caller was connected to" [INFERRED-docs]. Empty buyer when no target (TargetID keeps its old "0"). **Owner decision 2026-10-20: keep buyer = target.** The call detail labels it **"Buyer (target)"** for Retreaver calls (`web/src/lib/buyer-label.ts`, tested). |
 | `has_recording`, `recording_known` | whether `recording_url` is in the payload / non-empty | **Booleans only.** The URL is decoded into a local value, turned into two flags and cleared. It is never stored, logged, hashed or published |
 
 `recording_url` → flags: string → `1/1`; `null`, `""`, whitespace or a non-string → `0/1`; key absent → `0/0`.
