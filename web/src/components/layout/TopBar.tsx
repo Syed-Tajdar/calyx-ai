@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AlertBell } from '@/components/workflows/AlertBell';
 import { ApiError, fetchMe, MeResult } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 
@@ -88,6 +89,8 @@ export function TopBar({ onLogout }: TopBarProps): JSX.Element {
           >
             <Search className="h-4 w-4" />
           </Button>
+
+          <AlertBell />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

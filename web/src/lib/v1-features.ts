@@ -49,6 +49,8 @@ const BUILD_FLAGS: FeatureFlags = {
 export const NON_V1_ROUTE_FEATURES = {
   '/scoring': 'qa', // scores + /scoring/scorecards
   '/ask': 'ask_ai',
+  // v2 Phase 2D alert centre (bell + /alerts page).
+  '/alerts': 'workflows',
   // Hub that links into every intelligence feature; no flag of its own yet.
   '/intelligence': 'intelligence',
   '/compliance': 'compliance',
@@ -79,7 +81,7 @@ export function featureForRoute(href: string): Feature | null {
 
 /**
  * True when a route should be reachable in the current build. Used by the navigation and by the
- * segment layouts that answer 404 (`app/(app)/{scoring,ask,intelligence,compliance,attribution}`).
+ * segment layouts that answer 404 (`app/(app)/{scoring,ask,alerts,intelligence,compliance,attribution}`).
  */
 export function isRouteVisible(
   href: string,
