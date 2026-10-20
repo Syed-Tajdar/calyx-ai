@@ -155,13 +155,13 @@ func TestMapRetreaverCallShapes(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "wrapped array item",
-			raw:  `[{"call":{"uuid":"wrap-1","caller_state":"WA"}}]`,
+			name:   "wrapped array item",
+			raw:    `[{"call":{"uuid":"wrap-1","caller_state":"WA"}}]`,
 			wantID: "wrap-1",
 		},
 		{
-			name: "flat object",
-			raw:  `{"uuid":"flat-1","caller_state":"OR"}`,
+			name:   "flat object",
+			raw:    `{"uuid":"flat-1","caller_state":"OR"}`,
 			wantID: "flat-1",
 		},
 		{
@@ -322,4 +322,3 @@ func TestRetreaverFetchBuildsUpdatedAtQuery(t *testing.T) {
 		t.Fatalf("new cursor should not embed created_at_start: %s", enc)
 	}
 }
-

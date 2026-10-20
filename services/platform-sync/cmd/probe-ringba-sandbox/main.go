@@ -20,13 +20,13 @@ import (
 )
 
 const (
-	sandboxCallID  = "RGBC281C0CEFCB973E29DDA985A8F7C5EE522897406V3GHG01"
-	sandboxTarget  = "CALYX - TARGET - SANDBOX - DO - NOT - USE"
-	sandboxCamp    = "CALYX-SANDBOX-DO-NOT-USE"
+	sandboxCallID   = "RGBC281C0CEFCB973E29DDA985A8F7C5EE522897406V3GHG01"
+	sandboxTarget   = "CALYX - TARGET - SANDBOX - DO - NOT - USE"
+	sandboxCamp     = "CALYX-SANDBOX-DO-NOT-USE"
 	sandboxTargetID = "TAd5332f67bf994754b8a23b8847feb413"
-	fakeID         = "RGB0000000000000000000000000000000000SANDBOXFAKE01"
-	integrationID  = "ae17d28e-3f98-4288-abf9-ef1bfa978776"
-	tenantID       = "11111111-1111-1111-1111-111111111111"
+	fakeID          = "RGB0000000000000000000000000000000000SANDBOXFAKE01"
+	integrationID   = "ae17d28e-3f98-4288-abf9-ef1bfa978776"
+	tenantID        = "11111111-1111-1111-1111-111111111111"
 )
 
 func main() {
@@ -231,12 +231,12 @@ func phaseD(client *http.Client, base, token string) {
 	time.Sleep(400 * time.Millisecond)
 
 	ovBody := map[string]interface{}{
-		"inboundCallId":      fakeID,
-		"reason":             "Call payments adjusted by acct. Admin.",
-		"adjustConversion":   true,
-		"adjustPayout":       true,
+		"inboundCallId":       fakeID,
+		"reason":              "Call payments adjusted by acct. Admin.",
+		"adjustConversion":    true,
+		"adjustPayout":        true,
 		"newConversionAmount": 0.10,
-		"newPayoutAmount":    0.10,
+		"newPayoutAmount":     0.10,
 	}
 	st, loc, raw, _ = do(client, http.MethodPost, base+"/calls/payments/override", token, ovBody)
 	fmt.Printf("D3_OVERRIDE status=%d class=%s location=%q body=%s\n", st, classify(st, loc, raw), loc, snip(raw, 500))
@@ -480,7 +480,7 @@ func phaseF1(client *http.Client, base, token string) {
 
 	// Plan-specified values with collection body shape
 	body := map[string]interface{}{
-		"name": "CALYX-SANDBOX-CONV",
+		"name":                                 "CALYX-SANDBOX-CONV",
 		"incomingCallIdQueryStringParameter":   "Call Token",
 		"conversionAmountQueryStringParameter": "Revenue Token",
 		"conversionCriteriaParameterMatch":     "Fire Conversions",
