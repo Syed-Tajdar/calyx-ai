@@ -264,11 +264,18 @@
       PLATFORM_SYNC_URL: http://platform-sync:8088
       WRITEBACK_ENABLED: ${WRITEBACK_ENABLED:-false}
       WRITEBACK_INTERNAL_TOKEN: ${WRITEBACK_INTERNAL_TOKEN:-dev_writeback_internal_token_change_me}
-      # v2 Phase 2A — Ask AI on numbers. Off unless FEATURE_ASK_AI=true.
-      FEATURE_ASK_AI: ${FEATURE_ASK_AI:-false}
+      # v2 feature switches (API, runtime). Each is off unless exactly "true"; empty = off.
+      # With V1_ONLY on (default) a closed feature's routes answer 404.
+      FEATURE_ASK_AI: ${FEATURE_ASK_AI:-}
+      FEATURE_TRANSCRIPTION: ${FEATURE_TRANSCRIPTION:-}
+      FEATURE_QA: ${FEATURE_QA:-}
+      FEATURE_WORKFLOWS: ${FEATURE_WORKFLOWS:-}
+      FEATURE_ASK_AI_TRANSCRIPTS: ${FEATURE_ASK_AI_TRANSCRIPTS:-}
+      # Ask AI (Phase 2A). Empty key = Ask AI answers 503 even if switched on; production refuses
+      # to start with FEATURE_ASK_AI=true and no key. Defaults applied in code: gpt-5-mini, 300000.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
-      ASK_AI_TOKEN_BUDGET_DAILY: ${ASK_AI_TOKEN_BUDGET_DAILY:-300000}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      ASK_AI_TOKEN_BUDGET_DAILY: ${ASK_AI_TOKEN_BUDGET_DAILY:-}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-callloom_dev}
       POSTGRES_API_PASSWORD: ${POSTGRES_API_PASSWORD:-api_dev}
       POSTGRES_INGESTION_PASSWORD: ${POSTGRES_INGESTION_PASSWORD:-ingestion_dev}
@@ -552,7 +559,11 @@
         NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?Set NEXT_PUBLIC_WS_URL in .env}
         NEXT_PUBLIC_MOCK_MODE: ${NEXT_PUBLIC_MOCK_MODE:-true}
         NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN: ${NEXT_PUBLIC_RETREAVER_CALL_URL_PATTERN:-https://retreaver.com/calls/{id}}
+        # Web feature switches are baked in at build time: rebuild web after changing them.
         NEXT_PUBLIC_FEATURE_ASK_AI: ${NEXT_PUBLIC_FEATURE_ASK_AI:-false}
+        NEXT_PUBLIC_FEATURE_TRANSCRIPTION: ${NEXT_PUBLIC_FEATURE_TRANSCRIPTION:-false}
+        NEXT_PUBLIC_FEATURE_QA: ${NEXT_PUBLIC_FEATURE_QA:-false}
+        NEXT_PUBLIC_FEATURE_WORKFLOWS: ${NEXT_PUBLIC_FEATURE_WORKFLOWS:-false}
     ports:
       # Host 3101 — avoid reserved 3000–3003 on shared servers.
       - "127.0.0.1:3101:3000"
