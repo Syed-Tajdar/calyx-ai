@@ -361,6 +361,13 @@ func mapRetreaverCallOpts(raw json.RawMessage, monitorC3 bool) models.RemoteCall
 		PayableDuplicate   *bool    `json:"payable_duplicate"`
 		TargetName         string   `json:"target_name"`
 		AffiliateName      string   `json:"affiliate_name"`
+
+		// v1 mapping (owner-approved, additive). V2 sends the campaign name flat; v4/v5 moved it
+		// into a nested `campaign` object, which this V2 adapter does not read.
+		CampaignName string `json:"campaign_name"`
+		// recording_url is decoded only to derive two booleans (present? non-empty?). The URL
+		// itself is never copied into RemoteCall, logged, hashed or published.
+		RecordingURL json.RawMessage `json:"recording_url"`
 	}
 	_ = json.Unmarshal(raw, &row)
 	rev, pay := 0.0, 0.0
@@ -445,6 +452,18 @@ func mapRetreaverCallOpts(raw json.RawMessage, monitorC3 bool) models.RemoteCall
 		whole = *row.TotalDuration
 	}
 
+	hasRec, recKnown := retreaverRecordingFlags(row.RecordingURL)
+	row.RecordingURL = nil
+
+	// Retreaver has no buyer field: the docs describe the target as who "the caller was connected
+	// to" and time_to_connect as time to get "connected to a buyer", and the C4 table already
+	// treats target_name as the buyer. So the buyer is the target. BuyerID stays empty when no
+	// target id was sent (TargetID keeps its historical "0").
+	buyerID := ""
+	if targetID != 0 {
+		buyerID = strconv.Itoa(targetID)
+	}
+
 	return models.RemoteCall{
 		ExternalCallID: externalID,
 		CallerID:       row.Caller,
@@ -467,7 +486,27 @@ func mapRetreaverCallOpts(raw json.RawMessage, monitorC3 bool) models.RemoteCall
 		PlatformDuplicate:   platDup,
 		TargetName:          row.TargetName,
 		PublisherName:       row.AffiliateName,
+
+		CampaignName:   strings.TrimSpace(row.CampaignName),
+		BuyerID:        buyerID,
+		BuyerName:      row.TargetName,
+		HasRecording:   hasRec,
+		RecordingKnown: recKnown,
 	}
+}
+
+// retreaverRecordingFlags turns the raw `recording_url` value into (has_recording,
+// recording_known) without keeping the URL. known = the key was in the payload (null counts);
+// has = it is a non-empty string. A missing key leaves raw nil.
+func retreaverRecordingFlags(raw json.RawMessage) (has, known bool) {
+	if len(raw) == 0 {
+		return false, false
+	}
+	var url *string
+	if err := json.Unmarshal(raw, &url); err != nil || url == nil {
+		return false, true
+	}
+	return strings.TrimSpace(*url) != "", true
 }
 
 func parseRetreaverTime(raw string) time.Time {
