@@ -32,6 +32,9 @@ import { ScorecardsController } from '../scorecards/scorecards.controller';
 import { ScorecardsService } from '../scorecards/scorecards.service';
 import { ScoringController } from '../scoring/scoring.controller';
 import { ScoringService } from '../scoring/scoring.service';
+import { WorkflowActionsService } from '../workflows/workflow-actions.service';
+import { WorkflowsController } from '../workflows/workflows.controller';
+import { WorkflowsService } from '../workflows/workflows.service';
 import { GlobalExceptionFilter } from './global-exception.filter';
 import {
   FEATURE_FLAG_ENV,
@@ -81,6 +84,7 @@ class CsrfStubModule {}
     ScoringController,
     ScorecardsController,
     AnalyticsController,
+    WorkflowsController,
   ],
   providers: [
     JwtStrategy,
@@ -96,6 +100,8 @@ class CsrfStubModule {}
       KafkaService,
       ScorecardsService,
       AnalyticsService,
+      WorkflowsService,
+      WorkflowActionsService,
     ].map((provide) => ({ provide, useValue: stub() })),
   ],
 })
@@ -106,6 +112,25 @@ type Route = { method: string; path: string; body?: unknown; feature: Feature };
 const CLOSED_ROUTES: Route[] = [
   { method: 'GET', path: '/alerts/rules', feature: 'workflows' },
   { method: 'DELETE', path: '/alerts/rules/r1', feature: 'workflows' },
+  { method: 'GET', path: '/workflows/rules', feature: 'workflows' },
+  { method: 'GET', path: '/workflows/alerts', feature: 'workflows' },
+  {
+    method: 'POST',
+    path: '/workflows/rules/dry-run',
+    body: { name: 'r', trigger_type: 'conversion_rate_below', params: { threshold_pct: 5 } },
+    feature: 'workflows',
+  },
+  {
+    method: 'POST',
+    path: '/workflows/alerts/c0000000-0000-4000-8000-000000000001/pause',
+    feature: 'workflows',
+  },
+  {
+    method: 'PATCH',
+    path: '/workflows/integrations/c0000000-0000-4000-8000-000000000001/allow-pause',
+    body: { allow: true },
+    feature: 'workflows',
+  },
   { method: 'GET', path: '/attribution/events', feature: 'attribution' },
   { method: 'GET', path: '/attribution/status', feature: 'attribution' },
   { method: 'GET', path: '/compliance/risk-scores', feature: 'compliance' },
@@ -278,6 +303,7 @@ describe('feature gate (HTTP)', () => {
       ['FEATURE_ASK_AI', 'ask_ai'],
       ['FEATURE_TRANSCRIPTION', 'transcription'],
       ['FEATURE_QA', 'qa'],
+      ['FEATURE_WORKFLOWS', 'workflows'],
     ];
 
     it.each(flagged)('%s=true', async (flag, feature) => {
