@@ -110,17 +110,6 @@ export interface PlatformMixRow {
   percent: number;
 }
 
-export interface AlertRule {
-  id: string;
-  tenant_id: string;
-  name: string;
-  condition: Record<string, unknown>;
-  threshold: number;
-  channels: string[];
-  actions: Record<string, unknown>[];
-  is_active: boolean;
-}
-
 export interface IntegrationRecord {
   id: string;
   platform: string;
@@ -526,20 +515,6 @@ export async function fetchPlatformMix(
   if (filters.v1_platforms) params.set('v1_platforms', 'true');
   const qs = params.toString();
   return fetchWithAuth<PlatformMixRow[]>(token, `/analytics/platform-mix${qs ? `?${qs}` : ''}`);
-}
-
-export async function fetchAlertRules(token: string): Promise<{ data: AlertRule[] }> {
-  return fetchWithAuth<{ data: AlertRule[] }>(token, '/alerts/rules');
-}
-
-export async function createAlertRule(
-  token: string,
-  body: { name: string; condition: Record<string, unknown>; threshold: number },
-): Promise<AlertRule> {
-  return fetchWithAuth<AlertRule>(token, '/alerts/rules', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
 }
 
 export async function fetchIntegrations(token: string): Promise<IntegrationRecord[]> {
@@ -996,10 +971,6 @@ export async function deleteScorecard(token: string, id: string): Promise<void> 
   return fetchWithAuthNoContent(token, `/scorecards/${id}`, { method: 'DELETE' });
 }
 
-export async function deleteAlertRule(token: string, id: string): Promise<void> {
-  return fetchWithAuthNoContent(token, `/alerts/rules/${id}`, { method: 'DELETE' });
-}
-
 export async function pauseIntegration(
   token: string,
   id: string,
@@ -1048,4 +1019,210 @@ export async function testProviderBinding(
     `/providers/bindings/${id}/test?${params.toString()}`,
     { method: 'POST' },
   );
+}
+
+// ---- v2 Phase 2D: Workflows (alerts → publisher pause). Routes 404 unless FEATURE_WORKFLOWS. ----
+
+export interface WorkflowRuleRecord {
+  id: string;
+  name: string;
+  trigger_type: string;
+  params: Record<string, unknown>;
+  window_hours: number;
+  min_calls: number;
+  scope: 'publisher' | 'campaign' | 'tenant';
+  platform: 'ringba' | 'retreaver' | null;
+  notify_email: boolean;
+  action_mode: 'notify' | 'suggest' | 'auto';
+  suggest_since: string | null;
+  pause_hours: number | null;
+  cooldown_hours: number;
+  is_active: boolean;
+  auto_block_reason?: string | null;
+  suggested_last_7d?: number;
+}
+
+export type WorkflowRuleInput = Omit<
+  WorkflowRuleRecord,
+  'id' | 'suggest_since' | 'auto_block_reason' | 'suggested_last_7d'
+>;
+
+export interface WorkflowMatch {
+  platform: string;
+  entity_id: string;
+  entity_name: string;
+  numbers: Record<string, number | string | null>;
+}
+
+export interface WorkflowDryRun {
+  window: { from: string; to: string; timezone: string };
+  matches: WorkflowMatch[];
+  below_min_calls: number;
+  evaluated: number;
+  skipped_reason?: string;
+}
+
+export interface WorkflowAlert {
+  id: string;
+  rule_id: string | null;
+  rule_name: string | null;
+  trigger_type: string;
+  scope: string;
+  platform: string | null;
+  entity_id: string;
+  entity_name: string;
+  integration_id: string | null;
+  numbers: Record<string, unknown>;
+  window_from: string | null;
+  window_to: string | null;
+  status: 'open' | 'acknowledged' | 'actioned' | 'resolved';
+  action: 'none' | 'suggested' | 'paused' | 'pause_blocked' | 'pause_failed' | 'unpaused';
+  action_detail: Record<string, unknown>;
+  emailed: boolean;
+  created_at: string;
+  pause_id: string | null;
+  pause_confirmation: string | null;
+  ringba_link: string | null;
+  can_pause: boolean;
+}
+
+export interface WorkflowStatus {
+  actions_enabled: boolean;
+  ringba_pause_verified: boolean;
+  max_auto_pauses_daily: number;
+  auto_pauses_today: number;
+  email_enabled: boolean;
+  ringba_publishers_url: string;
+  open_alerts: number;
+}
+
+export interface WorkflowIntegration {
+  id: string;
+  name: string;
+  platform: string;
+  sync_mode: string | null;
+  is_active: boolean;
+  sync_status: string;
+  allow_publisher_pause: boolean;
+  live: boolean;
+}
+
+export interface ProtectedPublisher {
+  platform: 'ringba' | 'retreaver';
+  publisher_id: string;
+  name: string;
+  created_at?: string;
+}
+
+export interface PublisherActionAudit {
+  id: string;
+  user_id: string | null;
+  platform: string;
+  publisher_id: string;
+  action: 'pause' | 'unpause';
+  mode: 'manual' | 'auto' | 'timer';
+  outcome: string;
+  read_back: string;
+  message: string | null;
+  created_at: string;
+}
+
+export interface PublisherImpact {
+  platform: string;
+  publisher_id: string;
+  publisher_name: string;
+  calls: number;
+  revenue: number;
+  from: string;
+  to: string;
+  warning: string;
+}
+
+const jsonBody = (method: string, body?: unknown): RequestInit => ({
+  method,
+  ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+});
+
+export function fetchWorkflowStatus(token: string): Promise<WorkflowStatus> {
+  return fetchWithAuth<WorkflowStatus>(token, '/workflows/status');
+}
+
+export function fetchWorkflowRules(token: string): Promise<{ data: WorkflowRuleRecord[] }> {
+  return fetchWithAuth(token, '/workflows/rules');
+}
+
+export function createWorkflowRule(token: string, input: WorkflowRuleInput): Promise<WorkflowRuleRecord> {
+  return fetchWithAuth(token, '/workflows/rules', jsonBody('POST', input));
+}
+
+export function updateWorkflowRule(
+  token: string,
+  id: string,
+  patch: Partial<WorkflowRuleInput>,
+): Promise<WorkflowRuleRecord> {
+  return fetchWithAuth(token, `/workflows/rules/${encodeURIComponent(id)}`, jsonBody('PATCH', patch));
+}
+
+export function deleteWorkflowRule(token: string, id: string): Promise<void> {
+  return fetchWithAuthNoContent(token, `/workflows/rules/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function dryRunWorkflowRule(token: string, input: WorkflowRuleInput): Promise<WorkflowDryRun> {
+  return fetchWithAuth(token, '/workflows/rules/dry-run', jsonBody('POST', input));
+}
+
+export function fetchWorkflowAlerts(
+  token: string,
+  status?: string,
+): Promise<{ data: WorkflowAlert[]; open_count: number }> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  return fetchWithAuth(token, `/workflows/alerts${qs}`);
+}
+
+export function acknowledgeWorkflowAlert(token: string, id: string): Promise<{ id: string; status: string }> {
+  return fetchWithAuth(token, `/workflows/alerts/${encodeURIComponent(id)}/ack`, { method: 'POST' });
+}
+
+export function pauseFromAlert(
+  token: string,
+  id: string,
+): Promise<{ status: string; outcome: string; read_back: string; message: string }> {
+  return fetchWithAuth(token, `/workflows/alerts/${encodeURIComponent(id)}/pause`, { method: 'POST' });
+}
+
+export function unpausePublisher(token: string, pauseId: string): Promise<{ status: string; message: string }> {
+  return fetchWithAuth(token, `/workflows/pauses/${encodeURIComponent(pauseId)}/unpause`, { method: 'POST' });
+}
+
+export function fetchPublisherImpact(token: string, platform: string, publisherId: string): Promise<PublisherImpact> {
+  const qs = new URLSearchParams({ platform, publisher_id: publisherId });
+  return fetchWithAuth(token, `/workflows/publisher-impact?${qs.toString()}`);
+}
+
+export function fetchPublisherAudit(token: string): Promise<{ data: PublisherActionAudit[] }> {
+  return fetchWithAuth(token, '/workflows/audit');
+}
+
+export function fetchProtectedPublishers(token: string): Promise<{ data: ProtectedPublisher[] }> {
+  return fetchWithAuth(token, '/workflows/protected-publishers');
+}
+
+export function addProtectedPublisher(token: string, p: ProtectedPublisher): Promise<ProtectedPublisher> {
+  return fetchWithAuth(token, '/workflows/protected-publishers', jsonBody('POST', p));
+}
+
+export function removeProtectedPublisher(token: string, platform: string, publisherId: string): Promise<void> {
+  return fetchWithAuthNoContent(
+    token,
+    `/workflows/protected-publishers/${encodeURIComponent(platform)}/${encodeURIComponent(publisherId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function fetchWorkflowIntegrations(token: string): Promise<{ data: WorkflowIntegration[] }> {
+  return fetchWithAuth(token, '/workflows/integrations');
+}
+
+export function setAllowPublisherPause(token: string, id: string, allow: boolean): Promise<WorkflowIntegration> {
+  return fetchWithAuth(token, `/workflows/integrations/${encodeURIComponent(id)}/allow-pause`, jsonBody('PATCH', { allow }));
 }
