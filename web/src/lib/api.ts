@@ -771,24 +771,34 @@ export async function fetchComplianceExposure(
   );
 }
 
+export type AskStatus = 'answered' | 'no_data' | 'unverified' | 'budget' | 'error';
+
+export interface AskToolData {
+  tool: 'metrics' | 'compare_periods' | 'list_values';
+  args: Record<string, unknown>;
+  rows: Array<Record<string, unknown>>;
+}
+
 export interface AskResponse {
-  query_id: string;
+  id: string | null;
   question: string;
   answer: string;
-  intent: string;
-  cache_hit: boolean;
-  row_count: number;
+  status: AskStatus;
+  date_range: { from: string; to: string; timezone: string } | null;
+  numbers: AskToolData[];
   tokens_used: number;
+  budget: { used_today: number; daily_limit: number };
 }
 
 export interface AskHistoryRecord {
   id: string;
   question: string;
   answer: string;
-  intent: string;
-  cache_hit: boolean;
-  row_count: number;
-  tokens_used: number;
+  status: AskStatus;
+  date_from: string | null;
+  date_to: string | null;
+  numbers: AskToolData[];
+  tokens: number;
   created_at: string;
 }
 
