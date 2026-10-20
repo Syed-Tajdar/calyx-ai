@@ -74,18 +74,24 @@ $DC exec -T postgres psql -U callloom -d callloom -c "SELECT version, dirty FROM
 
 ## Step 2 — Open the global kill switch (Aryan) 📤
 
+**2a. Check — changes nothing.**
+
 ```bash
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
 ENVF=$(grep -l '^NEXT_PUBLIC_API_URL=' .env deploy/.env 2>/dev/null); echo "env file: [$ENVF]"
-# Exactly one file, or stop.
 [ "$(printf '%s\n' $ENVF | wc -l)" -eq 1 ] && [ -f "$ENVF" ] && echo "env file: OK" || echo "env file: NOT EXACTLY ONE - stop"
-mkdir -p ~/calyx-backups/writeback-on && chmod 700 ~/calyx-backups/writeback-on
-cp "$ENVF" ~/calyx-backups/writeback-on/env-before.bak && chmod 600 ~/calyx-backups/writeback-on/env-before.bak
-
 # The internal token must be a real value (not empty, not the dev default). Prints only yes/no.
 grep -qE '^WRITEBACK_INTERNAL_TOKEN=.{20,}' "$ENVF" && ! grep -q 'dev_writeback_internal_token' "$ENVF" && echo "token: set" || echo "token: MISSING - stop"
+```
 
+**Run 2b only if 2a printed `env file: OK` and `token: set`.** Anything else: stop and send the output.
+
+**2b. Edit — same terminal as 2a** (it uses `$ENVF` and `$DC` from 2a).
+
+```bash
+mkdir -p ~/calyx-backups/writeback-on && chmod 700 ~/calyx-backups/writeback-on
+cp "$ENVF" ~/calyx-backups/writeback-on/env-before.bak && chmod 600 ~/calyx-backups/writeback-on/env-before.bak
 umask 077
 grep -v '^WRITEBACK_ENABLED=' "$ENVF" > "$ENVF.new" && echo 'WRITEBACK_ENABLED=true' >> "$ENVF.new"
 mv "$ENVF.new" "$ENVF" && chmod 600 "$ENVF"
@@ -97,8 +103,7 @@ $DC exec -T platform-sync printenv WRITEBACK_ENABLED   # true
 $DC logs platform-sync --tail 30 | grep -i -E 'writeback|error'
 ```
 
-**Stop** before editing anything if the check prints `NOT EXACTLY ONE`. **Stop** if `token: MISSING`,
-either `printenv` is not `true`, or the log shows
+**Stop** if either `printenv` is not `true`, or the log shows
 `WRITEBACK_ENABLED is on but WRITEBACK_INTERNAL_TOKEN is empty`.
 
 Every integration still has `writeback_enabled = false`, so nothing can be written yet.
@@ -190,17 +195,27 @@ Fastest first. Step 6a alone stops every write within a minute.
 
 **6a. Global switch off**
 
+Check first — changes nothing:
+
 ```bash
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
 ENVF=$(grep -l '^NEXT_PUBLIC_API_URL=' .env deploy/.env 2>/dev/null); echo "env file: [$ENVF]"
 [ "$(printf '%s\n' $ENVF | wc -l)" -eq 1 ] && [ -f "$ENVF" ] && echo "env file: OK" || echo "env file: NOT EXACTLY ONE - stop"
+```
+
+**Only after it prints `env file: OK`**, in the same terminal:
+
+```bash
 umask 077
 grep -v '^WRITEBACK_ENABLED=' "$ENVF" > "$ENVF.new" && echo 'WRITEBACK_ENABLED=false' >> "$ENVF.new"
 mv "$ENVF.new" "$ENVF" && chmod 600 "$ENVF"
 $DC up -d --no-deps --force-recreate api platform-sync
 $DC exec -T platform-sync printenv WRITEBACK_ENABLED   # false
 ```
+
+If it printed `NOT EXACTLY ONE`, do not edit by hand in a hurry: stop and send the output (write-back stays
+as it is until the file question is answered; Step 6b can still close each integration).
 
 With it off, every Convert / Cancel is refused with 403 "write-back is disabled" and an audit row
 `rejected`; no request reaches Ringba or Retreaver.
