@@ -9,6 +9,10 @@ const boolFromEnv = z
     return v !== 'false' && v !== '0';
   });
 
+/** Compose passes unset vars as "" (`${VAR:-}`): treat "" as unset before coercing to a number. */
+const optionalInt = (min: number) =>
+  z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(min).optional());
+
 const envSchema = z.object({
   APP_ENV: z.enum(['development', 'production']).default('development'),
   API_PORT: z.coerce.number().default(3000),
@@ -65,7 +69,22 @@ const envSchema = z.object({
   /** Default gpt-5-mini (applied in the Ask AI service). */
   OPENAI_MODEL: z.string().optional(),
   /** Default 300000 tokens per tenant per Eastern day (applied in the Ask AI service). */
-  ASK_AI_TOKEN_BUDGET_DAILY: z.coerce.number().int().positive().optional(),
+  ASK_AI_TOKEN_BUDGET_DAILY: optionalInt(1),
+  /** v2 Phase 2D: Workflows. Off unless exactly "true" (route gate + evaluator). */
+  FEATURE_WORKFLOWS: z.string().optional(),
+  /** Kill switch for publisher pause/unpause. Off unless exactly "true". */
+  WORKFLOW_ACTIONS_ENABLED: z.string().optional(),
+  /** Ringba pause proven on the sandbox publisher. Off unless exactly "true". */
+  WORKFLOW_RINGBA_PAUSE_VERIFIED: z.string().optional(),
+  /** Default 3 automatic pauses per tenant per Eastern day (applied in the workflows module). */
+  WORKFLOW_MAX_AUTO_PAUSES_DAILY: optionalInt(0),
+  /** Alert email. Off while SMTP_HOST is empty. */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: optionalInt(1),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  ALERT_EMAIL_TO: z.string().optional(),
   SESSION_COOKIE_NAME: z.string().default('calyx_session'),
   CSRF_COOKIE_NAME: z.string().default('calyx_csrf'),
 });
@@ -120,6 +139,9 @@ export function assertProductionSecrets(env: EnvConfig): void {
   named(bad, 'REDIS_PASSWORD', process.env.REDIS_PASSWORD, [DEV_REDIS]);
   if (env.FEATURE_ASK_AI === 'true') {
     named(bad, 'OPENAI_API_KEY', env.OPENAI_API_KEY, ['sk-dev', 'changeme', 'change_me', 'placeholder']);
+  }
+  if (env.SMTP_HOST && env.SMTP_HOST.trim()) {
+    named(bad, 'SMTP_PASSWORD', env.SMTP_PASSWORD, ['changeme', 'change_me', 'placeholder', 'password', 'smtp_dev']);
   }
   if (bad.length) {
     throw new Error(
