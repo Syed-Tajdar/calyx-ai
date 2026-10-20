@@ -237,7 +237,7 @@ func printRecordKeys(body []byte) {
 
 func printRedactedFirstRecord(body []byte) {
 	var payload struct {
-		IsSuccessful  bool `json:"isSuccessful"`
+		IsSuccessful  bool   `json:"isSuccessful"`
 		TransactionID string `json:"transactionId"`
 		Report        struct {
 			PartialResult bool                     `json:"partialResult"`

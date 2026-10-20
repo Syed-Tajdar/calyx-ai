@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	urlInErrorRE   = regexp.MustCompile(`https?://[^\s"']+`)
-	paramRE        = regexp.MustCompile(`(?i)(api_key|company_id|token|secret|password|access_key)=([^&\s"']+)`)
+	urlInErrorRE = regexp.MustCompile(`https?://[^\s"']+`)
+	paramRE      = regexp.MustCompile(`(?i)(api_key|company_id|token|secret|password|access_key)=([^&\s"']+)`)
 	authHeaderRE = regexp.MustCompile(`(?i)Authorization:\s*(?:Bearer\s+\S+|Basic\s+\S+|Token\s+\S+|\S+)`)
 	bearerTokRE  = regexp.MustCompile(`(?i)(Bearer\s+)[A-Za-z0-9\-._~+/]+=*`)
 	tokenTokRE   = regexp.MustCompile(`(?i)(Token\s+)[A-Za-z0-9\-._~+/]+=*`)
