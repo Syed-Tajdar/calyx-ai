@@ -49,8 +49,9 @@
       - ${REDIS_PASSWORD:-redis_dev}
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_dev}
-    ports:
-      - "127.0.0.1:6379:6379"
+    # No host port: every service reaches redis on the compose network as `redis:6379`.
+    # A host port collided with Plane's redis on the server (host 6379) after a reboot, and redis
+    # then came up without a network (2026-10-18). Use `docker exec deploy-redis-1 redis-cli` to inspect.
     volumes:
       - redis_data:/data
     healthcheck:
