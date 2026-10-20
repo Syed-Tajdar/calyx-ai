@@ -30,17 +30,26 @@ DC="docker compose -p deploy -f deploy/docker-compose.yml"
 ENVF=$(grep -l '^NEXT_PUBLIC_API_URL=' .env deploy/.env 2>/dev/null); echo "env file: [$ENVF]"
 [ "$(printf '%s\n' $ENVF | wc -l)" -eq 1 ] && [ -f "$ENVF" ] && echo "env file: OK" || echo "env file: NOT EXACTLY ONE - stop"
 git fetch origin
-git log --oneline -1            # what runs now (expected: 835b9f7)
+git log --oneline -1            # what runs now (expected: 99618e0, Stage 4b, migration 32)
+git merge-base --is-ancestor 99618e0 HEAD && echo "server has 99618e0: OK" || echo "server is OLDER than 99618e0 - stop and tell Syed"
 git log --oneline -1 origin/main   # the target: must match the hash Syed sent
 git status --short              # must be empty
 grep -E '^(APP_ENV|MOCK_MODE|WRITEBACK_ENABLED|FEATURE_ASK_AI|NEXT_PUBLIC_FEATURE_ASK_AI|COMPOSE_PROFILES)=' "$ENVF"
 $DC exec -T postgres psql -U callloom -d callloom -c "SELECT version, dirty FROM schema_migrations;"
 ```
 
-**Continue only if:** `env file: OK`, `git status` empty, `origin/main` is the hash Syed sent,
-`APP_ENV=production`, `WRITEBACK_ENABLED=false`, migration `32 | f`.
+**Continue only if:** `env file: OK`, `server has 99618e0: OK`, `git status` empty, `origin/main` is the hash
+Syed sent, `APP_ENV=production`, `WRITEBACK_ENABLED=false`, **`COMPOSE_PROFILES` absent or empty** in the env file
+(no `intelligence` profile on the server), migration `32 | f`.
+
+If the server is **older than `99618e0`**: stop and tell Syed (this pack assumes Stage 4b is already deployed).
 
 ### 0.2 Reconciliation BEFORE the deploy (keep this output)
+
+⏰ **Before and after must run on the same Eastern day** (the queries cover the last full days up to yesterday,
+Eastern; after midnight ET "yesterday" changes and the two outputs cannot be compared). So **do not start this
+deploy between 08:30 and 10:00 PKT** (midnight ET is 09:00 PKT while the US is on daylight time, i.e. until
+2026-11-01). From 2026-11-01 (US standard time) midnight ET is 10:00 PKT: then avoid **09:30–11:00 PKT**.
 
 Save the two query files from go-live Step 2.4 **with the fixed versions** (they already exist in
 `~/calyx-golive/` if you used the corrected ones from 2026-10-15; this rewrites them identically):
@@ -172,6 +181,13 @@ printf 'API /providers '; curl -s -o /dev/null -w '%{http_code}\n' http://127.0.
 # expect: 404, 404, 404 (closed even without logging in)
 ```
 
+If any `curl` prints **`000`** (nothing answered), the ports differ on this server. Check the published ports and
+use those instead of 3101 / 3100:
+
+```bash
+docker ps --filter name=deploy- --format '{{.Names}}  {{.Ports}}'   # e.g. 127.0.0.1:3101->3000/tcp for web
+```
+
 No `error` lines in the logs. A platform-sync line `"demo sync skipped"` is fine.
 
 Browser (Incognito, `https://calyx.ridgerisemedia.com`, admin login): Dashboard, Pings, Reports, Coverage,
@@ -180,7 +196,8 @@ Settings open as before; the sidebar has **no** Ask AI item; a Retreaver call's 
 
 ## Step 6 — Reconciliation AFTER (📤 send output) — must match Step 0.2
 
-Wait **30 minutes** after Step 4 (one sync cycle), then:
+Wait **30 minutes** after Step 4 (one sync cycle), then — **still on the same Eastern day as Step 0.2** (if midnight
+ET has passed, run Step 0.2's queries again for the new day and compare only days that both outputs cover):
 
 ```bash
 cd ~/deployments/calyx-ai
@@ -295,8 +312,16 @@ Not part of this deploy. Run it only when Syed says so.
 
 ### Turn on
 
-The key goes **only** into the server env file, typed by Syed or pasted from the password manager by
-Aryan — never into chat. Then, after the same Step 0.1 check (`env file: OK`):
+The key goes **only** into the server env file — never into chat, an editor or the terminal history. After the
+same Step 0.1 check (`env file: OK`), paste it at a **hidden** prompt (nothing is shown or printed):
+
+```bash
+umask 077; read -rs -p 'Paste OpenAI key (hidden): ' K; echo
+grep -v '^OPENAI_API_KEY=' "$ENVF" > "$ENVF.new" && printf 'OPENAI_API_KEY=%s\n' "$K" >> "$ENVF.new" && mv "$ENVF.new" "$ENVF" && chmod 600 "$ENVF"; unset K
+grep -q '^OPENAI_API_KEY=.\{20,\}' "$ENVF" && echo "openai key: set" || echo "openai key: MISSING - stop"
+```
+
+Then switch Ask AI on:
 
 ```bash
 umask 077
