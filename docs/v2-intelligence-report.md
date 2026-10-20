@@ -817,49 +817,108 @@ Screenshots (`docs/evidence/v2-2d/`), workflows switched on **for the laptop onl
 
 ## 2D.6 Sandbox plan — GET only now; the writes need the owner's written approval 🙋
 
-**Owner preparation:** create a publisher named exactly `CALYX-TEST-PUB-DO-NOT-USE` in **Ringba** and an affiliate with
-the same name in **Retreaver** — no numbers, no campaigns, no traffic — **in the same accounts the server's Live
-integrations use** (Ringba account of `Ringa Account`; Retreaver company Ridge Rise Media). Confirm the Ringba API
-token's user role (Q9: Admin needed for `PATCH /Publishers`).
+Owner review (2026-10-20): **Q1 OK, Q3 OK, Q4 OK; Q2 yes** → Pings now has publisher and campaign filters and alert
+links open Pings filtered to that publisher (§2D.8). Fixes applied below: the probe runs from a **separate worktree**
+(the server checkout stays on `main` `06f0384`, which does not contain the probe); read steps compare the **whole**
+object; Retreaver pass needs the owner's UI check; **2D is not merged to `main`** until after the sandbox proof
+(then deployed with every flag off).
 
-**Step 0 (GET only, on the server, read-only probe — no write is possible: its transport refuses every method but GET):**
+**Owner preparation:** a publisher named exactly `CALYX-TEST-PUB-DO-NOT-USE` in **Ringba** and an affiliate with the same
+name in **Retreaver** — no numbers, no campaigns, no traffic — **in the same accounts the server's Live integrations use**.
+Confirm the Ringba API token's user role (Admin is needed for `PATCH /Publishers`).
+
+### Step 0 for Aryan — GET only (📤 send the whole output)
+
+The probe's HTTP transport refuses every method except GET, so this step cannot change anything on Ringba or
+Retreaver. It reads the encryption key and `DATABASE_URL` from the platform-sync container's environment through
+stdin (nothing secret is printed or stored).
 
 ```bash
-cd ~/deployments/calyx-ai && DC="docker compose -p deploy -f deploy/docker-compose.yml"
-# integration ids (no secrets):
-$DC exec -T postgres psql -U callloom -d callloom -c "SELECT id, platform, name, sync_mode, is_active FROM integrations WHERE deleted_at IS NULL AND connection_mode='api_sync' ORDER BY platform;"
-# then, per integration id, the probe reads the encryption key and DATABASE_URL from the platform-sync container env on stdin:
-docker inspect deploy-platform-sync-1 --format '{{range .Config.Env}}{{println .}}{{end}}' \
- | awk -F= '/^CREDENTIAL_ENCRYPTION_KEY=/{sub(/^[^=]*=/,"");k=$0} /^DATABASE_URL=/{sub(/^[^=]*=/,"");d=$0} END{print k; print d}' \
- | docker run --rm -i --network deploy_default -v "$PWD/services/platform-sync":/src -w /src golang:1.25-alpine \
-     go run ./cmd/probe-publisher-pause -integration <id> -name CALYX-TEST-PUB-DO-NOT-USE
+cd ~/deployments/calyx-ai
+DC="docker compose -p deploy -f deploy/docker-compose.yml"
+git log --oneline -1                                   # server checkout: 06f0384 — do NOT change it
+
+# 1. A separate, temporary worktree of v2/intelligence for the probe only
+git -C ~/deployments/calyx-ai fetch origin
+git -C ~/deployments/calyx-ai worktree add ~/calyx-probe-2d origin/v2/intelligence
+git -C ~/calyx-probe-2d log --oneline -1               # must be the hash Syed sent
+ls ~/calyx-probe-2d/services/platform-sync/cmd/probe-publisher-pause/main.go
+
+# 2. The two Live integration ids (no secrets)
+$DC exec -T postgres psql -U callloom -d callloom -c "SELECT id, platform, name, sync_mode, is_active FROM integrations WHERE deleted_at IS NULL AND connection_mode = 'api_sync' ORDER BY platform;"
 ```
 
-It finds the test publisher by exact name, prints its id and whether `enabled` (Ringba) / `paused` (Retreaver) is
-visible, proves **no numbers** (and no campaigns where the API shows membership; otherwise UNKNOWN), and prints the
-write plan below with "NOT EXECUTED". Output goes into this report.
+Copy the `ringba` and `retreaver` ids from that output into the two lines below (keep the quotes), then run:
 
-**Write plan (per platform, only after written approval; one step at a time; stop on any surprise):**
+```bash
+RINGBA_ID='<paste the ringba id>'
+RETREAVER_ID='<paste the retreaver id>'
+mkdir -p ~/calyx-golive
+for ID in "$RINGBA_ID" "$RETREAVER_ID"; do
+  echo "===== integration $ID ====="
+  docker inspect deploy-platform-sync-1 --format '{{range .Config.Env}}{{println .}}{{end}}' \
+   | awk -F= '/^CREDENTIAL_ENCRYPTION_KEY=/{sub(/^[^=]*=/,"");k=$0} /^DATABASE_URL=/{sub(/^[^=]*=/,"");d=$0} END{print k; print d}' \
+   | docker run --rm -i --network deploy_default \
+       -v ~/calyx-probe-2d/services/platform-sync:/src -w /src golang:1.25-alpine \
+       go run ./cmd/probe-publisher-pause -integration "$ID" -name CALYX-TEST-PUB-DO-NOT-USE
+done 2>&1 | tee ~/calyx-golive/probe-2d-step0.txt
+
+# 3. Remove the temporary worktree
+git -C ~/deployments/calyx-ai worktree remove ~/calyx-probe-2d
+git -C ~/deployments/calyx-ai worktree list            # only ~/deployments/calyx-ai remains
+```
+
+Notes: the first `go run` downloads Go modules (a minute or two). If `golang:1.25-alpine` is not on the server, Docker
+pulls it. The probe prints hosts and paths only (account id shown as `{accountId}`), never a key or a query string.
+Send `~/calyx-golive/probe-2d-step0.txt`.
+
+What Step 0 shows per platform: the test publisher found by exact name (unique), its id, whether `enabled` (Ringba) /
+`paused` (Retreaver) is visible, **no numbers** (and no campaigns where the API shows membership, else UNKNOWN), the
+**baseline snapshot** (number of fields compared, the ignored fields, a fingerprint — no values), and the write plan
+below marked "NOT EXECUTED".
+
+### Write plan (per platform, only after written approval; one step at a time; stop on any surprise)
+
+Every read step snapshots the **whole** publisher / affiliate object and compares it to step a: all top-level fields
+except the paused flag (`enabled` for Ringba, `paused` for Retreaver) and timestamps containing "updated"/"modified".
+Values are compared as canonical JSON (`cmd/probe-publisher-pause/snapshot.go`, tested). The report will show the
+diff for c and e — it must be **empty**.
 
 | Step | Ringba request (account id redacted) | Retreaver request (key redacted) | Expected | Undo |
 |---|---|---|---|---|
-| a. read | `GET /v2/{accountId}/Publishers/{testId}` | `GET /api/v1/affiliates/{testId}.json` | Ringba `enabled=true`; Retreaver `paused` visible? (Q10) | — |
-| b. pause | `PATCH …/Publishers/{testId}` `{"enabled":false}` | `PUT /api/v1/affiliates/{testId}.json` `{"affiliate":{"paused":true}}` | 200 | step d |
-| c. read | as a | as a | Ringba `enabled=false` (+ the UI shows the publisher paused); Retreaver `paused=true` if visible, else confirmed by the PUT response | step d |
-| d. unpause | `{"enabled":true}` | `{"affiliate":{"paused":false}}` | 200 | — |
-| e. read | as a | as a | back to the step-a state | — |
+| a. read | `GET /v2/{accountId}/Publishers/{testId}` | `GET /api/v1/affiliates/{testId}.json` | Ringba `enabled=true`; baseline snapshot of every other field | — |
+| b. pause | `PATCH …/Publishers/{testId}` `{"enabled":false}` | `PUT /api/v1/affiliates/{testId}.json` `{"affiliate":{"paused":true}}` | 2xx | step d |
+| c. read | as a | as a | Ringba `enabled=false`; Retreaver `paused=true` if visible; **diff vs a empty**; **owner: Ringba and Retreaver UI show the test publisher Paused** | step d |
+| d. unpause | `{"enabled":true}` | `{"affiliate":{"paused":false}}` | 2xx | — |
+| e. read | as a | as a | back to step-a values; **diff vs a empty**; **owner: both UIs show it Active** | — |
 
-Pass for Ringba = step c shows `enabled=false` **and** the Ringba UI lists the publisher as paused → then
-`WORKFLOW_RINGBA_PAUSE_VERIFIED=true` becomes possible (owner decision). The probe gets an execute mode only after
-approval, limited to the test publisher's id.
+**Pass criteria**
+- **Ringba:** c shows `enabled=false`, diff empty, and the Ringba UI shows the test publisher paused; e shows `enabled=true`,
+  diff empty, UI active → `WORKFLOW_RINGBA_PAUSE_VERIFIED=true` becomes possible (owner decision).
+- **Retreaver:** the PUTs return 2xx, the diffs are empty, **and the owner sees the test publisher Paused in the Retreaver UI
+  after b and Active after d** (owner fix 3; needed because the documented GET may not show `paused`).
 
-## 2D.7 Open questions for the owner
+The probe gets an execute mode only after approval, limited to the test publisher's id.
 
-1. Minimum-sample reading for comparison triggers (§2D.2) — OK?
-2. Pings has no publisher/campaign filter, so alert links open `/pings` unfiltered. Add a publisher filter later?
-3. No per-publisher Ringba URL is known; the link opens Ringba's publisher list and shows the id to look for.
-4. Several Live integrations for one platform → pause blocked ("cannot tell which one owns this publisher"). OK?
-5. Test publisher creation + Ringba token role (§2D.6) — needed before Step 0.
+## 2D.7 Owner answers (2026-10-20)
+
+1. Minimum-sample reading for comparison triggers — **OK**.
+2. Pings publisher/campaign filter — **yes, done** (§2D.8).
+3. Ringba link to the publisher list — **OK**.
+4. Several Live integrations for one platform → pause blocked — **OK (block is right)**.
+5. Test publisher + Ringba token role — pending (owner).
+
+## 2D.8 Pings filters and filtered alert links (owner Q2) [PROVEN]
+
+- API `GET /pings` and `/pings/export` accept `publisher` and `campaign` (exact id, trimmed, 1–200 chars) →
+  `AND publisher_id = {publisher:String}` / `AND campaign_id = {campaign:String}` (parameters only; test with an
+  injection string: `services/api/src/pings/pings.filters.spec.ts`).
+- Web Pings page: "Publisher id" and "Campaign id" fields driven by the URL (`/pings?publisher=…&campaign=…`), a
+  "Filtering by …" line and Clear; the live feed applies the same filter to new events; a `platform=` in the URL is
+  applied once on arrival.
+- Alert links: publisher alerts open `/pings?publisher=<id>&platform=<platform>`, campaign alerts
+  `/pings?campaign=<id>&platform=<platform>`, tenant alerts `/pings` (`web/src/lib/workflows.ts`, tested).
+- Tests: API 309/309, web 48/48, `next build` ✅.
 
 **STOP.** Phase 2D is built and gated. No pause or unpause is sent to Ringba or Retreaver until the owner approves the
-sandbox plan in writing.
+sandbox plan in writing. 2D is **not** merged to `main` until after the sandbox proof.
