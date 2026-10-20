@@ -110,6 +110,9 @@ export interface DateFilterQuery {
   to?: string;
   platform?: string;
   search?: string;
+  /** Exact publisher / campaign id (Pings filters, alert links). */
+  publisher?: string;
+  campaign?: string;
   show_demo?: boolean;
   conversion?: PingConversionFilter;
   /** v1 All: ask the API to count ringba + retreaver only. */

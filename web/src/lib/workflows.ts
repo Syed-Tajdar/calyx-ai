@@ -176,11 +176,15 @@ export function alertButton(a: {
 }
 
 /**
- * Link to the Pings list for this alert. The Pings page has no publisher or campaign filter today
- * (only `search` on the call id), so the link opens the list unfiltered.
+ * Link to the Pings list for this alert, filtered to the alert's publisher (or campaign) and
+ * platform. Tenant-wide alerts open the list unfiltered.
  */
-export function pingsLinkFor(_alert: { entity_id: string; platform: string | null }): string {
-  return '/pings';
+export function pingsLinkFor(alert: { entity_id: string; platform: string | null; scope?: string }): string {
+  const params = new URLSearchParams();
+  if (alert.entity_id) params.set(alert.scope === 'campaign' ? 'campaign' : 'publisher', alert.entity_id);
+  if (alert.platform) params.set('platform', alert.platform);
+  const qs = params.toString();
+  return qs ? `/pings?${qs}` : '/pings';
 }
 
 /** Human-readable key for a numbers object ("conversion_rate_pct" → "Conversion rate %"). */
