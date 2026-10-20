@@ -10,6 +10,8 @@ process.env.APP_ENV = 'development';
 process.env.DATABASE_URL ??= 'postgres://localhost:5432/callloom';
 process.env.JWT_SECRET ??= '0123456789abcdef0123456789abcdef';
 
+import { AlertsController } from '../alerts/alerts.controller';
+import { AlertsService } from '../alerts/alerts.service';
 import { AnalyticsController } from '../analytics/analytics.controller';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { AskAiController } from '../ask-ai/ask-ai.controller';
@@ -70,6 +72,7 @@ class CsrfStubModule {}
 @Module({
   imports: [CsrfStubModule, PassportModule],
   controllers: [
+    AlertsController,
     AttributionController,
     ComplianceController,
     EnrichmentController,
@@ -83,6 +86,7 @@ class CsrfStubModule {}
     JwtStrategy,
     { provide: APP_GUARD, useClass: FeatureGateGuard },
     ...[
+      AlertsService,
       AttributionService,
       ComplianceService,
       EnrichmentApiService,
@@ -100,6 +104,8 @@ class GateTestModule {}
 type Route = { method: string; path: string; body?: unknown; feature: Feature };
 
 const CLOSED_ROUTES: Route[] = [
+  { method: 'GET', path: '/alerts/rules', feature: 'workflows' },
+  { method: 'DELETE', path: '/alerts/rules/r1', feature: 'workflows' },
   { method: 'GET', path: '/attribution/events', feature: 'attribution' },
   { method: 'GET', path: '/attribution/status', feature: 'attribution' },
   { method: 'GET', path: '/compliance/risk-scores', feature: 'compliance' },

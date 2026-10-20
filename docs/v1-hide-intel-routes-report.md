@@ -106,3 +106,12 @@ All files are in `docs/evidence/v1-hide-intel-routes/`.
 2. **`/intelligence` hub**: it has no v2 flag (key `intelligence`, web only). Should it re-open when any of `ask_ai`/`qa`/`transcription` is on, or get its own flag?
 3. **Providers in v2**: when the Providers status tab comes back, should it open the whole `ProvidersController`, or only `GET /providers/catalog` and `GET /providers/bindings` (handler-level `@FeatureGate`)? Today the whole controller is one key.
 4. Web `/scoring` is keyed `qa`. If v2 ships transcription without QA, the transcript UI will need its own page or key.
+
+## Owner decisions (2026-10-20)
+
+| # | Decision | Done |
+|---|---|---|
+| a | Close `AlertsController` under `@FeatureGate('workflows')`; Phase 2D re-opens it | ✅ `services/api/src/alerts/alerts.controller.ts`; `GET /alerts/rules` and `DELETE /alerts/rules/:id` added to `feature-gate.spec.ts` (404 closed, open with `FEATURE_WORKFLOWS=true` or `V1_ONLY=false`). API jest 196/196 |
+| b | The `/intelligence` hub stays closed in v2; the sidebar links each feature directly | No flag re-opens `/intelligence` |
+| c | `ProvidersController` stays closed for good. The v2 Providers status tab gets a **new read-only endpoint** (configured yes/no, usage, $ estimate), because keys live in the server env, not in bindings | `providers` keeps no flag |
+| d | The transcript UI goes on the **call detail page** behind `FEATURE_TRANSCRIPTION`, not on `/scoring` | Noted for 2B; web `/scoring` stays keyed to `qa` |
