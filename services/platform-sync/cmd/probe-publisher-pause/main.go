@@ -288,6 +288,7 @@ func probeRingba(ctx context.Context, c *client, creds map[string]string, name s
 	} else {
 		detail = unwrap(asMap(det), "publisher")
 		fmt.Printf("  keys: %s\n", strings.Join(keys(detail), ", "))
+		printBaseline("ringba", detail)
 		if en, ok := detail["enabled"].(bool); ok {
 			r.state = fmt.Sprintf("enabled=%v (paused=%v)", en, !en)
 			r.add("\"enabled\" in GET (read-back)", "PROVEN present")
@@ -458,6 +459,7 @@ func probeRetreaver(ctx context.Context, c *client, creds map[string]string, nam
 	} else {
 		d := unwrap(asMap(det), "affiliate")
 		fmt.Printf("  keys: %s\n", strings.Join(keys(d), ", "))
+		printBaseline("retreaver", d)
 		if p, ok := d["paused"].(bool); ok {
 			r.state = fmt.Sprintf("paused=%v", p)
 			r.add("\"paused\" in GET (read-back)", "PROVEN present → read_back ok")
@@ -536,20 +538,20 @@ func printPlan(platform, id, pathID string) {
 	if platform == "ringba" {
 		p := "/v2/{accountId}/Publishers/" + pathID
 		steps = []step{
-			{"1", "GET", p, "", "enabled=true (record)"},
-			{"2", "PATCH", p, `{"enabled":false}`, "2xx"},
-			{"3", "GET", p, "", "enabled=false; publisher list in the UI shows Paused"},
-			{"4", "PATCH", p, `{"enabled":true}`, "2xx"},
-			{"5", "GET", p, "", "enabled=true; UI shows Active"},
+			{"a", "GET", p, "", "enabled=true; snapshot all other fields (baseline)"},
+			{"b", "PATCH", p, `{"enabled":false}`, "2xx"},
+			{"c", "GET", p, "", "enabled=false; diff vs a EMPTY; UI shows Paused"},
+			{"d", "PATCH", p, `{"enabled":true}`, "2xx"},
+			{"e", "GET", p, "", "enabled=true; diff vs a EMPTY; UI shows Active"},
 		}
 	} else {
 		p := "/api/v1/affiliates/" + pathID + ".json"
 		steps = []step{
-			{"1", "GET", p, "", "record keys; paused present?"},
-			{"2", "PUT", p, `{"affiliate":{"paused":true}}`, "2xx; record response keys"},
-			{"3", "GET", p, "", "paused=true if the key exists, else none"},
-			{"4", "PUT", p, `{"affiliate":{"paused":false}}`, "2xx"},
-			{"5", "GET", p, "", "paused=false if the key exists, else none"},
+			{"a", "GET", p, "", "snapshot all fields but paused (baseline)"},
+			{"b", "PUT", p, `{"affiliate":{"paused":true}}`, "2xx; owner sees Paused in the UI"},
+			{"c", "GET", p, "", "paused=true if visible; diff vs a EMPTY"},
+			{"d", "PUT", p, `{"affiliate":{"paused":false}}`, "2xx; owner sees Active in the UI"},
+			{"e", "GET", p, "", "paused=false if visible; diff vs a EMPTY"},
 		}
 	}
 	fmt.Printf("  %-2s  %-6s  %-44s  %-32s  %s\n", "#", "METHOD", "PATH (no query)", "BODY", "EXPECT")
@@ -681,4 +683,12 @@ func truncate(s string, n int) string {
 func fatal(err error) {
 	fmt.Fprintf(os.Stderr, "FAIL: %s\n", redact.RedactMessage(err.Error()))
 	os.Exit(1)
+}
+
+// printBaseline records the step-a snapshot without printing any value: how many fields are
+// compared, which are ignored, and a fingerprint that steps c and e must reproduce.
+func printBaseline(platform string, obj map[string]any) {
+	snap := Snapshot(platform, obj)
+	fmt.Printf("  baseline snapshot: %d fields compared, ignored: [%s], fingerprint %s\n",
+		len(snap), strings.Join(IgnoredKeys(platform, obj), ", "), Fingerprint(snap))
 }
