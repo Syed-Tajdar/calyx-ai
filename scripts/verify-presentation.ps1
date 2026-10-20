@@ -1,5 +1,6 @@
 # Presentation verification: API health + Phase 3 endpoints (MOCK_MODE).
-# -V1 skips POST /ask. That route needs the ask-ai container, which v1 does not run.
+# -V1: the out-of-scope endpoints (scoring, scorecards, compliance, attribution, providers, POST /ask)
+# must answer 404 — the v1 hotfix closes them — so each one is asserted closed instead of open.
 param([switch]$V1)
 $ErrorActionPreference = "Stop"
 
@@ -19,6 +20,30 @@ function Test-Endpoint {
     Write-Host "  FAIL $Name ($($_.Exception.Message))"
     return $false
   }
+}
+
+function Test-NotFound {
+  param([string]$Name, [string]$Url, [hashtable]$Headers, [string]$Method = "GET", [string]$Body = $null)
+  try {
+    $params = @{ Uri = $Url; Method = $Method; Headers = $Headers; UseBasicParsing = $true }
+    if ($Body) { $params.ContentType = "application/json"; $params.Body = $Body }
+    $r = Invoke-WebRequest @params
+    Write-Host "  FAIL $Name is open in v1 (status $($r.StatusCode), expected 404)"
+    return $false
+  } catch {
+    $code = 0
+    if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
+    if ($code -eq 404) { Write-Host "  PASS $Name closed (404)"; return $true }
+    Write-Host "  FAIL $Name (status $code, expected 404)"
+    return $false
+  }
+}
+
+# One check: closed (404) in v1, open (2xx) otherwise.
+function Test-Scoped {
+  param([string]$Name, [string]$Url, [hashtable]$Headers, [string]$Method = "GET", [string]$Body = $null)
+  if ($V1) { return Test-NotFound $Name $Url $Headers $Method $Body }
+  return Test-Endpoint $Name $Url $Headers $Method $Body
 }
 
 Write-Host "=== Calyx AI Presentation Verification ==="
@@ -44,11 +69,14 @@ $total = 0
 $endpoints = @(
   @{ Name = "GET /auth/me"; Url = "$base/auth/me" },
   @{ Name = "GET /pings"; Url = "$base/pings?limit=5" },
-  @{ Name = "GET /scorecards"; Url = "$base/scorecards?limit=5" },
   @{ Name = "GET /analytics/metrics"; Url = "$base/analytics/metrics" },
   @{ Name = "GET /analytics/pnl"; Url = "$base/analytics/pnl" },
   @{ Name = "GET /analytics/platform-mix"; Url = "$base/analytics/platform-mix" },
-  @{ Name = "GET /coverage/heatmap"; Url = "$base/coverage/heatmap" },
+  @{ Name = "GET /coverage/heatmap"; Url = "$base/coverage/heatmap" }
+)
+# Out of v1 scope: 404 with -V1, open otherwise.
+$scopedEndpoints = @(
+  @{ Name = "GET /scorecards"; Url = "$base/scorecards?limit=5" },
   @{ Name = "GET /compliance/exposure"; Url = "$base/compliance/exposure" },
   @{ Name = "GET /compliance/risk-scores"; Url = "$base/compliance/risk-scores?limit=5" },
   @{ Name = "GET /attribution/status"; Url = "$base/attribution/status" },
@@ -61,13 +89,13 @@ foreach ($ep in $endpoints) {
   $total++
   if (Test-Endpoint $ep.Name $ep.Url $h) { $passed++ }
 }
-
-if (-not $V1) {
+foreach ($ep in $scopedEndpoints) {
   $total++
-  if (Test-Endpoint "POST /ask" "$base/ask" $h "POST" '{"question":"What is my total revenue?"}') { $passed++ }
-} else {
-  Write-Host "  SKIP POST /ask (v1 mode)"
+  if (Test-Scoped $ep.Name $ep.Url $h) { $passed++ }
 }
+
+$total++
+if (Test-Scoped "POST /ask" "$base/ask" $h "POST" '{"question":"What is my total revenue?"}') { $passed++ }
 
 # Tenant name check
 $total++
@@ -83,23 +111,27 @@ try {
   Write-Host "  FAIL GET /auth/me tenant_name check ($($_.Exception.Message))"
 }
 
-# Scorecard CRUD smoke
+# Scorecard CRUD smoke (closed in v1)
 $total++
-$scorecardName = "Verify Scorecard $([guid]::NewGuid().ToString('N').Substring(0, 8))"
-$scorecardBody = (@{
-  name     = $scorecardName
-  vertical = 'general'
-  rules    = @(@{ id = 'r1'; weight = 1; question = 'Test?' })
-} | ConvertTo-Json -Compress)
-try {
-  $created = Invoke-RestMethod -Uri "$base/scorecards" -Method POST -Headers $h -ContentType "application/json" -Body $scorecardBody
-  $scId = $created.id
-  Invoke-RestMethod -Uri "$base/scorecards/$scId" -Method PATCH -Headers $h -ContentType "application/json" -Body '{"name":"Verify Updated"}' | Out-Null
-  Invoke-RestMethod -Uri "$base/scorecards/$scId" -Method DELETE -Headers $h | Out-Null
-  Write-Host "  PASS scorecard CRUD smoke"
-  $passed++
-} catch {
-  Write-Host "  FAIL scorecard CRUD smoke ($($_.Exception.Message))"
+if ($V1) {
+  if (Test-NotFound "POST /scorecards" "$base/scorecards" $h "POST" '{"name":"x","vertical":"general","rules":[]}') { $passed++ }
+} else {
+  $scorecardName = "Verify Scorecard $([guid]::NewGuid().ToString('N').Substring(0, 8))"
+  $scorecardBody = (@{
+    name     = $scorecardName
+    vertical = 'general'
+    rules    = @(@{ id = 'r1'; weight = 1; question = 'Test?' })
+  } | ConvertTo-Json -Compress)
+  try {
+    $created = Invoke-RestMethod -Uri "$base/scorecards" -Method POST -Headers $h -ContentType "application/json" -Body $scorecardBody
+    $scId = $created.id
+    Invoke-RestMethod -Uri "$base/scorecards/$scId" -Method PATCH -Headers $h -ContentType "application/json" -Body '{"name":"Verify Updated"}' | Out-Null
+    Invoke-RestMethod -Uri "$base/scorecards/$scId" -Method DELETE -Headers $h | Out-Null
+    Write-Host "  PASS scorecard CRUD smoke"
+    $passed++
+  } catch {
+    Write-Host "  FAIL scorecard CRUD smoke ($($_.Exception.Message))"
+  }
 }
 
 # Ping data check.
@@ -146,30 +178,37 @@ try {
   Write-Host "  FAIL GET /native/call-deep-view?callId=$fixtureCallId ($($_.Exception.Message))"
 }
 
-$total++
-try {
-  $score = Invoke-RestMethod -Uri "$base/scoring/scores?callId=$fixtureCallId" -Headers $h
-  if ($score -and $score.call_id -eq $fixtureCallId) {
-    Write-Host "  PASS GET /scoring/scores?callId=$fixtureCallId"
-    $passed++
-  } else {
-    Write-Host "  FAIL GET /scoring/scores?callId=$fixtureCallId (no score row)"
+if ($V1) {
+  $total++
+  if (Test-NotFound "GET /scoring/scores?callId=$fixtureCallId" "$base/scoring/scores?callId=$fixtureCallId" $h) { $passed++ }
+  $total++
+  if (Test-NotFound "GET /scoring/transcript?callId=$fixtureCallId" "$base/scoring/transcript?callId=$fixtureCallId" $h) { $passed++ }
+} else {
+  $total++
+  try {
+    $score = Invoke-RestMethod -Uri "$base/scoring/scores?callId=$fixtureCallId" -Headers $h
+    if ($score -and $score.call_id -eq $fixtureCallId) {
+      Write-Host "  PASS GET /scoring/scores?callId=$fixtureCallId"
+      $passed++
+    } else {
+      Write-Host "  FAIL GET /scoring/scores?callId=$fixtureCallId (no score row)"
+    }
+  } catch {
+    Write-Host "  FAIL GET /scoring/scores?callId=$fixtureCallId ($($_.Exception.Message))"
   }
-} catch {
-  Write-Host "  FAIL GET /scoring/scores?callId=$fixtureCallId ($($_.Exception.Message))"
-}
 
-$total++
-try {
-  $transcript = Invoke-RestMethod -Uri "$base/scoring/transcript?callId=$fixtureCallId" -Headers $h
-  if ($transcript -and $transcript.transcript_text) {
-    Write-Host "  PASS GET /scoring/transcript?callId=$fixtureCallId"
-    $passed++
-  } else {
-    Write-Host "  FAIL GET /scoring/transcript?callId=$fixtureCallId (no transcript)"
+  $total++
+  try {
+    $transcript = Invoke-RestMethod -Uri "$base/scoring/transcript?callId=$fixtureCallId" -Headers $h
+    if ($transcript -and $transcript.transcript_text) {
+      Write-Host "  PASS GET /scoring/transcript?callId=$fixtureCallId"
+      $passed++
+    } else {
+      Write-Host "  FAIL GET /scoring/transcript?callId=$fixtureCallId (no transcript)"
+    }
+  } catch {
+    Write-Host "  FAIL GET /scoring/transcript?callId=$fixtureCallId ($($_.Exception.Message))"
   }
-} catch {
-  Write-Host "  FAIL GET /scoring/transcript?callId=$fixtureCallId ($($_.Exception.Message))"
 }
 
 Write-Host ""

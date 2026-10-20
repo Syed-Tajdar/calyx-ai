@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { isRouteVisible } from '@/lib/v1-features';
+
+/** Not a real route: rewriting here makes Next render its not-found page with HTTP 404. */
+const HIDDEN_ROUTE_REWRITE = '/__calyx_not_found';
 
 /**
  * CSP with per-request nonce for Next.js App Router scripts.
@@ -44,9 +48,14 @@ export function middleware(request: NextRequest): NextResponse {
   // Required: Next reads the nonce from the request CSP during render.
   requestHeaders.set('Content-Security-Policy', csp);
 
-  const res = NextResponse.next({
-    request: { headers: requestHeaders },
-  });
+  // Out-of-v1 pages (lib/v1-features.ts) answer a real 404, not just a hidden menu item.
+  // Done here rather than only with notFound() in the segment layouts: the app shell streams
+  // first, so a layout-level notFound() renders the 404 UI but the status is already 200.
+  const res = isRouteVisible(request.nextUrl.pathname)
+    ? NextResponse.next({ request: { headers: requestHeaders } })
+    : NextResponse.rewrite(new URL(HIDDEN_ROUTE_REWRITE, request.url), {
+        request: { headers: requestHeaders },
+      });
   res.headers.set('Content-Security-Policy', csp);
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');

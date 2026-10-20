@@ -1,0 +1,9 @@
+# web: build with NEXT_PUBLIC_V1_ONLY=false
+/scoring               200
+/scoring/scorecards    200
+/intelligence          200
+/ask                   200
+/compliance            200
+/attribution           200
+/dashboard             200
+/login                 200

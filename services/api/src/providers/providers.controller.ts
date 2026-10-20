@@ -11,10 +11,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FeatureGate } from '../common/feature-gate';
 import { CurrentTenant } from '../common/tenant.decorator';
 import { ProvidersService } from './providers.service';
 
 @Controller('providers')
+@FeatureGate('providers')
 @UseGuards(AuthGuard('jwt'))
 export class ProvidersController {
   constructor(private readonly providersService: ProvidersService) {}

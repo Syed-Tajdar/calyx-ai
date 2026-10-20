@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FeatureGate } from '../common/feature-gate';
 import { CurrentTenant } from '../common/tenant.decorator';
 import { parseZod } from '../common/zod-parse';
 import {
@@ -20,6 +21,7 @@ import {
 import { ScorecardRecord, ScorecardsService } from './scorecards.service';
 
 @Controller('scorecards')
+@FeatureGate('qa')
 @UseGuards(AuthGuard('jwt'))
 export class ScorecardsController {
   constructor(private readonly scorecardsService: ScorecardsService) {}

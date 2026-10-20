@@ -1,0 +1,65 @@
+# api (V1_ONLY unset) — real controllers + FeatureGateGuard + CsrfGuard, stubbed services; Bearer JWT unless noted
+GET     /attribution/events                404
+GET     /attribution/status                404
+GET     /compliance/risk-scores            404
+GET     /compliance/violations             404
+GET     /compliance/exposure               404
+GET     /enrichment/abc123                 404
+GET     /providers/catalog                 404
+GET     /providers/bindings                404
+POST    /providers/resolve                 404
+POST    /ask                               404
+GET     /ask/history                       404
+GET     /scoring/scores                    404
+GET     /scoring/transcript?callId=c1      404
+POST    /scoring/deepgram/callback         404
+GET     /scorecards                        404
+GET     /scorecards/s1                     404
+GET     /analytics/metrics                 200
+GET     /scorecards (anonymous)            404
+$ curl -s http://127.0.0.1:3299/compliance/exposure   (anonymous)
+{"message":"Cannot GET /compliance/exposure","error":"Not Found","statusCode":404,"request_id":"573dda6d-690f-4e37-8efb-7451b6f361e7"}
+
+# api (V1_ONLY=false) — real controllers + FeatureGateGuard + CsrfGuard, stubbed services; Bearer JWT unless noted
+GET     /attribution/events                200
+GET     /attribution/status                200
+GET     /compliance/risk-scores            200
+GET     /compliance/violations             200
+GET     /compliance/exposure               200
+GET     /enrichment/abc123                 200
+GET     /providers/catalog                 200
+GET     /providers/bindings                200
+POST    /providers/resolve                 201
+POST    /ask                               201
+GET     /ask/history                       200
+GET     /scoring/scores                    200
+GET     /scoring/transcript?callId=c1      200
+POST    /scoring/deepgram/callback         201
+GET     /scorecards                        200
+GET     /scorecards/s1                     200
+GET     /analytics/metrics                 200
+GET     /scorecards (anonymous)            401
+$ curl -s http://127.0.0.1:3299/compliance/exposure   (anonymous)
+{"message":"Unauthorized","statusCode":401,"request_id":"887f7420-7f0d-40e1-b926-a5ad9609f400"}
+
+# api (FEATURE_ASK_AI=true) — real controllers + FeatureGateGuard + CsrfGuard, stubbed services; Bearer JWT unless noted
+GET     /attribution/events                404
+GET     /attribution/status                404
+GET     /compliance/risk-scores            404
+GET     /compliance/violations             404
+GET     /compliance/exposure               404
+GET     /enrichment/abc123                 404
+GET     /providers/catalog                 404
+GET     /providers/bindings                404
+POST    /providers/resolve                 404
+POST    /ask                               201
+GET     /ask/history                       200
+GET     /scoring/scores                    404
+GET     /scoring/transcript?callId=c1      404
+POST    /scoring/deepgram/callback         404
+GET     /scorecards                        404
+GET     /scorecards/s1                     404
+GET     /analytics/metrics                 200
+GET     /scorecards (anonymous)            404
+$ curl -s http://127.0.0.1:3299/compliance/exposure   (anonymous)
+{"message":"Cannot GET /compliance/exposure","error":"Not Found","statusCode":404,"request_id":"d8f9e31f-f673-4a8e-9f15-6e1701f7c174"}

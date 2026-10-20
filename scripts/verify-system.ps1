@@ -139,9 +139,12 @@ $routes = @(
   "/intelligence", "/ask", "/compliance", "/attribution", "/coverage",
   "/reports", "/settings"
 )
+# v1 hotfix: with -V1 the out-of-scope pages must answer 404 (not just be hidden from the menu).
+$v1ClosedRoutes = @("/scoring", "/scoring/scorecards", "/intelligence", "/ask", "/compliance", "/attribution")
 foreach ($route in $routes) {
   $summary.WebRoutes.Total++
-  if (Test-HttpStatus $route "$webBase$route") { $summary.WebRoutes.Pass++ }
+  $expected = if ($V1 -and ($v1ClosedRoutes -contains $route)) { @(404) } else { @(200) }
+  if (Test-HttpStatus $route "$webBase$route" $expected) { $summary.WebRoutes.Pass++ }
 }
 
 # Deep view — fixture call from ClickHouse demo seed

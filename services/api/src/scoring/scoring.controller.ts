@@ -2,6 +2,7 @@ import { Body, Controller, Get, Headers, Post, Query, UnauthorizedException, Use
 import { AuthGuard } from '@nestjs/passport';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
+import { FeatureGate } from '../common/feature-gate';
 import { CurrentTenant } from '../common/tenant.decorator';
 import { loadEnv } from '../config/env';
 import { KafkaService } from '../kafka/kafka.service';
@@ -23,6 +24,7 @@ export class ScoringController {
   ) {}
 
   @Get('scores')
+  @FeatureGate('qa')
   @UseGuards(AuthGuard('jwt'))
   async listScores(
     @CurrentTenant() tenantId: string,
@@ -46,6 +48,7 @@ export class ScoringController {
   }
 
   @Get('transcript')
+  @FeatureGate('transcription')
   @UseGuards(AuthGuard('jwt'))
   async getTranscript(
     @CurrentTenant() tenantId: string,
@@ -55,6 +58,7 @@ export class ScoringController {
   }
 
   @Post('deepgram/callback')
+  @FeatureGate('transcription')
   async deepgramCallback(
     @Headers('x-deepgram-callback-secret') secret: string | undefined,
     @Body() body: unknown,
