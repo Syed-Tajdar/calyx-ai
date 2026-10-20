@@ -64,10 +64,6 @@ export const MSG_TOOL_ERROR = 'Ask AI could not read the data for this question.
 export const MSG_BUDGET =
   "Today's Ask AI budget is used up. It resets at midnight Eastern time. Nothing was sent to OpenAI.";
 
-export function askAiFeatureEnabled(): boolean {
-  return process.env.FEATURE_ASK_AI === 'true';
-}
-
 export function dailyTokenBudget(): number {
   const n = Number(process.env.ASK_AI_TOKEN_BUDGET_DAILY ?? '300000');
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 300000;

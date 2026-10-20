@@ -1,5 +1,6 @@
 import { ForbiddenException, HttpException, NotFoundException } from '@nestjs/common';
 import { AskAiController } from './ask-ai.controller';
+import { FEATURE_GATE_KEY, isFeatureOpen } from '../common/feature-gate';
 import {
   AskAiService,
   buildInstructions,
@@ -239,10 +240,11 @@ describe('Ask AI controller', () => {
 
   afterEach(() => delete process.env.FEATURE_ASK_AI);
 
-  it('is 404 while FEATURE_ASK_AI is off', async () => {
-    const ctrl = new AskAiController(svc);
-    await expect(ctrl.ask(TENANT, admin, { question: 'hello there' })).rejects.toBeInstanceOf(NotFoundException);
-    await expect(ctrl.history(TENANT, admin)).rejects.toBeInstanceOf(NotFoundException);
+  it('is closed (404 by the global feature gate) unless FEATURE_ASK_AI=true', () => {
+    expect(isFeatureOpen('ask_ai', {})).toBe(false);
+    expect(isFeatureOpen('ask_ai', { FEATURE_ASK_AI: 'false' })).toBe(false);
+    expect(isFeatureOpen('ask_ai', { FEATURE_ASK_AI: 'true' })).toBe(true);
+    expect(Reflect.getMetadata(FEATURE_GATE_KEY, AskAiController)).toBe('ask_ai');
   });
 
   it('is 403 for a non-admin when on, and open for an admin', async () => {
