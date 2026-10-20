@@ -707,6 +707,7 @@ The rule matches the Calyx "should have converted" filter (`services/api/src/pin
 | Tests | API 221/221, web 32/32 |
 | Full gates on the rebased branch (flags off, migration 33) | SYSTEM VERIFY PASS (Docker 9/9, Healthz 5/5, API v1, Web routes 13/13, WebSocket, BrowserCSP, unit, web build, pipeline 4/4), PRESENTATION 20/20, INGESTION PASS |
 | Default build: `/ask` closed | web `/ask` 404; API `GET /ask/history` 404, `POST /ask` 404 (admin session and anonymous); `/scoring`, `/compliance`, `/attribution` 404; `/dashboard` 200 |
+| d. Phase 0 + 2A merged to `main` | **`c5c4a8d`** `merge: v2 Phase 0 + Phase 2A (Ask AI on numbers) — every feature flag OFF`; tree identical to the gated `v2/intelligence` (`aa0e747`) |
 | Deploy pack (item 8) | `docs/deploy-v1-hotfix-and-2a.md`; every SQL in it was run on the laptop ClickHouse 24.8.14 (same as the server) without error; recon-30days returned 883 / $8,393.36, identical to the 2A cross-check |
 
 ---
