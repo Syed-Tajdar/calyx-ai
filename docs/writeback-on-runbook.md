@@ -79,13 +79,13 @@ $DC exec -T postgres psql -U callloom -d callloom -c "SELECT version, dirty FROM
 ```bash
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
-ENVF=$(grep -l '^NEXT_PUBLIC_API_URL=' .env deploy/.env 2>/dev/null); echo "env file: [$ENVF]"
-[ "$(printf '%s\n' $ENVF | wc -l)" -eq 1 ] && [ -f "$ENVF" ] && echo "env file: OK" || echo "env file: NOT EXACTLY ONE - stop"
+ENVF=.env   # the real env file; deploy/.env is a symlink to it — never write to deploy/.env directly
+[ -f .env ] && [ "$(readlink -f deploy/.env)" = "$(readlink -f .env)" ] && echo "env file: OK (deploy/.env -> .env)" || echo "env file: CHECK - stop"
 # The internal token must be a real value (not empty, not the dev default). Prints only yes/no.
 grep -qE '^WRITEBACK_INTERNAL_TOKEN=.{20,}' "$ENVF" && ! grep -q 'dev_writeback_internal_token' "$ENVF" && echo "token: set" || echo "token: MISSING - stop"
 ```
 
-**Run 2b only if 2a printed `env file: OK` and `token: set`.** Anything else: stop and send the output.
+**Run 2b only if 2a printed `env file: OK (deploy/.env -> .env)` and `token: set`.** Anything else: stop and send the output.
 
 **2b. Edit — same terminal as 2a** (it uses `$ENVF` and `$DC` from 2a).
 
@@ -200,11 +200,11 @@ Check first — changes nothing:
 ```bash
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
-ENVF=$(grep -l '^NEXT_PUBLIC_API_URL=' .env deploy/.env 2>/dev/null); echo "env file: [$ENVF]"
-[ "$(printf '%s\n' $ENVF | wc -l)" -eq 1 ] && [ -f "$ENVF" ] && echo "env file: OK" || echo "env file: NOT EXACTLY ONE - stop"
+ENVF=.env   # the real env file; deploy/.env is a symlink to it — never write to deploy/.env directly
+[ -f .env ] && [ "$(readlink -f deploy/.env)" = "$(readlink -f .env)" ] && echo "env file: OK (deploy/.env -> .env)" || echo "env file: CHECK - stop"
 ```
 
-**Only after it prints `env file: OK`**, in the same terminal:
+**Only after it prints `env file: OK (deploy/.env -> .env)`**, in the same terminal:
 
 ```bash
 umask 077
@@ -214,7 +214,7 @@ $DC up -d --no-deps --force-recreate api platform-sync
 $DC exec -T platform-sync printenv WRITEBACK_ENABLED   # false
 ```
 
-If it printed `NOT EXACTLY ONE`, do not edit by hand in a hurry: stop and send the output (write-back stays
+If it printed `CHECK - stop`, do not edit by hand in a hurry: stop and send the output (write-back stays
 as it is until the file question is answered; Step 6b can still close each integration).
 
 With it off, every Convert / Cancel is refused with 403 "write-back is disabled" and an audit row
