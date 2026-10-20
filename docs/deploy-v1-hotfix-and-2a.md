@@ -27,8 +27,8 @@ Use **one terminal** for the whole pack. If the connection drops, re-run Step 0.
 ```bash
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
-ENVF=$(grep -l '^NEXT_PUBLIC_API_URL=' .env deploy/.env 2>/dev/null); echo "env file: [$ENVF]"
-[ "$(printf '%s\n' $ENVF | wc -l)" -eq 1 ] && [ -f "$ENVF" ] && echo "env file: OK" || echo "env file: NOT EXACTLY ONE - stop"
+ENVF=.env   # the real env file; deploy/.env is a symlink to it — never write to deploy/.env directly
+[ -f .env ] && [ "$(readlink -f deploy/.env)" = "$(readlink -f .env)" ] && echo "env file: OK (deploy/.env -> .env)" || echo "env file: CHECK - stop"
 git fetch origin
 git log --oneline -1            # what runs now (expected: 99618e0, Stage 4b, migration 32)
 git merge-base --is-ancestor 99618e0 HEAD && echo "server has 99618e0: OK" || echo "server is OLDER than 99618e0 - stop and tell Syed"
@@ -38,7 +38,7 @@ grep -E '^(APP_ENV|MOCK_MODE|WRITEBACK_ENABLED|FEATURE_ASK_AI|NEXT_PUBLIC_FEATUR
 $DC exec -T postgres psql -U callloom -d callloom -c "SELECT version, dirty FROM schema_migrations;"
 ```
 
-**Continue only if:** `env file: OK`, `server has 99618e0: OK`, `git status` empty, `origin/main` is the hash
+**Continue only if:** `env file: OK (deploy/.env -> .env)`, `server has 99618e0: OK`, `git status` empty, `origin/main` is the hash
 Syed sent, `APP_ENV=production`, `WRITEBACK_ENABLED=false`, **`COMPOSE_PROFILES` absent or empty** in the env file
 (no `intelligence` profile on the server), migration `32 | f`.
 
@@ -283,11 +283,11 @@ $DC exec -T clickhouse sh -c "$CH" < ~/calyx-golive/should-convert-30d.sql
 ```bash
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
-ENVF=$(grep -l '^NEXT_PUBLIC_API_URL=' .env deploy/.env 2>/dev/null); echo "env file: [$ENVF]"
-[ "$(printf '%s\n' $ENVF | wc -l)" -eq 1 ] && [ -f "$ENVF" ] && echo "env file: OK" || echo "env file: NOT EXACTLY ONE - stop"
+ENVF=.env   # the real env file; deploy/.env is a symlink to it — never write to deploy/.env directly
+[ -f .env ] && [ "$(readlink -f deploy/.env)" = "$(readlink -f .env)" ] && echo "env file: OK (deploy/.env -> .env)" || echo "env file: CHECK - stop"
 ```
 
-Only after `env file: OK`:
+Only after `env file: OK (deploy/.env -> .env)`:
 
 ```bash
 BK=~/calyx-backups/deploy-v1-hotfix-2a
@@ -313,7 +313,7 @@ Not part of this deploy. Run it only when Syed says so.
 ### Turn on
 
 The key goes **only** into the server env file — never into chat, an editor or the terminal history. After the
-same Step 0.1 check (`env file: OK`), paste it at a **hidden** prompt (nothing is shown or printed):
+same Step 0.1 check (`env file: OK (deploy/.env -> .env)`), paste it at a **hidden** prompt (nothing is shown or printed):
 
 ```bash
 umask 077; read -rs -p 'Paste OpenAI key (hidden): ' K; echo
