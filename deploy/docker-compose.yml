@@ -6,8 +6,8 @@
       POSTGRES_USER: callloom
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-callloom_dev}
       POSTGRES_DB: callloom
-    ports:
-      - "127.0.0.1:5432:5432"
+    # No host port (v1 sync health, item 3): services use postgres:5432 on the compose network and
+    # psql runs through `docker exec`. The laptop gates re-publish it in docker-compose.dev.yml.
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -79,8 +79,7 @@
       - PLAINTEXT://0.0.0.0:9092
       - --advertise-kafka-addr
       - PLAINTEXT://redpanda:9092
-    ports:
-      - "127.0.0.1:9092:9092"
+    # No host port (item 3): it advertises redpanda:9092, which only resolves on the compose network.
     healthcheck:
       # rpk can exceed 5s under load; false "unhealthy" fails verify-system Docker 15/15.
       test: ["CMD", "rpk", "cluster", "health"]
@@ -159,10 +158,8 @@
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-callloom_dev}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
-    ports:
-      - "127.0.0.1:8123:8123"
-      # Host 9100 — avoid reserved 9000 on shared servers (container still listens on 9000).
-      - "127.0.0.1:9100:9000"
+    # No host ports (item 3): clickhouse-client runs through `docker exec`; services use
+    # clickhouse:8123 / clickhouse:9000. The laptop gates re-publish 8123 and 9100 in docker-compose.dev.yml.
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ../db/clickhouse/migrations/000001_pings_table.up.sql:/docker-entrypoint-initdb.d/001_pings.sql:ro
@@ -177,8 +174,7 @@
     build:
       context: ..
       dockerfile: services/ingestion/Dockerfile
-    ports:
-      - "127.0.0.1:8080:8080"
+    # No host port (item 3): nginx has no webhook route to it. The laptop gates re-publish it.
     environment:
       APP_ENV: ${APP_ENV:-development}
       INGESTION_PORT: "8080"
@@ -203,8 +199,7 @@
     restart: unless-stopped
     build:
       context: ../services/consumer
-    ports:
-      - "127.0.0.1:8081:8081"
+    # No host port (item 3): health only. The laptop gates re-publish it.
     environment:
       APP_ENV: ${APP_ENV:-development}
       CONSUMER_PORT: "8081"
@@ -448,8 +443,8 @@
     build:
       context: ..
       dockerfile: services/platform-sync/Dockerfile
-    ports:
-      - "127.0.0.1:8088:8088"
+    # No host port (item 3): the API calls it as platform-sync:8088 on the compose network.
+    # The laptop gates re-publish it.
     dns:
       - 1.1.1.1
       - 8.8.8.8

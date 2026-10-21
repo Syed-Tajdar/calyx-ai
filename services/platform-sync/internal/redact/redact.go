@@ -13,7 +13,12 @@ var (
 	authHeaderRE = regexp.MustCompile(`(?i)Authorization:\s*(?:Bearer\s+\S+|Basic\s+\S+|Token\s+\S+|\S+)`)
 	bearerTokRE  = regexp.MustCompile(`(?i)(Bearer\s+)[A-Za-z0-9\-._~+/]+=*`)
 	tokenTokRE   = regexp.MustCompile(`(?i)(Token\s+)[A-Za-z0-9\-._~+/]+=*`)
+	// user:password@ in any URL scheme (redis://:pw@redis:6379, postgres://user:pw@host).
+	userinfoRE = regexp.MustCompile(`([A-Za-z][A-Za-z0-9+.\-]*://)[^\s/@"']+@`)
 )
+
+// MaxSyncErrorLen caps what is stored in last_sync_error: a short reason, not a log dump.
+const MaxSyncErrorLen = 300
 
 var sensitiveQueryKeys = map[string]struct{}{
 	"api_key":    {},
@@ -29,7 +34,8 @@ func RedactMessage(msg string) string {
 	if msg == "" {
 		return msg
 	}
-	out := urlInErrorRE.ReplaceAllStringFunc(msg, redactURLString)
+	out := userinfoRE.ReplaceAllString(msg, `${1}[REDACTED]@`)
+	out = urlInErrorRE.ReplaceAllStringFunc(out, redactURLString)
 	out = paramRE.ReplaceAllString(out, `${1}=[REDACTED]`)
 	out = authHeaderRE.ReplaceAllStringFunc(out, redactAuthHeader)
 	out = bearerTokRE.ReplaceAllString(out, `${1}[REDACTED]`)
@@ -59,6 +65,16 @@ func SanitizeErr(err error) string {
 		return ""
 	}
 	return RedactMessage(err.Error())
+}
+
+// SyncErrorText is the text written to last_sync_error: redacted, one line, at most
+// MaxSyncErrorLen runes.
+func SyncErrorText(msg string) string {
+	out := strings.Join(strings.Fields(RedactMessage(msg)), " ")
+	if r := []rune(out); len(r) > MaxSyncErrorLen {
+		out = string(r[:MaxSyncErrorLen-1]) + "…"
+	}
+	return out
 }
 
 // RedactURL redacts sensitive query parameters from a URL string.

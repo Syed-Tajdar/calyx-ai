@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,11 +28,21 @@ type contentDeduper interface {
 	Commit(ctx context.Context, tenantID, platform string, content dedup.Content) error
 }
 
+// integrationStore is the part of store.IntegrationStore the syncer uses. An interface so the
+// failure paths can be tested without a database.
+type integrationStore interface {
+	ListAPISync(ctx context.Context) ([]models.SyncIntegration, error)
+	GetAPISync(ctx context.Context, tenantID, integrationID string) (*models.SyncIntegration, error)
+	UpdateSyncStatus(ctx context.Context, id, status string, errMsg *string) error
+	UpdateSyncState(ctx context.Context, id, cursor string, syncAt time.Time, status string, errMsg *string) error
+	RecordSyncFailure(ctx context.Context, id, errMsg string, failedAfter int) (string, error)
+}
+
 type Service struct {
-	store     *store.IntegrationStore
+	store     integrationStore
 	adapter   *adapter.Registry
 	producer  pingPublisher
-	dedup     *dedup.Checker
+	dedup     contentDeduper
 	decryptor *crypto.CredentialDecryptor
 	logger    *slog.Logger
 	lock      SyncLocker
@@ -49,6 +60,24 @@ func NewService(
 	return &Service{
 		store: st, adapter: ad, producer: prod, dedup: d,
 		decryptor: dec, logger: logger, lock: lock,
+	}
+}
+
+// MarkAllUnavailable records one failure on every scheduled integration without trying to sync
+// it (item 5). platform-sync calls it on each tick while redis is down, so Settings shows the
+// outage within one tick and goes `failed` after SYNC_FAILED_AFTER ticks. Per-integration
+// errors are not logged here; the redis watch logs the outage once.
+func (s *Service) MarkAllUnavailable(ctx context.Context, reason string) {
+	items, err := s.store.ListAPISync(ctx)
+	if err != nil {
+		s.logger.Error("list integrations failed", "error", redact.SanitizeErr(err))
+		return
+	}
+	for _, item := range items {
+		if item.SyncMode != "real" && !demoSyncAllowed() {
+			continue
+		}
+		s.recordFailureQuiet(item, reason)
 	}
 }
 
@@ -170,7 +199,8 @@ func (s *Service) TestAuth(ctx context.Context, tenantID, integrationID string) 
 
 // withLock acquires the per-integration lock, starts a renew heartbeat, and returns a
 // child context cancelled when ownership is lost (or parent cancelled). Caller must
-// defer release(). Two runners must never publish at once — lost ownership cancels runCtx.
+// defer release(). Two runners must never publish at once — lost ownership cancels runCtx,
+// and context.Cause(runCtx) then says why (lockLostError).
 func (s *Service) withLock(ctx context.Context, integrationID, reason string) (runCtx context.Context, release func(), err error) {
 	if s.lock == nil {
 		return ctx, func() {}, nil
@@ -182,7 +212,7 @@ func (s *Service) withLock(ctx context.Context, integrationID, reason string) (r
 	if !ok {
 		return nil, nil, ErrAlreadyRunning
 	}
-	runCtx, cancel := context.WithCancel(ctx)
+	runCtx, cancel := context.WithCancelCause(ctx)
 	stopHB := make(chan struct{})
 	go s.lockHeartbeat(runCtx, stopHB, integrationID, token, cancel)
 
@@ -193,7 +223,7 @@ func (s *Service) withLock(ctx context.Context, integrationID, reason string) (r
 		}
 		released = true
 		close(stopHB)
-		cancel()
+		cancel(nil)
 		if relErr := s.lock.Release(context.Background(), integrationID, token); relErr != nil {
 			s.logger.Error("sync lock release failed",
 				"integration_id", integrationID, "error", redact.SanitizeErr(relErr))
@@ -205,7 +235,13 @@ func (s *Service) withLock(ctx context.Context, integrationID, reason string) (r
 	return runCtx, release, nil
 }
 
-func (s *Service) lockHeartbeat(runCtx context.Context, stop <-chan struct{}, integrationID, token string, cancel context.CancelFunc) {
+// lockLostError is the cancel cause when the heartbeat loses the lock mid-run. The run was
+// cut short by redis, not by a shutdown, so it is recorded as a sync failure.
+type lockLostError struct{ msg string }
+
+func (e *lockLostError) Error() string { return e.msg }
+
+func (s *Service) lockHeartbeat(runCtx context.Context, stop <-chan struct{}, integrationID, token string, cancel context.CancelCauseFunc) {
 	ticker := time.NewTicker(syncLockRenewInterval)
 	defer ticker.Stop()
 	for {
@@ -220,13 +256,13 @@ func (s *Service) lockHeartbeat(runCtx context.Context, stop <-chan struct{}, in
 			if err != nil {
 				s.logger.Error("sync lock renew failed — cancelling run",
 					"integration_id", integrationID, "error", redact.SanitizeErr(err))
-				cancel()
+				cancel(&lockLostError{msg: "sync lock renew failed: " + err.Error()})
 				return
 			}
 			if !ok {
 				s.logger.Error("sync lock ownership lost — cancelling run",
 					"integration_id", integrationID)
-				cancel()
+				cancel(&lockLostError{msg: "sync lock ownership lost mid-run"})
 				return
 			}
 			pttlMs := int64(-1)
@@ -265,6 +301,11 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 	}
 	runCtx, release, err := s.withLock(ctx, item.ID, "tick")
 	if err != nil {
+		// A lock that cannot be taken is a failed sync, not a skipped one: from 2026-10-18 to
+		// 2026-10-21 every tick failed right here and Settings still showed `ok`.
+		if !errors.Is(err, ErrAlreadyRunning) {
+			s.recordFailure(item, lockFailureText(err))
+		}
 		return err
 	}
 	defer release()
@@ -274,7 +315,7 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 
 	creds, err := s.decryptor.DecryptMap(item.APICredentialsBlob)
 	if err != nil {
-		s.markError(runCtx, item.ID, "Re-enter credentials")
+		s.recordFailure(item, "authentication error: re-enter credentials")
 		return fmt.Errorf("Re-enter credentials")
 	}
 	creds["platform"] = item.Platform
@@ -290,11 +331,9 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 	}
 	result, err := s.adapter.FetchAllPages(runCtx, item.Platform, item.SyncMode, creds, item.SyncCursor, lastSync, lookbackDays)
 	if err != nil {
-		// F1: an incomplete window is degraded, not error — and the cursor stays put either
-		// way, because UpdateSyncState is only reached on success.
-		if !s.handleWindowShortfall(runCtx, item, err, "incremental") {
-			s.markError(runCtx, item.ID, redact.ClassifySyncError(err))
-		}
+		// F1: an incomplete window is logged with its counts. The cursor stays put either way,
+		// because UpdateSyncState is only reached on success.
+		s.failRun(ctx, runCtx, item, err, "incremental")
 		return err
 	}
 
@@ -310,20 +349,22 @@ func (s *Service) syncOne(ctx context.Context, item models.SyncIntegration, manu
 	receivedAt := time.Now().UTC().UnixMilli()
 	skippedEmptyID, published, unchanged, publishErr := publishSyncCalls(runCtx, item.TenantID, item.Platform, result.Calls, s.dedup, s.producer, receivedAt)
 	if publishErr != nil {
-		s.markError(runCtx, item.ID, redact.SanitizeErr(publishErr))
+		s.failRun(ctx, runCtx, item, publishErr, "incremental")
 		return publishErr
 	}
 
 	if skippedEmptyID > 0 {
 		errMsg := fmt.Sprintf("%d calls skipped: missing external id", skippedEmptyID)
-		s.markError(runCtx, item.ID, redact.ClassifySyncError(fmt.Errorf("%s", errMsg)))
+		s.recordFailure(item, redact.ClassifySyncError(fmt.Errorf("%s", errMsg)))
 		return fmt.Errorf("%s", errMsg)
 	}
 
-	// Cancelled/lost-lock runs must not advance last_sync_at (S1A).
+	// Cancelled/lost-lock runs must not advance last_sync_at (S1A). A lost lock is a redis
+	// failure and is recorded; a shutdown is not.
 	if runCtx.Err() != nil {
 		s.logger.Info("api sync aborted before cursor advance",
-			"integration_id", item.ID, "error", runCtx.Err())
+			"integration_id", item.ID, "error", context.Cause(runCtx))
+		s.failRun(ctx, runCtx, item, runCtx.Err(), "incremental")
 		return runCtx.Err()
 	}
 
@@ -382,6 +423,9 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 	}
 	runCtx, release, err := s.withLock(ctx, item.ID, lockReason)
 	if err != nil {
+		if !errors.Is(err, ErrAlreadyRunning) {
+			s.recordFailure(item, lockReason+": "+lockFailureText(err))
+		}
 		return err
 	}
 	defer release()
@@ -389,6 +433,7 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 	began := time.Now().UTC()
 	creds, err := s.decryptor.DecryptMap(item.APICredentialsBlob)
 	if err != nil {
+		s.recordFailure(item, lockReason+": authentication error: re-enter credentials")
 		return fmt.Errorf("Re-enter credentials")
 	}
 	creds["platform"] = item.Platform
@@ -397,17 +442,24 @@ func (s *Service) runWindowLocked(ctx context.Context, item models.SyncIntegrati
 	if err != nil {
 		// F1: the RangeFetcher path (sweeps and backfill) follows the same rule as the
 		// incremental one. Sweeps never move last_sync_at, so holding the cursor is implicit.
-		s.handleWindowShortfall(runCtx, item, err, reason)
+		s.failRun(ctx, runCtx, item, err, lockReason)
 		return err
 	}
 
 	receivedAt := time.Now().UTC().UnixMilli()
 	skippedEmptyID, published, unchanged, publishErr := publishSyncCalls(runCtx, item.TenantID, item.Platform, result.Calls, s.dedup, s.producer, receivedAt)
 	if publishErr != nil {
+		s.failRun(ctx, runCtx, item, publishErr, lockReason)
 		return publishErr
 	}
 	if skippedEmptyID > 0 {
-		return fmt.Errorf("%d calls skipped: missing external id", skippedEmptyID)
+		errMsg := fmt.Sprintf("%d calls skipped: missing external id", skippedEmptyID)
+		s.recordFailure(item, lockReason+": "+redact.ClassifySyncError(fmt.Errorf("%s", errMsg)))
+		return fmt.Errorf("%s", errMsg)
+	}
+	if lostLock(ctx, runCtx) {
+		s.failRun(ctx, runCtx, item, runCtx.Err(), lockReason)
+		return context.Cause(runCtx)
 	}
 
 	// Sweeps/backfills must not touch last_sync_at (incremental ticks only).
@@ -498,51 +550,107 @@ func publishSyncCalls(
 	return skippedEmptyID, published, unchanged, nil
 }
 
-func (s *Service) markError(ctx context.Context, id, msg string) {
-	errMsg := redact.RedactMessage(msg)
-	_ = s.store.UpdateSyncStatus(ctx, id, syncStatusError, &errMsg)
-}
-
-// markDegraded records an incomplete window (F1). Distinct from `error`: the API answered
-// correctly, the rows did not add up. The cursor is left untouched by the caller, so the next
-// tick re-walks the same window; a successful walk writes `ok` and clears this automatically.
-func (s *Service) markDegraded(ctx context.Context, id, msg string) {
-	errMsg := redact.RedactMessage(msg)
-	_ = s.store.UpdateSyncStatus(ctx, id, syncStatusDegraded, &errMsg)
-}
-
-// Sync statuses a failed run can write. `degraded` is F1's: the requests succeeded but the
-// window was incomplete, which is a different thing from the platform being unreachable.
+// Sync statuses a failed run ends in (migration 000034). Every failure — lock, redis, DNS,
+// network, auth, API, an incomplete window — writes `degraded`; syncFailedAfter() consecutive
+// failures write `failed`. The next successful incremental sync writes `ok`, clears
+// last_sync_error, resets the count and moves last_success_at. (`error` is the pre-000034
+// status and is no longer written.)
 const (
-	syncStatusError    = "error"
 	syncStatusDegraded = "degraded"
+	syncStatusFailed   = "failed"
 )
 
-// classifySyncFailure decides which sync_status a failed run writes, and returns the shortfall
-// detail when there is one. Pure so the routing can be tested without a database.
-func classifySyncFailure(err error) (string, *adapter.WindowShortfallError) {
-	if shortfall := adapter.AsWindowShortfall(err); shortfall != nil {
-		return syncStatusDegraded, shortfall
+// syncFailedAfter — `SYNC_FAILED_AFTER` (default 3): consecutive failures before `failed`.
+// With the 120 s tick that is about 6 minutes of failing syncs.
+func syncFailedAfter() int {
+	if n, err := strconv.Atoi(strings.TrimSpace(os.Getenv("SYNC_FAILED_AFTER"))); err == nil && n >= 1 {
+		return n
 	}
-	return syncStatusError, nil
+	return 3
 }
 
-// handleWindowShortfall marks the integration degraded and logs the window that failed.
-// Returns true when err was a shortfall and has been handled.
-func (s *Service) handleWindowShortfall(ctx context.Context, item models.SyncIntegration, err error, path string) bool {
-	status, shortfall := classifySyncFailure(err)
-	if status != syncStatusDegraded {
+// statusWriteTimeout bounds the failure write. It uses its own context: the run's context is
+// often the thing that failed (lost lock), and the outage still has to reach the database.
+const statusWriteTimeout = 5 * time.Second
+
+// recordFailure writes one failure for the integration: short, redacted text in last_sync_error
+// and `degraded` or `failed` in sync_status. last_sync_at, the cursor and last_success_at stay.
+func (s *Service) recordFailure(item models.SyncIntegration, msg string) {
+	if status, text, ok := s.writeFailure(item, msg); ok {
+		s.logger.Warn("sync failure recorded",
+			"integration_id", item.ID, "platform", item.Platform,
+			"sync_status", status, "last_sync_error", text)
+	}
+}
+
+// recordFailureQuiet is recordFailure without the per-integration log line (redis outage: the
+// watch has already logged it once).
+func (s *Service) recordFailureQuiet(item models.SyncIntegration, msg string) {
+	s.writeFailure(item, msg)
+}
+
+func (s *Service) writeFailure(item models.SyncIntegration, msg string) (status, text string, ok bool) {
+	if s.store == nil {
+		return "", "", false
+	}
+	text = redact.SyncErrorText(msg)
+	ctx, cancel := context.WithTimeout(context.Background(), statusWriteTimeout)
+	defer cancel()
+	status, err := s.store.RecordSyncFailure(ctx, item.ID, text, syncFailedAfter())
+	if err != nil {
+		s.logger.Error("sync failure could not be recorded",
+			"integration_id", item.ID, "platform", item.Platform, "error", redact.SanitizeErr(err))
+		return "", text, false
+	}
+	return status, text, true
+}
+
+// failRun records a failed run with the right reason. A shutdown (the parent context was
+// cancelled) is not a sync failure and writes nothing. A lost lock is reported as such, not as
+// the "context canceled" it surfaces as. An incomplete window (F1) is logged with its counts.
+func (s *Service) failRun(parent, runCtx context.Context, item models.SyncIntegration, err error, path string) {
+	if parent.Err() != nil {
+		return
+	}
+	if lostLock(parent, runCtx) {
+		s.recordFailure(item, failurePrefix(path)+"redis unavailable (sync lock): "+context.Cause(runCtx).Error())
+		return
+	}
+	if shortfall := adapter.AsWindowShortfall(err); shortfall != nil {
+		s.logger.Warn("api sync window incomplete — cursor held, integration degraded",
+			"integration_id", item.ID,
+			"platform", item.Platform,
+			"path", path,
+			"window_start", shortfall.Start.UTC().Format(time.RFC3339),
+			"window_end", shortfall.End.UTC().Format(time.RFC3339),
+			"total", shortfall.Total,
+			"collected", shortfall.Collected,
+			"attempts", shortfall.Attempts)
+		s.recordFailure(item, failurePrefix(path)+shortfall.Error())
+		return
+	}
+	s.recordFailure(item, failurePrefix(path)+redact.ClassifySyncError(err))
+}
+
+// failurePrefix names a sweep or backfill in last_sync_error; incremental ticks need no prefix.
+func failurePrefix(path string) string {
+	if path == "" || path == "incremental" || path == "tick" {
+		return ""
+	}
+	return path + ": "
+}
+
+// lostLock reports whether runCtx was cancelled by the lock heartbeat (not by the parent).
+func lostLock(parent, runCtx context.Context) bool {
+	if parent.Err() != nil || runCtx.Err() == nil {
 		return false
 	}
-	s.logger.Warn("api sync window incomplete — cursor held, integration degraded",
-		"integration_id", item.ID,
-		"platform", item.Platform,
-		"path", path,
-		"window_start", shortfall.Start.UTC().Format(time.RFC3339),
-		"window_end", shortfall.End.UTC().Format(time.RFC3339),
-		"total", shortfall.Total,
-		"collected", shortfall.Collected,
-		"attempts", shortfall.Attempts)
-	s.markDegraded(ctx, item.ID, shortfall.Error())
-	return true
+	var lost *lockLostError
+	return errors.As(context.Cause(runCtx), &lost)
+}
+
+// lockFailureText is last_sync_error for a lock that could not be taken. The lock lives in
+// redis, so this is how a redis or DNS outage shows up in Settings.
+func lockFailureText(err error) string {
+	return "redis unavailable (sync lock): " + strings.TrimPrefix(redact.SanitizeErr(err), "sync lock: ")
 }

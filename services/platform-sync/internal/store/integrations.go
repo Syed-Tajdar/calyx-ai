@@ -217,6 +217,23 @@ func (s *IntegrationStore) UpdateSyncStatus(ctx context.Context, id, status stri
 	return err
 }
 
+// RecordSyncFailure counts one more consecutive failure and writes `degraded`, or `failed` once
+// failedAfter consecutive failures are reached (migration 000034). Returns the status written.
+// last_sync_at, the cursor and last_success_at are left alone.
+func (s *IntegrationStore) RecordSyncFailure(ctx context.Context, id, errMsg string, failedAfter int) (string, error) {
+	var status *string // NULL when the row no longer exists (deleted mid-run)
+	if err := s.pool.QueryRow(ctx,
+		`SELECT record_integration_sync_failure($1::uuid, $2, $3)`,
+		id, errMsg, failedAfter,
+	).Scan(&status); err != nil {
+		return "", err
+	}
+	if status == nil {
+		return "", nil
+	}
+	return *status, nil
+}
+
 func (s *IntegrationStore) Ping(ctx context.Context) error {
 	return s.pool.Ping(ctx)
 }
