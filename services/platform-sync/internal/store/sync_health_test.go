@@ -54,7 +54,7 @@ func seedHealthIntegration(t *testing.T, st *IntegrationStore) string {
 
 func TestFailuresAreDegradedThenFailedAndSuccessClearsThem(t *testing.T) {
 	pool := openTestPool(t)
-	defer pool.Close()
+	t.Cleanup(pool.Close) // registered first, so it runs after the row cleanup (Cleanup is LIFO; a defer would close the pool too early)
 	st := NewIntegrationStore(pool)
 	ctx := context.Background()
 	id := seedHealthIntegration(t, st)
@@ -104,7 +104,7 @@ func TestFailuresAreDegradedThenFailedAndSuccessClearsThem(t *testing.T) {
 
 func TestFailureOnMissingRowIsHarmless(t *testing.T) {
 	pool := openTestPool(t)
-	defer pool.Close()
+	t.Cleanup(pool.Close) // registered first, so it runs after the row cleanup (Cleanup is LIFO; a defer would close the pool too early)
 	st := NewIntegrationStore(pool)
 	status, err := st.RecordSyncFailure(context.Background(), "00000000-0000-0000-0000-000000000000", "x", 3)
 	if err != nil || status != "" {
