@@ -115,8 +115,9 @@ function fakePg(over: Partial<State> = {}) {
       if (i) i.allow_publisher_pause = params[1] as boolean;
       return { rows: i ? [i] : [], rowCount: i ? 1 : 0 };
     }
-    if (has('FROM integrations') && has("sync_status IN ('error', 'degraded')")) {
-      return { rows: s.integrations.filter((i) => ['error', 'degraded'].includes(i.sync_status) && (!params[0] || i.platform === params[0])) };
+    if (has('FROM integrations') && has("connection_mode = 'api_sync'") && has('($1::text IS NULL OR platform = $1)')) {
+      // integration_unhealthy: the SQL returns every API integration; the rule (status or stale) is in TS.
+      return { rows: s.integrations.filter((i) => !params[0] || i.platform === params[0]) };
     }
     if (has('FROM integrations') && has('WHERE platform = $1')) {
       return { rows: s.integrations.filter((i) => i.platform === params[0]) };
@@ -778,6 +779,34 @@ describe('evaluator firing: notify / suggest / auto and guardrails', () => {
     for (const m of res.matches) await evaluator.fire(TENANT, r, m, res.window, NOW);
     expect(client.calls).toHaveLength(0);
     expect(pg.state.alerts.every((a) => a.action === 'none')).toBe(true);
+  });
+
+  it('integration_unhealthy also fires on failed and on a stale last success (v1 sync health)', async () => {
+    const ago = (min: number) => new Date(NOW.getTime() - min * 60_000).toISOString();
+    const id = (n: number) => `b0000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}`;
+    const pg = fakePg({
+      integrations: [
+        integration({ id: id(1), name: 'failed', sync_status: 'failed', last_success_at: ago(5) }),
+        integration({ id: id(2), name: 'ok but stale', sync_status: 'ok', last_success_at: ago(45) }),
+        integration({ id: id(3), name: 'ok and fresh', sync_status: 'ok', last_success_at: ago(5) }),
+        integration({ id: id(4), name: 'syncing, never succeeded since 000034, old last_sync_at', sync_status: 'syncing', last_success_at: null, last_sync_at: ago(90) }),
+        integration({ id: id(5), name: 'no success yet, last_sync_at fresh (just after the deploy)', sync_status: 'ok', last_success_at: null, last_sync_at: ago(3) }),
+        integration({ id: id(6), name: 'brand new, 10 min old', sync_status: 'idle', last_success_at: null, last_sync_at: null, created_at: ago(10) }),
+        integration({ id: id(7), name: 'never synced, 40 min old', sync_status: 'idle', last_success_at: null, last_sync_at: null, created_at: ago(40) }),
+        integration({ id: id(8), name: 'paused and stale', sync_status: 'ok', is_active: false, last_success_at: ago(600) }),
+        integration({ id: id(9), name: 'Test (mock) and stale', sync_mode: 'mock', sync_status: 'ok', last_success_at: ago(600) }),
+      ],
+    });
+    const { workflows } = build({ pg });
+    const res = await workflows.evaluateRule(TENANT, rule({ trigger_type: 'integration_unhealthy', params: {}, action_mode: 'notify', scope: 'tenant' }), NOW);
+    const got = Object.fromEntries(res.matches.map((m) => [m.entity_name, m.numbers.reason]));
+    expect(got).toEqual({
+      failed: 'sync_status failed',
+      'ok but stale': 'no successful sync for 30+ minutes',
+      'syncing, never succeeded since 000034, old last_sync_at': 'no successful sync for 30+ minutes',
+      'never synced, 40 min old': 'no successful sync for 30+ minutes',
+    });
+    expect(res.matches.find((m) => m.entity_name === 'ok but stale')?.numbers.last_success_at).toBe(ago(45));
   });
 
   it('email: skipped when SMTP is off, sent and flagged when on', async () => {

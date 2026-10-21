@@ -11,6 +11,7 @@ import {
   PauseRow,
   RULE_COLUMNS,
   TenantRunner,
+  unhealthyReason,
 } from './workflow-db';
 import { WorkflowActionsService } from './workflow-actions.service';
 import {
@@ -254,21 +255,29 @@ export class WorkflowsService {
       const integrations = await this.pg.withTenant(tenantId, async (c) => {
         const r = await c.query(
           `SELECT ${INTEGRATION_COLUMNS} FROM integrations
-            WHERE deleted_at IS NULL AND connection_mode = 'api_sync' AND sync_status IN ('error', 'degraded')
+            WHERE deleted_at IS NULL AND connection_mode = 'api_sync'
               AND ($1::text IS NULL OR platform = $1)`,
           [rule.platform],
         );
         return (r.rows as IntegrationRow[]).filter(isLive);
       });
+      const unhealthy = integrations
+        .map((i) => ({ i, reason: unhealthyReason(i, now) }))
+        .filter((x) => x.reason !== null);
       return {
         window,
         evaluated: integrations.length,
         below_min_calls: 0,
-        matches: integrations.map((i) => ({
+        matches: unhealthy.map(({ i, reason }) => ({
           platform: i.platform,
           entity_id: i.id,
           entity_name: i.name,
-          numbers: { sync_status: i.sync_status, last_sync_at: i.last_sync_at },
+          numbers: {
+            sync_status: i.sync_status,
+            last_sync_at: i.last_sync_at,
+            last_success_at: i.last_success_at ?? null,
+            reason: reason === 'stale' ? 'no successful sync for 30+ minutes' : `sync_status ${i.sync_status}`,
+          },
         })),
       };
     }

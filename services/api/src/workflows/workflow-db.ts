@@ -56,6 +56,9 @@ export interface IntegrationRow {
   is_active: boolean;
   sync_status: string;
   last_sync_at: string | null;
+  /** v1 sync health (migration 000034): last fully successful sync; null until the first one. */
+  last_success_at?: string | null;
+  created_at?: string | null;
   allow_publisher_pause: boolean;
 }
 
@@ -71,7 +74,31 @@ export const PAUSE_COLUMNS = `id::text, integration_id::text, platform, publishe
   alert_event_id::text, rule_id::text, paused_by::text, paused_at::text, unpause_at::text, confirmation`;
 
 export const INTEGRATION_COLUMNS = `id::text, name, platform, connection_mode, sync_mode, is_active, sync_status,
-  last_sync_at::text, COALESCE(allow_publisher_pause, FALSE) AS allow_publisher_pause`;
+  last_sync_at::text, to_json(last_success_at) #>> '{}' AS last_success_at, to_json(created_at) #>> '{}' AS created_at,
+  COALESCE(allow_publisher_pause, FALSE) AS allow_publisher_pause`;
+
+/**
+ * integration_unhealthy (v1 sync health). A sync is unhealthy when its status says so — any failure is
+ * `degraded`, repeated failures `failed` (`error` is the pre-000034 status) — or when it has not succeeded
+ * for 30 minutes whatever the status says: from 2026-10-18 to 2026-10-21 every sync failed behind an `ok`.
+ * Same 30-minute rule as the Settings badge (web/src/lib/sync-health.ts).
+ */
+export const UNHEALTHY_SYNC_STATUSES = ['error', 'degraded', 'failed'];
+export const SYNC_STALE_AFTER_MS = 30 * 60 * 1000;
+
+export function unhealthyReason(
+  i: Pick<IntegrationRow, 'sync_status' | 'is_active' | 'last_success_at' | 'last_sync_at' | 'created_at'>,
+  now: Date,
+): 'status' | 'stale' | null {
+  if (UNHEALTHY_SYNC_STATUSES.includes(i.sync_status)) return 'status';
+  if (!i.is_active) return null; // paused: not expected to sync
+  // last_success_at is null until the first success after migration 000034; last_sync_at only ever moved on
+  // success before it, and a brand-new integration gets 30 minutes from created_at.
+  const ref = i.last_success_at ?? i.last_sync_at ?? i.created_at ?? null;
+  const t = ref ? Date.parse(ref) : NaN;
+  if (Number.isNaN(t)) return null;
+  return now.getTime() - t > SYNC_STALE_AFTER_MS ? 'stale' : null;
+}
 
 /** Live = API sync with real credentials, active, Ringba or Retreaver. Test (mock) is never Live. */
 export function isLive(i: Pick<IntegrationRow, 'connection_mode' | 'sync_mode' | 'is_active' | 'platform'>): boolean {
