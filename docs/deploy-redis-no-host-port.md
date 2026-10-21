@@ -81,8 +81,8 @@ $DC logs --since 10m platform-sync | grep -E '"api sync completed"|"sync lock re
 docker ps -a --filter name=deploy-ingestion --format '{{.Names}}  {{.Status}}'   # must say Up, not Restarting
 $DC logs ingestion --tail 30
 
-# sync status is fresh (no secrets; ids are needed only for the manual sweep below)
-$DC exec -T postgres psql -U callloom -d callloom -c "SELECT id, tenant_id, platform, name, sync_status, last_sync_at, left(COALESCE(last_sync_error,''),120) AS last_sync_error FROM integrations WHERE deleted_at IS NULL AND connection_mode = 'api_sync' ORDER BY platform;"
+# sync status is fresh (no secrets)
+$DC exec -T postgres psql -U callloom -d callloom -c "SELECT platform, name, sync_status, last_sync_at, left(COALESCE(last_sync_error,''),120) AS last_sync_error FROM integrations WHERE deleted_at IS NULL AND connection_mode = 'api_sync' ORDER BY platform;"
 # expect: both rows ok, last_sync_at within the last few minutes, last_sync_error empty
 ```
 
@@ -156,18 +156,12 @@ $DC exec -T clickhouse sh -c "$CH" < ~/calyx-golive/recon-7days.sql | tee ~/caly
 **Expected:** 2026-10-18, 2026-10-19 and 2026-10-20 now have rows for **both** platforms. Syed compares those days
 (Eastern) with the Ringba and Retreaver reports.
 
-**If those days are still empty after the sweep finished**, trigger the same window by hand, once per integration
-(Ringba and Retreaver). Paste `id` and `tenant_id` from the step 4 SELECT. The token is read inside the container and
-is never printed:
-
-```bash
-INT_ID=<id from the step 4 SELECT>
-TENANT=<tenant_id from the same row>
-$DC exec -T -e INT_ID="$INT_ID" -e TENANT="$TENANT" platform-sync sh -c 'wget -qO- -T 1800 --header="Authorization: Bearer $WRITEBACK_INTERNAL_TOKEN" --header="Content-Type: application/json" --post-data="{\"tenant_id\":\"$TENANT\",\"integration_id\":\"$INT_ID\",\"start\":\"2026-10-18T00:00:00-04:00\",\"end\":\"2026-10-21T00:00:00-04:00\",\"reason\":\"backfill\"}" http://127.0.0.1:8088/sync/window; echo'
-# expect {"status":"ok"} (can take several minutes). "409 Conflict" = a sweep is still running: wait 15 minutes and retry.
-```
-
-Then re-run the recon above and send both outputs.
+**If those days are still empty after the first sweep finished:** there is no manual trigger in this note. Wait for
+the next hourly 7-day sweep (it runs every 60 minutes after step 3: at +60, +120, +180 minutes, each taking up to
+30 minutes), then re-run the two log counts with `--since 200m` (expect at least 4 sweep lines and 0 failures) and
+the recon above. If 2026-10-18, 19 and 20 are still empty after the
+**second** sweep finished (about 150 minutes after step 3), stop and send all outputs to Syed. Do not restart
+platform-sync to "speed it up": a restart resets the hourly timer.
 
 ## Rollback (only if step 4 fails)
 
