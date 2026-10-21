@@ -16,6 +16,7 @@ import {
 import { getToken } from '@/lib/auth';
 import { useDateFilter } from '@/lib/date-filter';
 import { formatPlatformLabel } from '@/lib/platform-options';
+import { formatLastSuccess, isSyncStale } from '@/lib/sync-health';
 import { useState } from 'react';
 
 interface IntegrationsListProps {
@@ -31,17 +32,19 @@ function maskToken(token: string | null): string {
 }
 
 /**
- * Stage 4 R1-fix F1. `degraded` means the last window came back short of the platform's own
- * row count, so the cursor is deliberately held and the sync is not making progress. It has to
- * read differently from `ok` at a glance — a stuck sync that looks healthy is the failure this
- * whole stage is about. Hover shows `last_sync_error`, which names the window and the counts.
+ * v1 sync health (migration 000034). Any failed sync is `degraded`; repeated failures are
+ * `failed`. Hover shows `last_sync_error`, which says why (redis, network, auth, an incomplete
+ * window with its counts). A sync that has not succeeded for 30 minutes is red whatever the
+ * status says — on 2026-10-18 every sync failed for three days behind an `ok`.
  */
-function syncStatusStyle(status: string): string {
+function syncStatusStyle(status: string, stale: boolean): string {
+  if (stale) return 'bg-red-500/15 text-red-400';
   switch (status) {
     case 'ok':
       return 'bg-emerald-500/15 text-emerald-400';
     case 'degraded':
       return 'bg-amber-500/15 text-amber-400';
+    case 'failed':
     case 'error':
       return 'bg-red-500/15 text-red-400';
     case 'syncing':
@@ -51,8 +54,26 @@ function syncStatusStyle(status: string): string {
   }
 }
 
-function syncStatusLabel(status: string): string {
-  return status === 'degraded' ? 'Degraded — sync held' : status;
+function syncStatusLabel(status: string, stale: boolean): string {
+  switch (status) {
+    case 'degraded':
+      return 'Degraded';
+    case 'failed':
+      return 'Failed';
+    case 'ok':
+    case 'syncing':
+    case 'idle':
+      return stale ? 'Not syncing' : status;
+    default:
+      return status;
+  }
+}
+
+function syncStatusTitle(item: IntegrationRecord, stale: boolean): string | undefined {
+  const parts: string[] = [];
+  if (stale) parts.push('No successful sync in the last 30 minutes.');
+  if (item.last_sync_error) parts.push(item.last_sync_error);
+  return parts.length ? parts.join(' ') : undefined;
 }
 
 export function IntegrationsList({
@@ -206,6 +227,8 @@ export function IntegrationsList({
           <tbody>
             {integrations.map((item) => {
               const lookbackDays = item.initial_lookback_days ?? 30;
+              // A paused integration is not expected to sync, so it is never "stale".
+              const stale = item.is_active && isSyncStale(item.last_success_at);
               return (
               <tr
                 key={item.id}
@@ -277,12 +300,19 @@ export function IntegrationsList({
                 </td>
                 <td className="px-4 py-3 text-calyx-muted">
                   {item.connection_mode === 'api_sync' ? (
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${syncStatusStyle(item.sync_status)}`}
-                      title={item.last_sync_error ?? undefined}
-                    >
-                      {syncStatusLabel(item.sync_status)}
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${syncStatusStyle(item.sync_status, stale)}`}
+                        title={syncStatusTitle(item, stale)}
+                        data-testid="sync-status-badge"
+                        data-stale={stale ? 'true' : 'false'}
+                      >
+                        {syncStatusLabel(item.sync_status, stale)}
+                      </span>
+                      <span className="whitespace-nowrap text-[10px]" data-testid="last-success">
+                        Last successful sync: {formatLastSuccess(item.last_success_at)}
+                      </span>
+                    </div>
                   ) : (
                     '—'
                   )}

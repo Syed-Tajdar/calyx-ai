@@ -132,6 +132,8 @@ export interface IntegrationRecord {
   last_sync_at: string | null;
   sync_status: string;
   last_sync_error: string | null;
+  /** Last fully successful sync (ISO time; null until the first one). Moves only on success. */
+  last_success_at?: string | null;
   created_at: string;
   supports_api_sync: boolean;
   supports_webhook: boolean;
