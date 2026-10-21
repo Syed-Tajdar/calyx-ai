@@ -121,12 +121,17 @@ day is still empty, stop and send the output.
 git pull --ff-only origin main
 git log --oneline -1               # the hash Syed sent
 # Only api and web publish host ports now. Prints only service names, never the config (it holds secrets):
-$DC config 2>/dev/null | awk '/^services:/{s=1;next} /^[^ ]/{s=0} s&&/^  [a-z0-9-]+:$/{svc=$1} s&&/^    ports:$/{print svc}' | tr -d ':' | sort | tr '\n' ' '; echo
+$DC config 2>/dev/null | awk '/^services:/{s=1;next} /^[^ ]/{s=0} s&&/^  [a-z0-9-]+:$/{svc=$1} s&&/^    ports:$/{print svc}' | tr -d ':' | sort | paste -sd ' ' -
 # must print exactly: api web
 $DC build api web platform-sync ingestion
 ```
 
-Nothing is restarted by Step 2.
+If the check prints an empty line, the config could not be read (env file): stop. It never prints the config
+itself (`2>/dev/null`, only service names leave `awk`).
+
+The migrate service is the public `migrate/migrate:v4.17.1` image with the migration files **mounted from the
+repo** (`../db/postgres/migrations:/migrations`), so it is not built: Step 3 applies `000034` straight from the
+files `git pull` brought in. Nothing is restarted by Step 2.
 
 ## Step 3 — Recreate, one service at a time (📤 send output)
 
@@ -143,7 +148,10 @@ downtime, about 5–10 minutes in total, a few seconds to a minute per service:
 - consumer, ingestion, platform-sync, api, web: a few seconds each; for api and web the site is down for those
   seconds.
 
-Run this block once. It defines two helpers and does nothing else:
+Run this block once. It defines two helpers and does nothing else. `probe` runs `wget` inside the container:
+consumer, ingestion and platform-sync are built `FROM alpine:3.20`, whose BusyBox provides
+`/usr/bin/wget -> /bin/busybox` (checked in all three images on the laptop), and it exits non-zero only when the
+URL does not answer 2xx.
 
 ```bash
 wait_up() {   # wait_up <service> — up to 3 minutes for running + healthy (or running, no healthcheck)
@@ -313,16 +321,48 @@ BK=~/calyx-backups/deploy-v1-sync-health
 #    function, restores the old update function and status check, maps any 'failed' status to 'error').
 $DC exec -T postgres psql -U callloom -d callloom -v ON_ERROR_STOP=1 -1 < db/postgres/migrations/000034_sync_health.down.sql
 $DC exec -T postgres psql -U callloom -d callloom -c "UPDATE schema_migrations SET version = 33, dirty = false;"
-# 2. The old code (it publishes the old host ports again, as before this deploy)
+# 2. Before the old code: is anything that is not Calyx on the ports the old compose publishes again?
+#    After this deploy Calyx holds none of them, so ANY line here belongs to someone else (Plane):
+sudo ss -ltnp | awk '/:(5432|9092|8123|9100|8080|8081|8088)[[:space:]]/'
+```
+
+**If that prints a line** (or Step 0.2 already showed Plane or anything non-Calyx on 5432, 9092, 8123, 9100, 8080,
+8081 or 8088): the old compose file would try to bind that port again and that service would fail exactly like
+redis on 2026-10-18. Do **not** touch the other process. Run the old code through an override **outside the repo**
+without those host ports, the same way as Part 0 (nothing on the host needs them; Step 0.2 proved it):
+
+```bash
+mkdir -p ~/calyx-overrides
+printf 'services:\n  postgres:\n    ports: !reset []\n  redpanda:\n    ports: !reset []\n  clickhouse:\n    ports: !reset []\n  ingestion:\n    ports: !reset []\n  consumer:\n    ports: !reset []\n  platform-sync:\n    ports: !reset []\n' > ~/calyx-overrides/rollback-no-host-ports.yml
+DC="docker compose -p deploy -f deploy/docker-compose.yml -f $HOME/calyx-overrides/rollback-no-host-ports.yml"
+```
+
+From then on **every** compose command for this server must include that `-f` until Syed rolls forward again;
+tell Syed the override is in use. If the `ss` line printed nothing, keep the normal `$DC`.
+
+```bash
+# 3. The old code. Without the override it publishes the old host ports again, as before this deploy.
 git checkout "$(cat $BK/commit-before.txt)"
 $DC build api web platform-sync ingestion
 $DC up -d --remove-orphans
 $DC exec -T postgres psql -U callloom -d callloom -c "SELECT version, dirty FROM schema_migrations;"   # 33 | f
+docker ps -a --filter name=deploy- --format '{{.Names}}  {{.Status}}  {{.Ports}}' | sort      # all Up
+git status -sb | head -1     # "## HEAD (no branch)": the checkout is detached
 ```
 
 The down migration must run **before** the checkout: the old checkout does not have the file. Only the two new
 columns are dropped; no other data is touched. The Postgres dump from Step 1 is the last resort (restore only
 with Syed).
+
+**After a rollback the server checkout is on a detached HEAD** (the old commit, not a branch). Before the next
+deploy, put it back on `main` first — this changes only files, nothing is restarted:
+
+```bash
+cd ~/deployments/calyx-ai
+git checkout main
+git status --short           # must be empty
+git log --oneline -1         # then continue with the next pack's Step 0 (git pull --ff-only origin main)
+```
 
 ---
 
