@@ -21,6 +21,7 @@ import (
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/dedup"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/producer"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/redact"
+	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/redishealth"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/store"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/syncer"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/writeback"
@@ -179,6 +180,12 @@ func main() {
 		}
 	}()
 
+	// Item 5: redis is watched, not assumed. While it is down no sync is attempted (that only
+	// produced one "sync lock" error per integration per tick); each tick records the outage on
+	// every integration instead, and the first tick after recovery runs at once.
+	redisWatch := redishealth.New(func(ctx context.Context) error { return redisClient.Ping(ctx).Err() }, logger, "platform-sync")
+	redisWatch.Start(rootCtx)
+
 	ticker := time.NewTicker(cfg.SyncInterval)
 	sweepTicker := time.NewTicker(adapter.RingbaSweepInterval())
 	deepSweepTicker := time.NewTicker(adapter.RingbaDeepSweepInterval())
@@ -193,14 +200,17 @@ func main() {
 			case <-rootCtx.Done():
 				return
 			case <-ticker.C:
-				inflight.Add(1)
-				runCtx, cancel := context.WithTimeout(rootCtx, 10*time.Minute)
-				if err := svc.RunAll(runCtx); err != nil && !errors.Is(err, context.Canceled) {
-					logger.Error("scheduled sync failed", "error", redact.SanitizeErr(err))
-				}
-				cancel()
-				inflight.Done()
+			case <-redisWatch.Recovered():
 			}
+			inflight.Add(1)
+			runCtx, cancel := context.WithTimeout(rootCtx, 10*time.Minute)
+			if !redisWatch.Up() {
+				svc.MarkAllUnavailable(runCtx, "redis unavailable: "+redisWatch.LastError())
+			} else if err := svc.RunAll(runCtx); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error("scheduled sync failed", "error", redact.SanitizeErr(err))
+			}
+			cancel()
+			inflight.Done()
 		}
 	}()
 
@@ -213,6 +223,9 @@ func main() {
 			case <-rootCtx.Done():
 				return
 			case <-sweepTicker.C:
+				if !redisWatch.Up() {
+					continue // the tick records the outage; the next hourly sweep covers the gap
+				}
 				inflight.Add(1)
 				runCtx, cancel := context.WithTimeout(rootCtx, 30*time.Minute)
 				if err := svc.RunAllSweeps(runCtx); err != nil && !errors.Is(err, context.Canceled) {
@@ -233,6 +246,9 @@ func main() {
 			case <-rootCtx.Done():
 				return
 			case <-deepSweepTicker.C:
+				if !redisWatch.Up() {
+					continue
+				}
 				inflight.Add(1)
 				runCtx, cancel := context.WithTimeout(rootCtx, 40*time.Minute)
 				if err := svc.RunAllDeepSweeps(runCtx); err != nil && !errors.Is(err, context.Canceled) {

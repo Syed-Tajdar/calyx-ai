@@ -63,6 +63,24 @@ func NewService(
 	}
 }
 
+// MarkAllUnavailable records one failure on every scheduled integration without trying to sync
+// it (item 5). platform-sync calls it on each tick while redis is down, so Settings shows the
+// outage within one tick and goes `failed` after SYNC_FAILED_AFTER ticks. Per-integration
+// errors are not logged here; the redis watch logs the outage once.
+func (s *Service) MarkAllUnavailable(ctx context.Context, reason string) {
+	items, err := s.store.ListAPISync(ctx)
+	if err != nil {
+		s.logger.Error("list integrations failed", "error", redact.SanitizeErr(err))
+		return
+	}
+	for _, item := range items {
+		if item.SyncMode != "real" && !demoSyncAllowed() {
+			continue
+		}
+		s.recordFailureQuiet(item, reason)
+	}
+}
+
 func (s *Service) RunAll(ctx context.Context) error {
 	items, err := s.store.ListAPISync(ctx)
 	if err != nil {
@@ -558,21 +576,33 @@ const statusWriteTimeout = 5 * time.Second
 // recordFailure writes one failure for the integration: short, redacted text in last_sync_error
 // and `degraded` or `failed` in sync_status. last_sync_at, the cursor and last_success_at stay.
 func (s *Service) recordFailure(item models.SyncIntegration, msg string) {
-	if s.store == nil {
-		return
+	if status, text, ok := s.writeFailure(item, msg); ok {
+		s.logger.Warn("sync failure recorded",
+			"integration_id", item.ID, "platform", item.Platform,
+			"sync_status", status, "last_sync_error", text)
 	}
-	text := redact.SyncErrorText(msg)
+}
+
+// recordFailureQuiet is recordFailure without the per-integration log line (redis outage: the
+// watch has already logged it once).
+func (s *Service) recordFailureQuiet(item models.SyncIntegration, msg string) {
+	s.writeFailure(item, msg)
+}
+
+func (s *Service) writeFailure(item models.SyncIntegration, msg string) (status, text string, ok bool) {
+	if s.store == nil {
+		return "", "", false
+	}
+	text = redact.SyncErrorText(msg)
 	ctx, cancel := context.WithTimeout(context.Background(), statusWriteTimeout)
 	defer cancel()
 	status, err := s.store.RecordSyncFailure(ctx, item.ID, text, syncFailedAfter())
 	if err != nil {
 		s.logger.Error("sync failure could not be recorded",
 			"integration_id", item.ID, "platform", item.Platform, "error", redact.SanitizeErr(err))
-		return
+		return "", text, false
 	}
-	s.logger.Warn("sync failure recorded",
-		"integration_id", item.ID, "platform", item.Platform,
-		"sync_status", status, "last_sync_error", text)
+	return status, text, true
 }
 
 // failRun records a failed run with the right reason. A shutdown (the parent context was

@@ -15,6 +15,7 @@ import (
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/dedup"
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/handlers"
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/producer"
+	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/redishealth"
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/internal/store"
 	redisclient "github.com/Syed-Tajdar/calyx-ai/services/ingestion/pkg/redis"
 	"github.com/Syed-Tajdar/calyx-ai/services/ingestion/pkg/kafka"
@@ -30,12 +31,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	redisClient, err := redisclient.NewClient(cfg.RedisURL)
+	// No ping-or-exit here (v1 sync health, item 5): on 2026-10-18 redis came up without a
+	// network and ingestion crash-looped. The client dials lazily; the watch logs the outage once,
+	// retries with backoff, and /readyz answers 503 until redis is back.
+	redisClient, err := redisclient.NewLazyClient(cfg.RedisURL)
 	if err != nil {
-		logger.Error("redis connect failed", "service", "ingestion", "error", err)
+		logger.Error("redis url invalid", "service", "ingestion", "error", err)
 		os.Exit(1)
 	}
 	defer redisClient.Close()
+	rootCtx, rootCancel := context.WithCancel(context.Background())
+	defer rootCancel()
+	redishealth.New(func(ctx context.Context) error { return redisClient.Ping(ctx).Err() }, logger, "ingestion").Start(rootCtx)
 
 	integrationStore, err := store.NewIntegrationStore(cfg.DatabaseURL)
 	if err != nil {
