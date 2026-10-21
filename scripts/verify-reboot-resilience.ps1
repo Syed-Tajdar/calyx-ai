@@ -3,11 +3,14 @@
 # LAPTOP ONLY. Never run on the server.
 #
 # Reproduces 2026-10-18: after a reboot Plane's redis took host port 6379 first and Calyx's redis
-# came up without a network. Here a stand-in container (restart=always, like Plane) holds host
-# 6379 and every other host port Calyx used to publish. Calyx runs with the SERVER compose file
-# only (no docker-compose.dev.yml), then the Docker engine is restarted with
-# `docker desktop restart` — on a laptop the closest thing to a host reboot: every container comes
-# back through its restart policy, in whatever order the engine picks.
+# came up without a network. Here a stand-in container (restart=unless-stopped, like Plane) holds
+# host 6379 and every other host port Calyx used to publish. Calyx runs with the SERVER compose
+# file only (no docker-compose.dev.yml). Then the whole Calyx stack is stopped and started again
+# while the stand-in keeps the ports — Plane "wins" every port first, as after the reboot.
+#
+# This script does NOT restart the Docker engine: on 2026-10-21 `docker desktop restart` crashed
+# Docker Desktop on this laptop. The engine-restart proof of that day (all 9 services back by
+# their restart policy, without a recreate) is recorded in docs/deploy-v1-sync-health.md.
 #
 # PASS needs: all 9 services running (none Restarting), each `unless-stopped`; redis on
 # deploy_default with alias "redis" and no host port; Calyx publishes only 3100 and 3101; no
@@ -78,7 +81,7 @@ docker compose --env-file .env -f deploy/docker-compose.yml up -d --force-recrea
 Wait-Stack 300 | Out-Null
 $portArgs = @()
 foreach ($p in $formerHostPorts) { $portArgs += @("-p", "127.0.0.1:${p}:6379") }
-docker run -d --name $standin --restart always @portArgs redis:7-alpine | Out-Null
+docker run -d --name $standin --restart unless-stopped @portArgs redis:7-alpine | Out-Null
 Check ($LASTEXITCODE -eq 0) "stand-in holds host ports $($formerHostPorts -join ', ')"
 
 # 2. Calyx recreated again while the stand-in holds the ports: nothing may need them.
@@ -96,13 +99,22 @@ $integrationId = $created.id
 Check ([bool]$integrationId -and $created.sync_mode -eq "mock") "Test-mode integration created ($integrationId)"
 if (-not $integrationId) { Write-Host "Cannot continue without the test integration." -ForegroundColor Red; exit 1 }
 
-# 4. "Reboot": restart the Docker engine.
-Write-Host "Restarting Docker Desktop (simulated host reboot)..." -ForegroundColor Yellow
+# 4. "Reboot": stop every Calyx container, then start them again while the stand-in holds the
+#    ports. No recreate: the same containers must come back as they are.
+Write-Host "Stopping and starting the Calyx stack while the stand-in holds the ports..." -ForegroundColor Yellow
+$createdBefore = @{}
+foreach ($svc in $services) { $createdBefore[$svc] = (docker inspect -f '{{.Created}}' "deploy-$svc-1" | Out-String).Trim() }
 $restartedAt = (Get-Date).ToUniversalTime()
-docker desktop restart *> $null
-Start-Sleep -Seconds 10
-Check (Wait-Engine 420) "Docker engine is back"
+docker compose --env-file .env -f deploy/docker-compose.yml stop *> $null
+Check ($LASTEXITCODE -eq 0) "Calyx stopped"
+$sState = (docker inspect -f '{{.State.Status}}' $standin | Out-String).Trim()
+Check ($sState -eq "running") "stand-in still running while Calyx is down"
+docker compose --env-file .env -f deploy/docker-compose.yml start *> $null
+Check ($LASTEXITCODE -eq 0) "Calyx started again"
+Check (Wait-Engine 60) "Docker engine is up"
 Check (Wait-Stack 420) "all 9 services running after the restart (no Restarting)"
+$recreated = @($services | Where-Object { (docker inspect -f '{{.Created}}' "deploy-$_-1" | Out-String).Trim() -ne $createdBefore[$_] })
+Check ($recreated.Count -eq 0) "same containers came back, none recreated ($($recreated -join ', '))"
 
 # 5. Checks.
 foreach ($svc in $services) {
