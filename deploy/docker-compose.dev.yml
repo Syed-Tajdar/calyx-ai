@@ -1,0 +1,31 @@
+# Laptop only — never on the server.
+#
+# v1 sync health (item 3) removed every host port the server does not need: only api (3100) and
+# web (3101) stay published, because nginx proxies to them. The laptop gates (verify-system,
+# verify-ingestion-slice, verify-api-sync, verify-presentation) and local debugging still call
+# these services on localhost, so this file publishes them again, on 127.0.0.1 only.
+#
+#   docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml up -d
+#
+# `make dev-up` and scripts/dev-up.ps1 already pass both files.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+  redpanda:
+    ports:
+      - "127.0.0.1:9092:9092"
+  clickhouse:
+    ports:
+      - "127.0.0.1:8123:8123"
+      # Host 9100 — avoid reserved 9000 on shared servers (container still listens on 9000).
+      - "127.0.0.1:9100:9000"
+  ingestion:
+    ports:
+      - "127.0.0.1:8080:8080"
+  consumer:
+    ports:
+      - "127.0.0.1:8081:8081"
+  platform-sync:
+    ports:
+      - "127.0.0.1:8088:8088"

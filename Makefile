@@ -1,10 +1,10 @@
 .PHONY: dev-up dev-down build-ingestion build-consumer build-scoring build-enrichment build-providerconfig build-compliance build-ask-ai build-attribution build-platform-sync build-api build-web tidy test smoke-test smoke-test-all demo-seed seed-dev-integrations verify-presentation verify-ingestion-slice verify-api-sync verify-apisync-retreaver-real verify-apisync-ringba-real verify-apisync-trackdrive-real verify-apisync-callgrid-real verify-retreaver-real verify-system step1b-test
 
 dev-up:
-	docker compose --env-file .env -f deploy/docker-compose.yml up -d --build
+	docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml up -d --build
 
 dev-down:
-	docker compose --env-file .env -f deploy/docker-compose.yml down
+	docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml down
 
 build-ingestion:
 	cd services/ingestion && go build -o ../../bin/ingestion ./cmd/server

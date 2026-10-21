@@ -410,6 +410,12 @@ make dev-up
 
 `make dev-up` starts the full stack including **Web on Docker** at http://localhost:3101 (production Next.js build inside `deploy-web-1`). API at http://localhost:3100.
 
+**Host ports (v1 sync health):** `deploy/docker-compose.yml` publishes only api 3100 and web 3101 —
+the server needs nothing else, and a published port can collide with another stack on the same
+host (Plane's redis took 6379 on 2026-10-18). The other ports in the table below come from the
+laptop-only `deploy/docker-compose.dev.yml`, which `make dev-up` and `scripts/dev-up.ps1` add.
+Never pass it on the server.
+
 | Service | Port | Health |
 |---------|------|--------|
 | Ingestion | 8080 | http://localhost:8080/healthz |
