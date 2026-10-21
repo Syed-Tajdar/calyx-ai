@@ -714,7 +714,7 @@ The rule matches the Calyx "should have converted" filter (`services/api/src/pin
 
 # Phase 2D — Workflows: alert → action, with publisher pause (built with fake APIs) — STOP before any real pause
 
-Contract: `docs/v2-2d-contract.md`. Migration: `000034_workflows`. Every switch defaults **off**.
+Contract: `docs/v2-2d-contract.md`. Migration: `000035_workflows` (was 000034 before the rebase on main). Every switch defaults **off**.
 
 ## 2D.1 Scoreboard
 
@@ -787,7 +787,7 @@ mock `AlertRulesSection` is removed; the legacy mock alerts API stays closed.
 
 ## 2D.4 Full v1 gates and screenshots (2026-10-20) [PROVEN]
 
-Laptop stack rebuilt from this branch (`api`, `web`, `platform-sync`), migration 34, every switch off:
+Laptop stack rebuilt from this branch (`api`, `web`, `platform-sync`), migration 34 (the workflows migration, then numbered 000034; now 000035 on `v2/2d-on-main`), every switch off:
 **SYSTEM VERIFY PASS** (Docker 9/9, Healthz 5/5, API v1, Web routes 13/13, WebSocket, BrowserCSP, unit, web build,
 pipeline 4/4), **PRESENTATION 20/20**, **INGESTION PASS**; `/alerts` web 404 and `/workflows/rules` API 404 (anonymous);
 Retreaver all time still 3,652 / $33,143.85. platform-sync logged `workflow_actions_enabled:false,
@@ -806,7 +806,7 @@ Screenshots (`docs/evidence/v2-2d/`), workflows switched on **for the laptop onl
 
 ## 2D.5 Deploy note (later; owner decides)
 
-- Images: `api`, `web`, `platform-sync`. Migration `000034_workflows` (additive).
+- Images: `api`, `web`, `platform-sync`. Migration `000035_workflows` (additive; applies after `000034_sync_health`).
 - Env (all off): `FEATURE_WORKFLOWS`, `NEXT_PUBLIC_FEATURE_WORKFLOWS` (web build-time), `WORKFLOW_ACTIONS_ENABLED=false`
   (API **and** platform-sync), `WORKFLOW_RINGBA_PAUSE_VERIFIED=false`, `WORKFLOW_MAX_AUTO_PAUSES_DAILY` (default 3),
   `SMTP_HOST/PORT/USER/PASSWORD/FROM`, `ALERT_EMAIL_TO` (email off while `SMTP_HOST` empty; production refuses

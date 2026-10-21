@@ -1,7 +1,7 @@
 # Phase 2D — internal contract (API ↔ platform-sync) and build rules
 
 Source of truth for both halves of Phase 2D. Spec: `docs/v2-intelligence-spec.md` Phase 2D; facts:
-`docs/v2-intelligence-report.md` §5; owner decisions Q10, Q11 and 2a. Schema: migration `000034_workflows`.
+`docs/v2-intelligence-report.md` §5; owner decisions Q10, Q11 and 2a. Schema: migration `000035_workflows` (renumbered from 000034 when 2D was rebased on main, which has `000034_sync_health`).
 
 ## Switches (all off by default)
 

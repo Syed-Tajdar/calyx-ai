@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// PauseIntegration is one row of get_publisher_pause_integration() (migration 000034). It also
+// PauseIntegration is one row of get_publisher_pause_integration() (migration 000035). It also
 // returns paused and Test rows so the pause service can refuse them with a clear reason.
 type PauseIntegration struct {
 	ID                  string
