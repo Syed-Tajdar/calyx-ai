@@ -831,18 +831,31 @@ Confirm the Ringba API token's user role (Admin is needed for `PATCH /Publishers
 
 The probe's HTTP transport refuses every method except GET, so this step cannot change anything on Ringba or
 Retreaver. It reads the encryption key and `DATABASE_URL` from the platform-sync container's environment through
-stdin (nothing secret is printed or stored).
+stdin (nothing secret is printed, stored or put on a command line).
+
+**Branch:** `v2/2d-on-main` — 2D rebased on `main` `4181c4a` (Part 1), workflows migration renumbered to
+`000035_workflows`. The probe runs no migration. The server's database is at **34** (2D not deployed), where
+`get_publisher_pause_integration()` (from 000035) does not exist yet: the probe then reads the same row through
+`get_api_sync_integration_any()` (on main since migration 000024) and prints `is_active` / `allow_publisher_pause`
+as `unknown`. That is expected for Step 0.
+
+**Network (after Part 1):** postgres has **no host port** any more. The probe reaches it the same way platform-sync
+does: the container runs on the compose network `deploy_default` (`--network deploy_default`), and the
+`DATABASE_URL` it reads from platform-sync points at the host name `postgres` (`…@postgres:5432/callloom`), which
+resolves only on that network. Nothing is published on the host.
 
 ```bash
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
-git log --oneline -1                                   # server checkout: 06f0384 — do NOT change it
+git log --oneline -1                                   # server checkout: main 4181c4a (Part 1) — do NOT change it
+free -h | head -2                                      # the go build below needs ~1-2 GB RAM for a minute (8 GB shared)
 
-# 1. A separate, temporary worktree of v2/intelligence for the probe only
+# 1. A separate, temporary worktree of v2/2d-on-main for the probe only
 git -C ~/deployments/calyx-ai fetch origin
-git -C ~/deployments/calyx-ai worktree add ~/calyx-probe-2d origin/v2/intelligence
+git -C ~/deployments/calyx-ai worktree add ~/calyx-probe-2d origin/v2/2d-on-main
 git -C ~/calyx-probe-2d log --oneline -1               # must be the hash Syed sent
 ls ~/calyx-probe-2d/services/platform-sync/cmd/probe-publisher-pause/main.go
+docker network inspect deploy_default --format '{{.Name}}: {{len .Containers}} containers'   # the Calyx network exists
 
 # 2. The two Live integration ids (no secrets)
 $DC exec -T postgres psql -U callloom -d callloom -c "SELECT id, platform, name, sync_mode, is_active FROM integrations WHERE deleted_at IS NULL AND connection_mode = 'api_sync' ORDER BY platform;"
@@ -858,8 +871,8 @@ for ID in "$RINGBA_ID" "$RETREAVER_ID"; do
   echo "===== integration $ID ====="
   docker inspect deploy-platform-sync-1 --format '{{range .Config.Env}}{{println .}}{{end}}' \
    | awk -F= '/^CREDENTIAL_ENCRYPTION_KEY=/{sub(/^[^=]*=/,"");k=$0} /^DATABASE_URL=/{sub(/^[^=]*=/,"");d=$0} END{print k; print d}' \
-   | docker run --rm -i --network deploy_default \
-       -v ~/calyx-probe-2d/services/platform-sync:/src -w /src golang:1.25-alpine \
+   | docker run --rm -i --network deploy_default --memory 2g \
+       -v ~/calyx-probe-2d/services/platform-sync:/src -w /src golang:1.25.14-alpine \
        go run ./cmd/probe-publisher-pause -integration "$ID" -name CALYX-TEST-PUB-DO-NOT-USE
 done 2>&1 | tee ~/calyx-golive/probe-2d-step0.txt
 
@@ -868,9 +881,17 @@ git -C ~/deployments/calyx-ai worktree remove ~/calyx-probe-2d
 git -C ~/deployments/calyx-ai worktree list            # only ~/deployments/calyx-ai remains
 ```
 
-Notes: the first `go run` downloads Go modules (a minute or two). If `golang:1.25-alpine` is not on the server, Docker
-pulls it. The probe prints hosts and paths only (account id shown as `{accountId}`), never a key or a query string.
-Send `~/calyx-golive/probe-2d-step0.txt`.
+Notes: the first `go run` downloads Go modules (a minute or two). `golang:1.25.14-alpine` is the image the Calyx
+Dockerfiles build with; it usually sits in the build cache, not as an image, so Docker may pull it once (~100 MB). The probe prints hosts and
+paths only (account id shown as `{accountId}`), never a key or a query string. If it says it cannot reach the
+database, check that `deploy-postgres-1` is Up and on `deploy_default` (`docker inspect deploy-postgres-1 --format
+'{{range $n,$v := .NetworkSettings.Networks}}{{$n}} {{end}}'`) — do **not** publish a port. Send
+`~/calyx-golive/probe-2d-step0.txt`.
+
+Checked on the laptop (2026-10-22, no platform call): (A) this exact pipeline against the laptop stack — the probe
+container on `deploy_default` read the DSN from platform-sync (`callloom_sync@postgres:5432`, no host port), reached
+Postgres and stopped at an unknown test id; (B) against a throwaway database at migration 34 — the fallback read the
+row (`is_active=unknown allow_publisher_pause=unknown`) and stopped at the undecryptable test blob, before any HTTP.
 
 What Step 0 shows per platform: the test publisher found by exact name (unique), its id, whether `enabled` (Ringba) /
 `paused` (Retreaver) is visible, **no numbers** (and no campaigns where the API shows membership, else UNKNOWN), the

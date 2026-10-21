@@ -1,9 +1,13 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type failRT struct{ called bool }
@@ -34,5 +38,16 @@ func TestGetOnlyTransportRefusesWrites(t *testing.T) {
 		if _, err := (getOnly{next}).RoundTrip(req); err != nil || !next.called {
 			t.Fatalf("%s GET refused: %v", u, err)
 		}
+	}
+}
+
+// Step 0 runs against the server's database before 2D is deployed: there the workflows migration
+// (000035) is missing, and the probe must fall back instead of stopping.
+func TestUndefinedFunctionIsRecognised(t *testing.T) {
+	if !isUndefinedFunction(fmt.Errorf("query: %w", &pgconn.PgError{Code: "42883", Message: "function get_publisher_pause_integration(uuid, uuid) does not exist"})) {
+		t.Fatal("SQLSTATE 42883 must trigger the fallback")
+	}
+	if isUndefinedFunction(&pgconn.PgError{Code: "42501"}) || isUndefinedFunction(errors.New("no rows in result set")) || isUndefinedFunction(nil) {
+		t.Fatal("only 'function does not exist' may trigger the fallback")
 	}
 }

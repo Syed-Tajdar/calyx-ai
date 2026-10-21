@@ -38,6 +38,7 @@ import (
 
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/crypto"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/redact"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -149,19 +150,34 @@ func main() {
 		isActive, allowPause        bool
 		blob                        []byte
 	)
+	activeText, allowText := "", ""
 	err = pool.QueryRow(ctx, `
 		SELECT platform, COALESCE(name, ''), COALESCE(sync_mode, ''), is_active, allow_publisher_pause, api_credentials_blob
 		  FROM get_publisher_pause_integration($1::uuid, $2::uuid)`,
 		*tenant, *integrationID).Scan(&platform, &intName, &syncMode, &isActive, &allowPause, &blob)
+	if isUndefinedFunction(err) {
+		// The server runs main without the workflows migration (000035): 2D is not deployed yet, so
+		// get_publisher_pause_integration() does not exist. Read the same row through the write-back
+		// reader that main has had since migration 000024 (SECURITY DEFINER, EXECUTE granted to
+		// callloom_sync). It has no is_active / allow_publisher_pause; both print as "unknown".
+		err = pool.QueryRow(ctx, `
+			SELECT platform, COALESCE(name, ''), COALESCE(sync_mode, ''), api_credentials_blob
+			  FROM get_api_sync_integration_any($1::uuid, $2::uuid)`,
+			*tenant, *integrationID).Scan(&platform, &intName, &syncMode, &blob)
+		activeText, allowText = "unknown", "unknown (migration 000035 not on this database)"
+	}
 	if err != nil {
-		fatal(errors.New("integration not found via get_publisher_pause_integration: " + redact.SanitizeErr(err)))
+		fatal(errors.New("integration not found: " + redact.SanitizeErr(err)))
+	}
+	if activeText == "" {
+		activeText, allowText = fmt.Sprint(isActive), fmt.Sprint(allowPause)
 	}
 	mode := "Test (mock)"
 	if syncMode == "real" {
 		mode = "Live (real)"
 	}
-	fmt.Printf("integration platform=%s name=%q mode=%s is_active=%v allow_publisher_pause=%v\n",
-		platform, intName, mode, isActive, allowPause)
+	fmt.Printf("integration platform=%s name=%q mode=%s is_active=%s allow_publisher_pause=%s\n",
+		platform, intName, mode, activeText, allowText)
 
 	dec, err := crypto.NewCredentialDecryptor(credKey)
 	if err != nil {
@@ -664,6 +680,12 @@ func str(v any) string {
 		return strconv.FormatFloat(t, 'f', -1, 64)
 	}
 	return fmt.Sprint(v)
+}
+
+// isUndefinedFunction reports Postgres "function does not exist" (SQLSTATE 42883).
+func isUndefinedFunction(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "42883"
 }
 
 func readLine(s *bufio.Scanner) string {
