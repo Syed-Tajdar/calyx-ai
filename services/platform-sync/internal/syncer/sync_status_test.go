@@ -1,59 +1,70 @@
 package syncer
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/adapter"
+	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/models"
 )
 
-// Stage 4 R1-fix F1 — an incomplete window and an unreachable platform are different failures
-// and must not write the same sync_status.
-//
-// `error` says the call failed. `degraded` says the calls succeeded but the window did not add
-// up, so the cursor is being held deliberately. Collapsing the two would either hide a stuck
-// sync behind a transport error or cry wolf about an outage that never happened.
+// Stage 4 R1-fix F1, revised by v1 sync health (migration 000034). Every failed run writes
+// `degraded` first — an incomplete window and an unreachable platform alike — and the text in
+// last_sync_error tells them apart. Repeated failures become `failed`.
 
-func TestShortfallIsDegradedNotError(t *testing.T) {
+func failRunStatus(t *testing.T, err error) (string, string) {
+	t.Helper()
+	item := models.SyncIntegration{ID: "int-1", Platform: "retreaver", SyncMode: "real"}
+	st := newFakeStore(item)
+	svc := &Service{store: st, logger: slog.Default()}
+	svc.failRun(context.Background(), context.Background(), item, err, "incremental")
+	r := st.row("int-1")
+	if r.lastError == nil {
+		t.Fatal("a failed run must write last_sync_error")
+	}
+	return r.status, *r.lastError
+}
+
+func TestShortfallIsRecordedWithItsCounts(t *testing.T) {
 	end := time.Now().UTC()
-	shortfall := &adapter.WindowShortfallError{
+	status, msg := failRunStatus(t, &adapter.WindowShortfallError{
 		Platform:  "retreaver",
 		Start:     end.Add(-time.Hour),
 		End:       end,
 		Collected: 40,
 		Total:     45,
 		Attempts:  3,
-	}
-
-	status, detail := classifySyncFailure(shortfall)
+	})
 	if status != syncStatusDegraded {
 		t.Fatalf("a short window must write %q, got %q", syncStatusDegraded, status)
 	}
-	if detail == nil || detail.Total != 45 || detail.Collected != 40 {
-		t.Fatalf("the shortfall detail must survive classification, got %+v", detail)
+	if !strings.Contains(msg, "40 of 45") {
+		t.Fatalf("the shortfall counts must reach last_sync_error, got %q", msg)
 	}
 }
 
-func TestWrappedShortfallIsStillDegraded(t *testing.T) {
+func TestWrappedShortfallIsStillRecognised(t *testing.T) {
 	// The syncer wraps adapter errors as it unwinds; errors.As must still find the shortfall.
-	wrapped := fmt.Errorf("sync tick failed: %w", &adapter.WindowShortfallError{
+	_, msg := failRunStatus(t, fmt.Errorf("sync tick failed: %w", &adapter.WindowShortfallError{
 		Platform: "retreaver", Collected: 1, Total: 2, Attempts: 3,
-	})
-	if status, _ := classifySyncFailure(wrapped); status != syncStatusDegraded {
-		t.Fatalf("a wrapped shortfall must still be %q, got %q", syncStatusDegraded, status)
+	}))
+	if !strings.Contains(msg, "1 of 2") {
+		t.Fatalf("a wrapped shortfall must still be described, got %q", msg)
 	}
 }
 
-func TestOrdinaryFailureIsError(t *testing.T) {
-	status, detail := classifySyncFailure(errors.New("dial tcp: no such host"))
-	if status != syncStatusError {
-		t.Fatalf("a transport failure must write %q, got %q", syncStatusError, status)
+func TestOrdinaryFailureIsDegradedWithItsCategory(t *testing.T) {
+	status, msg := failRunStatus(t, errors.New("dial tcp: no such host"))
+	if status != syncStatusDegraded {
+		t.Fatalf("a transport failure must write %q, got %q", syncStatusDegraded, status)
 	}
-	if detail != nil {
-		t.Fatalf("a transport failure carries no shortfall detail, got %+v", detail)
+	if !strings.HasPrefix(msg, "network error") {
+		t.Fatalf("a transport failure must be labelled as one, got %q", msg)
 	}
 }
 
