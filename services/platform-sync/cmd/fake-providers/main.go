@@ -6,6 +6,9 @@
 //	POST /v1/listen                    fake Deepgram: canned diarized utterances (with a card number and an
 //	                                   SSN, so the redaction is visible), request id, duration; Spanish when
 //	                                   language=multi. It refuses a request without mip_opt_out=true.
+//	POST /v1/responses                 fake OpenAI Responses API for Ask AI: first a `metrics` tool call (calls by
+//	                                   platform, last 7 full Eastern days), then a calyx_answer built only from
+//	                                   the numbers in the tool rows. It refuses a request without store=false.
 //	PUT|HEAD|GET|DELETE /{bucket}/{key}  fake S3, in memory, path-style; auth is not checked
 //
 // Run with deploy/docker-compose.fake-providers.yml (laptop).
@@ -22,6 +25,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 type store struct {
@@ -37,6 +41,7 @@ func main() {
 	}
 	st := &store{objs: map[string][]byte{}, ct: map[string]string{}}
 	http.HandleFunc("/v1/listen", listen)
+	http.HandleFunc("/v1/responses", responses)
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
 	http.HandleFunc("/", st.s3)
 	log.Printf("fake-providers (LAPTOP ONLY) listening on %s", addr)
@@ -97,6 +102,70 @@ func listen(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
 	log.Printf("fake deepgram: %d bytes, language=%s, redact=%s", len(body), lang, strings.Join(q["redact"], ","))
+}
+
+func responses(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Store *bool                    `json:"store"`
+		Input []map[string]interface{} `json:"input"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":{"message":"fake-providers: bad request"}}`))
+		return
+	}
+	if req.Store == nil || *req.Store {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":{"message":"fake-providers: store=false is required"}}`))
+		return
+	}
+	usage := map[string]int{"input_tokens": 900, "output_tokens": 60, "total_tokens": 960}
+	var toolOut string
+	for _, it := range req.Input {
+		if it["type"] == "function_call_output" {
+			toolOut, _ = it["output"].(string)
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if toolOut == "" {
+		et, _ := time.LoadLocation("America/New_York")
+		today := time.Now().In(et)
+		args, _ := json.Marshal(map[string]interface{}{
+			"group_by": "platform", "from": today.AddDate(0, 0, -7).Format("2006-01-02"), "to": today.AddDate(0, 0, -1).Format("2006-01-02"),
+			"platform": "all", "filter": nil, "order_by": "calls", "order": "desc", "limit": 10, "min_calls": 0,
+		})
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "completed", "usage": usage, "output": []map[string]interface{}{
+			{"type": "function_call", "id": "fc_fake_1", "call_id": "call_fake_1", "name": "metrics", "arguments": string(args)},
+		}})
+		log.Printf("fake openai: tool call metrics")
+		return
+	}
+	// Answer only with numbers from the tool rows (the API checks every number in the answer).
+	var out struct {
+		Rows []map[string]interface{} `json:"rows"`
+	}
+	_ = json.Unmarshal([]byte(toolOut), &out)
+	parts := []string{}
+	for _, row := range out.Rows {
+		label, _ := row["platform"].(string)
+		if label == "" {
+			label, _ = row["group"].(string)
+		}
+		parts = append(parts, fmt.Sprintf("%s %v calls", label, row["calls"]))
+	}
+	ans := map[string]interface{}{"answer": "Calls by platform in the last 7 days: " + strings.Join(parts, ", ") + ".", "cannot_answer": false}
+	if len(parts) == 0 {
+		ans = map[string]interface{}{"answer": "There were no calls in that range.", "cannot_answer": true}
+	}
+	text, _ := json.Marshal(ans)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "completed", "usage": usage, "output": []map[string]interface{}{
+		{"type": "message", "role": "assistant", "content": []map[string]interface{}{{"type": "output_text", "text": string(text)}}},
+	}})
+	log.Printf("fake openai: answer from %d rows", len(out.Rows))
 }
 
 func (s *store) s3(w http.ResponseWriter, r *http.Request) {

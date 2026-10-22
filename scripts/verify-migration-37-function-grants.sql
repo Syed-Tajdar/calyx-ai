@@ -28,7 +28,18 @@ BEGIN
       ('record_integration_sync_failure(uuid,text,int)',       'callloom_sync'),
       ('get_publisher_pause_integration(uuid,uuid)',           'callloom_sync'),
       ('insert_publisher_action_audit(uuid,uuid,uuid,text,text,text,text,uuid,uuid,text,text,text,text,jsonb)', 'callloom_sync'),
-      ('claim_transcription_job()',                            'callloom_sync')
+      ('claim_transcription_job()',                            'callloom_sync'),
+      ('finish_transcription_job(uuid,text,text,text,timestamptz)', 'callloom_sync'),
+      ('requeue_stale_transcription_jobs(int)',                'callloom_sync'),
+      ('get_transcription_minutes_today(uuid)',                'callloom_sync'),
+      ('add_transcription_usage(uuid,numeric)',                'callloom_sync'),
+      ('get_transcription_archive_all(uuid)',                  'callloom_sync'),
+      ('upsert_call_recording(uuid,text,text,uuid,text,bigint,numeric,text,text,timestamptz,text,text)', 'callloom_sync'),
+      ('insert_call_transcript(uuid,text,text,uuid,text,text,text,text,numeric,text,int,jsonb)', 'callloom_sync'),
+      ('get_call_recording_object(uuid,text,text)',            'callloom_sync'),
+      ('list_recordings_to_expire(timestamptz,int)',           'callloom_sync'),
+      ('mark_recording_expired(uuid)',                         'callloom_sync'),
+      ('get_call_transcript_latest(uuid,text,text)',           'callloom_sync')
     ) AS t(fn, caller)
   LOOP
     FOR n IN 1..3 LOOP
@@ -39,7 +50,10 @@ BEGIN
       END;
     END LOOP;
   END LOOP;
-  RAISE NOTICE 'PASS no SECURITY DEFINER function executable by PUBLIC; role matrix exact (15 functions x 3 roles)';
+  -- Every SECURITY DEFINER function in public is in the matrix above (a new one must be added here).
+  SELECT count(*) INTO n FROM pg_proc p WHERE p.prosecdef AND p.pronamespace = 'public'::regnamespace;
+  ASSERT n = 26, n || ' SECURITY DEFINER functions in public, the matrix lists 26 — add the new one(s)';
+  RAISE NOTICE 'PASS no SECURITY DEFINER function executable by PUBLIC; role matrix exact (all 26 functions x 3 roles)';
 END $$;
 
 -- Real calls. Seed as the owner.

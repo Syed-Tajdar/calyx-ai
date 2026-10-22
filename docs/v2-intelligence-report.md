@@ -1282,9 +1282,9 @@ Windows 11 Insider build 26300):
 **STOP.** Phase 2B is built and gated with fake providers. It is **not** merged. Nothing touches a real key, bucket,
 recording or the server until the owner approves.
 
-# v1 hardening — function grants (migration 000037) — WIP: laptop gates not finished
+# v1 hardening — function grants (migration 000037)
 
-Branch `v2/hardening-grants`, from `v2/2b-transcription` @ **`ba757f1`**. Migration **`000037_function_grants`**
+Branch `v2/hardening-grants`, first cut from `v2/2b-transcription` @ `ba757f1`, **rebased onto `main` @ `6a8ad8a`** (2D + 2B). Migration **`000037_function_grants`**
 (after 2D's 000035 and 2B's 000036; it must ship in the same deploy). Commit prefix `v1-hardening:`. Not merged.
 
 **What changed:** `REVOKE ALL ... FROM PUBLIC` on the 13 older `SECURITY DEFINER` functions (§2B.8), and a re-asserted
@@ -1338,23 +1338,45 @@ The owner role `callloom` (used by `migrate` and by the `psql -U callloom` verif
   - `callloom_ingestion` looks up a token, but gets **permission denied** on `get_api_sync_integration_any` and on
     `authenticate_user`.
 
-**Laptop stack — WIP, stopped by the owner on 2026-10-22 before the gates were finished:**
-- 000037 applied by `migrate` (version 37, dirty f); 0 `SECURITY DEFINER` functions executable by PUBLIC; api,
-  ingestion and platform-sync restarted against it (api `/readyz` 200).
-- `verify-system.ps1 -V1`: **SYSTEM VERIFY PASS** (Docker 9/9, Healthz 5/5, API v1, presentation 20/20, Web routes
-  13/13, WebSocket, BrowserCSP, unit tests 354/354, web build, pipeline 4/4). It includes API logins, the four
-  platforms' ingestion, and platform-sync health.
-- `verify-ingestion-slice.ps1`: **INGESTION SLICE VERIFY PASS**.
-- Postgres log since 37: **0** `permission denied`, 0 ERROR lines.
-- **Not run (stopped):** `verify-api-sync.ps1` (a real Test-mode sync tick through `list_api_sync_integrations` /
-  `update_integration_sync_state`), the Settings integration save, and the explicit sync-tick check. No Test
-  integration was created for 37.
-- The laptop DB was then migrated **down to 36** (37 ships tomorrow, after 35/36).
+**Laptop stack, done 2026-10-22 [PROVEN]:**
 
-**To finish before 37 ships:** apply 37 on the laptop again, run `verify-api-sync.ps1` plus one Settings save and one
-Sync press in Test mode, and check the Postgres log for `permission denied`.
+Laptop: Windows, Docker Desktop 4.88.1, dev `.env`, Test-mode integrations only. There was **no Live integration, no
+platform API call and no real key**. The laptop stack ran `main` `6a8ad8a` images with 000037 applied.
 
-**Deploy note:** additive, in the same deploy as 000035 and 000036, applied by `migrate`. It needs no restart: the
+- **Throwaway Postgres** (`bash scripts/verify-migration-37-function-grants.sh`):
+  - every migration up to 36 → **37** → **down** (grants identical to 36) → **up**;
+  - no `SECURITY DEFINER` function executable by PUBLIC;
+  - the exact role matrix for **all 26** `SECURITY DEFINER` functions on main (2D's and 2B's included), with a count
+    check so an unlisted new function fails;
+  - real calls allowed and refused per role.
+- **Laptop stack at 37, every flag off:**
+  - `verify-system.ps1 -V1`: **SYSTEM VERIFY PASS** (Docker 9/9, Healthz 5/5, LiveStatus, API v1, presentation
+    20/20, Web routes 13/13, WebSocket, SmokePrefix, BrowserCSP, unit tests 356/356, web build, pipeline 4/4).
+    LiveStatus failed once in a run started 15 s after an API restart: the live-feed Kafka consumer took 27 s to
+    rejoin its group. A rerun passed; Postgres is not involved;
+  - `verify-ingestion-slice.ps1`: **INGESTION SLICE VERIFY PASS**;
+  - `verify-api-sync.ps1`: **PASS**.
+- **Admin login** in the browser; **Settings → Integrations → Save integration** (Test-mode Retreaver) → 201.
+- **Sync button** → a Test-mode sync tick through `list_api_sync_integrations` / `update_integration_sync_state`:
+  `sync_status ok`, fresh `last_success_at`, 0 failures. That integration was paused again afterwards.
+- **Flags on, against the laptop fakes** (`deploy/docker-compose.fake-providers.yml`, now also a fake OpenAI):
+  - **Ask AI:** a fake OpenAI tool call → `metrics` on ClickHouse → an answer (HTTP 201; `no_data`, because every
+    laptop call has a test prefix);
+  - **Alerts:** a dry run in Settings → Alerts (200; publisher actions off) and `/alerts` (200);
+  - **Settings → Providers:** "Transcribe button only (automatic off)";
+  - **Transcribe button:** HTTP 202 → worker `claim` → Test-mode recording → fake S3 (SSE) + the same 8,096 bytes to
+    the fake Deepgram (`redact=pci,ssn`) → transcript **Ready** with `[REDACTED]`; then **Play** (200) and the
+    **evidence pack** (4 files), each with an audit row `served`.
+- **The detector works:** one deliberate call as `callloom_api` to `get_api_sync_integration` logged
+  `ERROR: permission denied for function get_api_sync_integration`.
+- **Postgres log** from just after that deliberate call (14:07:21 UTC) through every check above and the down/up
+  (17:42 UTC): **0 `permission denied`, 0 ERROR lines**.
+- **Up / down / up on the real laptop stack:** 37 (0 PUBLIC-executable) → down → `36 | f` (13, the exact old state) →
+  up → `37 | f` (0).
+
+`get_transcription_archive_all()` (from 000036) has no caller; it is executable by `callloom_sync` only and is left as is.
+
+**Deploy note:** `docs/deploy-37-grants.md`, after the 2D + 2B deploy (server at `6a8ad8a`, `36 | f`); applied by `migrate`. It needs no restart: the
 grants apply to the next call. If an unknown caller shows up after deploy, Postgres logs
 `permission denied for function <name>`. Rollback is `migrate down 1` for 000037 alone, which restores the PUBLIC
 grants exactly.
@@ -1364,4 +1386,4 @@ FUNCTIONS FROM PUBLIC`, so a function added (or dropped and re-created) in a lat
 become PUBLIC again. Until then, the pattern in 000036 and 000037 (an explicit REVOKE + GRANT per function) is the
 rule for new migrations.
 
-**STOP.** WIP, not merged. Ships after 35/36 (owner: tomorrow).
+Merged into `main` after these checks (owner-approved, 2026-10-22).
