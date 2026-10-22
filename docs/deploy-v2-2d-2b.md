@@ -1,8 +1,12 @@
 # Calyx — deploy pack: v2 2D (workflows / alerts) + 2B (transcription + recording archive) — flags OFF, then on one by one
 
 **Server:** `calyx.ridgerisemedia.com` · `~/deployments/calyx-ai` · compose project **`deploy`**
-**Code:** target = **the `main` hash Syed sends** (the merge of `v2/2b-transcription`, which contains `v2/2d-on-main`,
-plus the `TRANSCRIBE_AUTO` / `TRANSCRIBE_BACKFILL` switches). The server now runs `5cdb46e` (or `4181c4a`), migration 34.
+**Code:** target = **`6a8ad8a`, pinned** (the merge of `v2/2b-transcription`, which contains `v2/2d-on-main`, plus the
+`TRANSCRIBE_AUTO` / `TRANSCRIBE_BACKFILL` switches). The server now runs `5cdb46e` (or `4181c4a`), migration 34.
+**Do not `git pull` main.** Main has moved on and now also holds migration `000037`. A pull would make `migrate` apply
+35, 36 **and** 37 at once, before the demo. Steps 0 and 2 move the checkout to `6a8ad8a` exactly. Step 6(d) runs later,
+on the final main (see `docs/aryan-run-order-2026-10-23.md`). Read this pack on GitHub `main`, not from the server's
+checkout.
 **People:** **Aryan** (server terminal) · **Syed** (browser, platform reports, secrets at hidden prompts)
 **Timezone for every comparison:** Eastern, `America/New_York`
 
@@ -46,8 +50,10 @@ ENVF=.env   # the real env file; deploy/.env is a symlink to it — never write 
 git status --short                       # must be empty
 git fetch origin
 git log --oneline -1                     # what runs now: 5cdb46e (or 4181c4a)
-git log --oneline -1 origin/main         # the target: the hash Syed sent
-git merge-base --is-ancestor HEAD origin/main && echo "target is ahead of the server: OK" || echo "target does not contain the server commit - stop"
+git log --oneline -1 6a8ad8a            # the pinned target: 6a8ad8a v2: deploy pack for 2D + 2B …
+git merge-base --is-ancestor HEAD 6a8ad8a && echo "target is ahead of the server: OK" || echo "target does not contain the server commit - stop"
+git ls-tree --name-only 6a8ad8a db/postgres/migrations/ | tail -2      # …000036_transcription.down.sql / .up.sql
+git ls-tree --name-only 6a8ad8a db/postgres/migrations/ | grep -c 000037   # 0 (37 is NOT in the target)
 $DC exec -T postgres psql -U callloom -d callloom -c "SELECT version, dirty FROM schema_migrations;"   # 34 | f
 
 # Flags and switches (none of these is a secret; keys are only reported as set / empty)
@@ -62,7 +68,8 @@ docker ps --format '{{.Names}}' | grep -E '^deploy-' | sort | paste -sd ' ' -
 ```
 
 **Continue only if:**
-- `env file: OK (deploy/.env -> .env)`, `git status` empty, `target is ahead of the server: OK`, migration `34 | f`;
+- `env file: OK (deploy/.env -> .env)`, `git status` empty, `6a8ad8a` is found, `target is ahead of the server: OK`, the
+  target's migrations end at `000036` with **0** `000037` files, migration `34 | f`;
 - `APP_ENV=production`;
 - every `FEATURE_*` and `NEXT_PUBLIC_FEATURE_*` line that exists is `false` (a missing line also means off);
 - no `COMPOSE_PROFILES` line or an empty one, and `shell COMPOSE_PROFILES=[]`;
@@ -99,14 +106,15 @@ If `recon file: MISSING`, write it from `docs/deploy-v1-hotfix-and-2a.md` Step 0
 
 ---
 
-## Step 2 — Pull and build (the site stays up)
+## Step 2 — Move to 6a8ad8a and build (the site stays up)
 
 ```bash
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
-git pull --ff-only origin main
-git log --oneline -1                       # the hash Syed sent
-ls db/postgres/migrations | tail -4        # ends with 000035_workflows.* and 000036_transcription.* — no 000037
+git fetch origin && git merge --ff-only 6a8ad8a      # NOT "git pull": main also holds 000037
+git log --oneline -1                       # 6a8ad8a v2: deploy pack for 2D + 2B …
+ls db/postgres/migrations | tail -4        # ends with 000035_workflows.* and 000036_transcription.*
+ls db/postgres/migrations | grep -c 000037 # 0 — if not 0: stop (the checkout is not 6a8ad8a)
 
 # Which images changed since the server's commit (expect services/api, services/platform-sync and web; no
 # services/ingestion, no services/consumer):
@@ -529,32 +537,54 @@ Send the row.
 - the minutes appear in Providers;
 - 0 URL lines.
 
-### 6(d) Automatic transcription of converted calls (only after 6(c) passes; Syed says go)
+### 6(d) Automatic transcription of converted calls (only after 6(c) passes AND the 37 pack is done; Syed says go)
+
+**This step runs on the final main `FINAL_MAIN`, not on `6a8ad8a`.** By then `docs/deploy-37-grants.md` has moved the
+checkout there. `FINAL_MAIN` adds `TRANSCRIBE_AUTO_SINCE`, a code change in `api` (and the Providers line in `web`).
+The 37 pack does not rebuild images, so **6(d) rebuilds `api` and `web`**. platform-sync is unchanged.
+
+**What switching on queues:** only converted calls whose latest version arrives **after** the switch-on moment
+(`TRANSCRIBE_AUTO_SINCE`). A call that becomes converted later, for example after a revenue update, is included. Older
+converted calls are **not** queued, so there is no unplanned backfill. Without `TRANSCRIBE_AUTO_SINCE` the code would
+look back `TRANSCRIBE_LOOKBACK_HOURS` (48 h) on the first tick.
 
 ```bash
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"; ENVF=.env; umask 077
 set_env() { grep -v "^$1=" "$ENVF" > "$ENVF.new" && printf '%s=%s\n' "$1" "$2" >> "$ENVF.new" && mv "$ENVF.new" "$ENVF" && chmod 600 "$ENVF"; echo "$1=$2"; }
-grep -E '^(TRANSCRIBE_DAILY_MINUTES_CAP|TRANSCRIBE_SHOULD_CONVERT|TRANSCRIBE_BACKFILL)=' "$ENVF" | sort   # 800, false, false
+git log --oneline -1                                                   # FINAL_MAIN (from the 37 pack) — else stop
+grep -c 'TRANSCRIBE_AUTO_SINCE' services/api/src/transcription/transcription-config.ts   # 2 — 0 means the checkout is not FINAL_MAIN: stop
+grep -E '^(TRANSCRIBE_DAILY_MINUTES_CAP|TRANSCRIBE_SHOULD_CONVERT|TRANSCRIBE_BACKFILL|NEXT_PUBLIC_FEATURE_TRANSCRIPTION)=' "$ENVF" | sort
+# expect: NEXT_PUBLIC_FEATURE_TRANSCRIPTION=true, TRANSCRIBE_BACKFILL=false, TRANSCRIBE_DAILY_MINUTES_CAP=800, TRANSCRIBE_SHOULD_CONVERT=false
+$DC build api web                                                      # the TRANSCRIBE_AUTO_SINCE code (web keeps its flags)
+set_env TRANSCRIBE_AUTO_SINCE "$(date -u +%Y-%m-%dT%H:%M:%SZ)"         # the switch-on moment (UTC)
 set_env TRANSCRIBE_AUTO true
 $DC up -d --no-deps --force-recreate api && sleep 5 && curl -s -o /dev/null -w 'api /readyz %{http_code}\n' http://127.0.0.1:3100/readyz
-$DC exec -T api printenv TRANSCRIBE_AUTO                     # true
+$DC up -d --no-deps --force-recreate web && sleep 5 && curl -s -o /dev/null -w 'web /login %{http_code}\n' http://127.0.0.1:3101/login
+$DC exec -T api printenv TRANSCRIBE_AUTO TRANSCRIBE_AUTO_SINCE         # true, and the time just set
 ```
-
-(The API reads `TRANSCRIBE_AUTO`, so only `api` is recreated. platform-sync and web are unchanged.)
 
 After **20 minutes** (the first run starts 90 s after the API starts, then every 15 minutes):
 
 ```bash
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
+S=$(grep '^TRANSCRIBE_AUTO_SINCE=' .env | cut -d= -f2); echo "since $S"
+$DC logs --since 30m api 2>&1 | grep -c 'transcription_auto_since'     # 0 (1 = the time was not read: stop, send it)
 $DC exec -T postgres psql -U callloom -d callloom -c "SELECT reason, state, count(*) FROM transcription_jobs GROUP BY 1,2 ORDER BY 1,2;"
-# expect reason converted rows appearing (queued → done); no should_convert, no backfill
+# new rows have reason converted (queued -> done); no should_convert, no backfill
+$DC exec -T postgres psql -U callloom -d callloom -c "SELECT count(*) AS auto_jobs, min(created_at) AS first FROM transcription_jobs WHERE reason = 'converted';"
+# first >= the since time; a handful per 15 minutes (today's new converted calls), not hundreds
 $DC exec -T postgres psql -U callloom -d callloom -c "SELECT usage_date, minutes, calls FROM transcription_usage_daily ORDER BY usage_date DESC LIMIT 2;"
 # minutes must stay at or below 800 per Eastern day; at the cap new jobs wait as 'capped' until midnight ET
 ```
 
-Syed: **Settings → Providers** now says "automatic: converted · ≥ 20s". Keep **backfill off** tonight.
+Syed: **Settings → Providers** now says "automatic: converted · ≥ 20s · since <time ET>". Keep **backfill off**.
+
+**Stop rule for 6(d):** if more than about 30 converted jobs appear in the first 20 minutes, or the log shows
+`transcription_auto_since`, stop at once: `set_env TRANSCRIBE_AUTO false; $DC up -d --no-deps --force-recreate api`.
+Then send the counts. Queued jobs stay queued and cost nothing until processed. Use the cap brake (Rollback 5) to hold
+them.
 
 **STOP.** Send 6(a)–6(d) to Syed.
 
@@ -586,7 +616,8 @@ set_env() { grep -v "^$1=" "$ENVF" > "$ENVF.new" && printf '%s=%s\n' "$1" "$2" >
 5. **Spend brake without turning anything off:** `set_env TRANSCRIBE_DAILY_MINUTES_CAP 0; $DC up -d --no-deps --force-recreate platform-sync`.
    Every new job waits as `capped`.
 
-**Full rollback (the database back to 34 and the previous code):**
+**Full rollback (the database back to 34 and the previous code):** if `docs/deploy-37-grants.md` has already run, run
+its Rollback first (back to `36 | f` on `6a8ad8a`), then this.
 
 ```bash
 BK=~/calyx-backups/deploy-v2-2d-2b
@@ -620,7 +651,7 @@ put it back on `main` first. This changes only files; nothing is restarted:
 cd ~/deployments/calyx-ai
 git checkout main
 git status --short           # must be empty
-git log --oneline -1         # then continue with the next pack's Step 0 (git pull --ff-only origin main)
+git log --oneline -1         # then continue with the next pack's Step 0 (it moves to its own pinned hash; never a plain pull)
 ```
 
 ---

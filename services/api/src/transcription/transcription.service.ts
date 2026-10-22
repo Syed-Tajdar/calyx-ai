@@ -51,7 +51,7 @@ export interface UsageView {
     archive_configured: boolean;
     retention_months: number | null;
   };
-  settings: { auto: boolean; backfill: boolean; should_convert: boolean; min_seconds: number; archive_all: boolean };
+  settings: { auto: boolean; auto_since: string | null; backfill: boolean; should_convert: boolean; min_seconds: number; archive_all: boolean };
 }
 
 const PLATFORMS: readonly Platform[] = ['ringba', 'retreaver'];
@@ -299,7 +299,7 @@ export class TranscriptionService {
           archive_configured: worker.archive_configured,
           retention_months: worker.retention_months,
         },
-        settings: { auto: s.auto, backfill: s.backfill, should_convert: s.shouldConvert, min_seconds: s.minSeconds, archive_all: st?.archive_all ?? false },
+        settings: { auto: s.auto, auto_since: s.autoSince ? s.autoSince.toISOString() : null, backfill: s.backfill, should_convert: s.shouldConvert, min_seconds: s.minSeconds, archive_all: st?.archive_all ?? false },
       };
     });
   }

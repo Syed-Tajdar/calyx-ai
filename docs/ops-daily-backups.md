@@ -1,7 +1,7 @@
 # Calyx — daily backups on the server (ops)
 
 **Server:** `calyx.ridgerisemedia.com` · `~/deployments/calyx-ai` · compose project **`deploy`**
-**Script:** `scripts/backup-calyx.sh` (on `main` once Syed merges `ops/daily-backups`; Syed sends the hash)
+**Script:** `scripts/backup-calyx.sh` (on `main` since `5cdb46e`)
 **People:** **Aryan** (server terminal) · **Syed** (approves, keeps the off-server copy later)
 
 Rules: never `docker compose down` (at all), never `-v`, always `-p deploy`, never print secrets, never run
@@ -56,11 +56,13 @@ password manager (never in chat, never in the off-server bucket in plain text).
 
 ## 1. One-time manual run (📤 send output)
 
-After `git pull --ff-only origin main` has brought the script (the hash Syed sent):
+Run it from the server's current checkout. On 2026-10-23 that is `FINAL_MAIN`, after `docs/deploy-37-grants.md`. **No
+pull**: the checkout is pinned (`docs/aryan-run-order-2026-10-23.md`).
 
 ```bash
 cd ~/deployments/calyx-ai
-git log --oneline -1                                   # the hash Syed sent
+git log --oneline -1                                   # FINAL_MAIN (the pinned checkout)
+ls scripts/backup-calyx.sh                             # present (on main since 5cdb46e)
 df -h ~ | tail -1                                      # free space before (expect ~37 GB)
 bash scripts/backup-calyx.sh; echo "exit=$?"
 ```

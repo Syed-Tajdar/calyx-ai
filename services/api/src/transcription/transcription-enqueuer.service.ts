@@ -1,11 +1,22 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PostgresService } from '../database/postgres.service';
 import { TranscriptionCandidatesService } from './transcription-candidates.service';
-import { transcriptionEnabled, transcriptionSettings } from './transcription-config';
+import { transcriptionEnabled, transcriptionSettings, TranscriptionSettings } from './transcription-config';
 import { TranscriptionService } from './transcription.service';
 
 export const ENQUEUE_INTERVAL_MS = 15 * 60 * 1000;
 export const ENQUEUE_LOCK_KEY = 728_340_236;
+
+/**
+ * Where the automatic job starts looking: the later of "now − TRANSCRIBE_LOOKBACK_HOURS" (a call that became
+ * converted while the API was briefly down) and TRANSCRIBE_AUTO_SINCE (or the API start time when that is not
+ * set), so the first tick after switching on never reaches back into older calls.
+ */
+export function autoWindowStart(now: Date, s: Pick<TranscriptionSettings, 'lookbackHours' | 'autoSince'>, startedAt: Date): Date {
+  const lookback = now.getTime() - s.lookbackHours * 3_600_000;
+  const floor = (s.autoSince ?? startedAt).getTime();
+  return new Date(Math.max(lookback, floor));
+}
 
 interface LockClient {
   query(sql: string, params?: unknown[]): Promise<{ rows: Array<Record<string, unknown>> }>;
@@ -37,6 +48,9 @@ export class TranscriptionEnqueuerService implements OnModuleInit, OnModuleDestr
   private timer: NodeJS.Timeout | null = null;
   private firstRun: NodeJS.Timeout | null = null;
   private running = false;
+  /** Fallback for TRANSCRIBE_AUTO_SINCE: the automatic job never looks before the API started. */
+  private readonly startedAt = new Date();
+  private warnedSince = false;
 
   constructor(
     @Inject(PostgresService) private readonly pg: { getPool?: () => LockPool },
@@ -72,6 +86,11 @@ export class TranscriptionEnqueuerService implements OnModuleInit, OnModuleDestr
       try {
         summary.ran = true;
         const s = transcriptionSettings();
+        const since = autoWindowStart(now, s, this.startedAt);
+        if (!s.autoSinceValid && !this.warnedSince) {
+          this.warnedSince = true;
+          this.logger.warn({ event: 'transcription_auto_since', message: 'TRANSCRIBE_AUTO_SINCE empty or invalid: using the API start time', since: since.toISOString() });
+        }
         const tenants = await lock.query('SELECT tenant_id::text AS tenant_id FROM list_transcription_tenants()');
         for (const t of tenants.rows) {
           const tenantId = String(t.tenant_id);
@@ -79,7 +98,7 @@ export class TranscriptionEnqueuerService implements OnModuleInit, OnModuleDestr
           try {
             const calls = await this.candidates.find({
               tenantId,
-              receivedSince: new Date(now.getTime() - s.lookbackHours * 3_600_000),
+              receivedSince: since,
               minSeconds: s.minSeconds,
               shouldConvert: s.shouldConvert,
               archiveAll: await this.transcription.archiveAll(tenantId),
