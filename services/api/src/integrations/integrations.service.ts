@@ -47,6 +47,8 @@ export interface IntegrationRecord {
    * success, unlike last_sync_at. Settings turns the badge red when it is older than 30 minutes.
    */
   last_success_at: string | null;
+  /** v2 2B: Ringba Recording Access credentials are stored (write-only; never returned). */
+  recording_access_set: boolean;
   created_at: string;
   supports_api_sync: boolean;
   supports_webhook: boolean;
@@ -99,6 +101,7 @@ interface IntegrationRow {
   sync_status: string;
   last_sync_error: string | null;
   last_success_at: string | null;
+  recording_access_set?: boolean;
   created_at: string;
   initial_lookback_days: number | null;
   writeback_enabled?: boolean;
@@ -116,7 +119,7 @@ export class IntegrationsService {
         `SELECT id::text, platform, name, connection_mode,
                 CASE WHEN connection_mode = 'api_sync' THEN sync_mode ELSE NULL END AS sync_mode,
                 CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
-                is_active, last_sync_at::text, sync_status, last_sync_error, to_json(last_success_at) #>> '{}' AS last_success_at,
+                is_active, last_sync_at::text, sync_status, last_sync_error, to_json(last_success_at) #>> '{}' AS last_success_at, (recording_access_set_at IS NOT NULL) AS recording_access_set,
                 created_at::text,
                 CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days,
                 COALESCE(writeback_enabled, FALSE) AS writeback_enabled
@@ -174,7 +177,7 @@ export class IntegrationsService {
          RETURNING id::text, platform, name, connection_mode,
                    CASE WHEN connection_mode = 'api_sync' THEN sync_mode ELSE NULL END AS sync_mode,
                    CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
-                   is_active, last_sync_at::text, sync_status, last_sync_error, to_json(last_success_at) #>> '{}' AS last_success_at,
+                   is_active, last_sync_at::text, sync_status, last_sync_error, to_json(last_success_at) #>> '{}' AS last_success_at, (recording_access_set_at IS NOT NULL) AS recording_access_set,
                    created_at::text,
                    CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days,
                    COALESCE(writeback_enabled, FALSE) AS writeback_enabled`,
@@ -417,7 +420,7 @@ export class IntegrationsService {
                AND connection_mode = 'api_sync' AND is_active = TRUE
              RETURNING id::text, platform, name, connection_mode,
                        sync_mode, NULL AS webhook_token,
-                       is_active, last_sync_at::text, sync_status, last_sync_error, to_json(last_success_at) #>> '{}' AS last_success_at,
+                       is_active, last_sync_at::text, sync_status, last_sync_error, to_json(last_success_at) #>> '{}' AS last_success_at, (recording_access_set_at IS NOT NULL) AS recording_access_set,
                        created_at::text, initial_lookback_days,
                        COALESCE(writeback_enabled, FALSE) AS writeback_enabled`
           : `UPDATE integrations
@@ -426,7 +429,7 @@ export class IntegrationsService {
                AND connection_mode = 'api_sync' AND is_active = TRUE
              RETURNING id::text, platform, name, connection_mode,
                        sync_mode, NULL AS webhook_token,
-                       is_active, last_sync_at::text, sync_status, last_sync_error, to_json(last_success_at) #>> '{}' AS last_success_at,
+                       is_active, last_sync_at::text, sync_status, last_sync_error, to_json(last_success_at) #>> '{}' AS last_success_at, (recording_access_set_at IS NOT NULL) AS recording_access_set,
                        created_at::text, initial_lookback_days,
                        COALESCE(writeback_enabled, FALSE) AS writeback_enabled`,
         lookback !== undefined
@@ -470,7 +473,7 @@ export class IntegrationsService {
          RETURNING id::text, platform, name, connection_mode,
                    CASE WHEN connection_mode = 'api_sync' THEN sync_mode ELSE NULL END AS sync_mode,
                    CASE WHEN connection_mode = 'webhook' THEN webhook_token ELSE NULL END AS webhook_token,
-                   is_active, last_sync_at::text, sync_status, last_sync_error, to_json(last_success_at) #>> '{}' AS last_success_at,
+                   is_active, last_sync_at::text, sync_status, last_sync_error, to_json(last_success_at) #>> '{}' AS last_success_at, (recording_access_set_at IS NOT NULL) AS recording_access_set,
                    created_at::text,
                    CASE WHEN connection_mode = 'api_sync' THEN initial_lookback_days ELSE NULL END AS initial_lookback_days,
                    COALESCE(writeback_enabled, FALSE) AS writeback_enabled`,
@@ -658,6 +661,7 @@ export class IntegrationsService {
       sync_status: row.sync_status ?? 'idle',
       last_sync_error: row.last_sync_error,
       last_success_at: row.last_success_at ?? null,
+      recording_access_set: row.recording_access_set === true,
       created_at: row.created_at,
       supports_api_sync: supportsApiSync(row.platform),
       supports_webhook: supportsWebhook(row.platform),

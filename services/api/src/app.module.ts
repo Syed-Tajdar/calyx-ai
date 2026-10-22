@@ -21,6 +21,7 @@ import { NativeIntegrationModule } from './native-integration/native-integration
 import { ScorecardsModule } from './scorecards/scorecards.module';
 import { LiveModule } from './live/live.module';
 import { WorkflowsModule } from './workflows/workflows.module';
+import { TranscriptionModule } from './transcription/transcription.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     ScorecardsModule,
     LiveModule,
     WorkflowsModule,
+    TranscriptionModule,
   ],
   providers: [
     // Out-of-v1 routes answer 404 (see common/feature-gate.ts). Keep this in the ROOT module:

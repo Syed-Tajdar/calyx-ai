@@ -62,6 +62,7 @@ describe('write-back platform registry', () => {
       sync_status: 'idle',
       last_sync_error: null,
       last_success_at: null,
+      recording_access_set: false,
       created_at: '2026-10-12',
       initial_lookback_days: 30,
       writeback_enabled: false,
