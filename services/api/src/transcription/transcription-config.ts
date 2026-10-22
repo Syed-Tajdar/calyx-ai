@@ -18,6 +18,13 @@ export function transcriptionEnabled(env: Env = process.env): boolean {
 export interface TranscriptionSettings {
   /** The 15-minute job that queues converted calls by itself (TRANSCRIBE_AUTO, default off: button only). */
   auto: boolean;
+  /**
+   * TRANSCRIBE_AUTO_SINCE (ISO time, UTC): the automatic job never looks before this moment, so switching it
+   * on never starts an unplanned backfill. Set it to the switch-on time. Empty or invalid: the API's start
+   * time is used instead (autoSinceValid tells which).
+   */
+  autoSince: Date | null;
+  autoSinceValid: boolean;
   /** Admins may start a backfill (TRANSCRIBE_BACKFILL, default off; the estimate always works). */
   backfill: boolean;
   /** Calls shorter than this are never transcribed (TRANSCRIBE_MIN_SECONDS, default 20). */
@@ -38,8 +45,13 @@ export interface TranscriptionSettings {
 }
 
 export function transcriptionSettings(env: Env = process.env): TranscriptionSettings {
+  const rawSince = (env.TRANSCRIBE_AUTO_SINCE ?? '').trim();
+  const since = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(rawSince) ? new Date(rawSince) : null;
+  const sinceOk = since !== null && Number.isFinite(since.getTime());
   return {
     auto: env.TRANSCRIBE_AUTO === 'true',
+    autoSince: sinceOk ? since : null,
+    autoSinceValid: sinceOk,
     backfill: env.TRANSCRIBE_BACKFILL === 'true',
     minSeconds: num(env.TRANSCRIBE_MIN_SECONDS, 20),
     shouldConvert: env.TRANSCRIBE_SHOULD_CONVERT === 'true',

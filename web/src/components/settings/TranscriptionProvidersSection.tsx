@@ -139,7 +139,11 @@ export function TranscriptionProvidersSection(): JSX.Element {
             <span className="text-calyx-muted">Which calls</span>
             <span className="text-xs" data-testid="transcription-auto">
               {usage.settings.auto
-                ? `automatic: converted${usage.settings.should_convert ? ' + should have converted' : ''} · ≥ ${usage.settings.min_seconds}s`
+                ? `automatic: converted${usage.settings.should_convert ? ' + should have converted' : ''} · ≥ ${usage.settings.min_seconds}s · since ${
+                    usage.settings.auto_since
+                      ? new Date(usage.settings.auto_since).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+                      : 'the API start'
+                  }`
                 : 'Transcribe button only (automatic off)'}
             </span>
           </div>

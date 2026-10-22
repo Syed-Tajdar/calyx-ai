@@ -1317,7 +1317,7 @@ export interface TranscriptionUsage {
     archive_configured: boolean;
     retention_months: number | null;
   };
-  settings: { auto?: boolean; backfill?: boolean; should_convert: boolean; min_seconds: number; archive_all: boolean };
+  settings: { auto?: boolean; auto_since?: string | null; backfill?: boolean; should_convert: boolean; min_seconds: number; archive_all: boolean };
 }
 
 export async function fetchTranscriptionUsage(token: string): Promise<TranscriptionUsage> {

@@ -288,6 +288,9 @@
       # TRANSCRIBE_AUTO: the 15-minute job queues converted calls by itself (off = Transcribe button only).
       # TRANSCRIBE_BACKFILL: admins may start a backfill (off = estimate only).
       TRANSCRIBE_AUTO: ${TRANSCRIBE_AUTO:-false}
+      # TRANSCRIBE_AUTO_SINCE: ISO time (UTC) the automatic job never looks before — set it to the switch-on time
+      # so switching on never starts an unplanned backfill. Empty: the API's start time.
+      TRANSCRIBE_AUTO_SINCE: ${TRANSCRIBE_AUTO_SINCE:-}
       TRANSCRIBE_BACKFILL: ${TRANSCRIBE_BACKFILL:-false}
       TRANSCRIBE_MIN_SECONDS: ${TRANSCRIBE_MIN_SECONDS:-}
       TRANSCRIBE_SHOULD_CONVERT: ${TRANSCRIBE_SHOULD_CONVERT:-false}

@@ -4,7 +4,8 @@ import { decryptCredentialJson } from '../integrations/credential-crypto';
 import { HttpRecordingClient, RecordingClient, RecordingFetch, WorkerStatus } from './recording.client';
 import { Candidate, TranscriptionCandidatesService } from './transcription-candidates.service';
 import { TranscriptionController } from './transcription.controller';
-import { TranscriptionEnqueuerService } from './transcription-enqueuer.service';
+import { autoWindowStart, TranscriptionEnqueuerService } from './transcription-enqueuer.service';
+import { transcriptionSettings } from './transcription-config';
 import { TranscriptionService } from './transcription.service';
 
 // Fake Postgres, fake ClickHouse, fake platform-sync. No real database, recording or provider.
@@ -23,6 +24,7 @@ afterEach(() => {
   delete process.env.TRANSCRIBE_SHOULD_CONVERT;
   delete process.env.TRANSCRIBE_AUTO;
   delete process.env.TRANSCRIBE_BACKFILL;
+  delete process.env.TRANSCRIBE_AUTO_SINCE;
   delete process.env.V1_ONLY;
 });
 
@@ -167,6 +169,45 @@ describe('feature switch', () => {
     const e = new TranscriptionEnqueuerService({ getPool: () => { throw new Error('must not touch the DB'); } } as never,
       fakeCandidates([]), {} as never);
     expect((await e.tick()).reason).toBe('FEATURE_TRANSCRIPTION is off');
+  });
+});
+
+describe('automatic window (TRANSCRIBE_AUTO_SINCE)', () => {
+  const H = 3_600_000;
+  const now = new Date('2026-10-23T18:00:00Z');
+
+  it('starts at the later of now - lookback and TRANSCRIBE_AUTO_SINCE (or the API start time)', () => {
+    const started = new Date('2026-10-20T00:00:00Z'); // long-running API
+    expect(autoWindowStart(now, { lookbackHours: 48, autoSince: new Date('2026-10-23T17:30:00Z') }, started).toISOString())
+      .toBe('2026-10-23T17:30:00.000Z'); // switched on 30 min ago: nothing older
+    expect(autoWindowStart(now, { lookbackHours: 48, autoSince: new Date('2026-10-01T00:00:00Z') }, started).getTime())
+      .toBe(now.getTime() - 48 * H); // on for weeks: the normal 48 h catch-up
+    expect(autoWindowStart(now, { lookbackHours: 48, autoSince: null }, new Date('2026-10-23T17:55:00Z')).toISOString())
+      .toBe('2026-10-23T17:55:00.000Z'); // not set: never before the API started
+  });
+
+  it('parses an ISO time; empty or invalid falls back (autoSinceValid false)', () => {
+    expect(transcriptionSettings({ TRANSCRIBE_AUTO_SINCE: '2026-10-23T17:30:00Z' }).autoSince?.toISOString()).toBe('2026-10-23T17:30:00.000Z');
+    expect(transcriptionSettings({ TRANSCRIBE_AUTO_SINCE: '2026-10-23T13:30:00-04:00' }).autoSince?.toISOString()).toBe('2026-10-23T17:30:00.000Z');
+    for (const bad of ['', 'yesterday', '2026-10-23', '2026-13-45T99:99:00Z']) {
+      const s = transcriptionSettings({ TRANSCRIBE_AUTO_SINCE: bad });
+      expect([bad, s.autoSince, s.autoSinceValid]).toEqual([bad, null, false]);
+    }
+  });
+
+  it('the job asks only for calls received since the switch-on time, not the last 48 h', async () => {
+    process.env.FEATURE_TRANSCRIPTION = 'true';
+    process.env.TRANSCRIBE_AUTO = 'true';
+    process.env.TRANSCRIBE_AUTO_SINCE = '2026-10-23T17:30:00Z';
+    const { svc } = build();
+    const cands = fakeCandidates([]);
+    const lock = { query: async (sql: string) => (sql.includes('list_transcription_tenants') ? { rows: [{ tenant_id: TENANT }] } : { rows: [{ locked: true }] }), release: () => undefined };
+    const e = new TranscriptionEnqueuerService({ getPool: () => ({ connect: async () => lock }) } as never, cands, svc);
+    await e.tick(now);
+    expect((cands.calls[0].receivedSince as Date).toISOString()).toBe('2026-10-23T17:30:00.000Z');
+    delete process.env.TRANSCRIBE_AUTO_SINCE; // unset: the API start time (just now), never 48 h back
+    await e.tick(new Date());
+    expect((cands.calls[1].receivedSince as Date).getTime()).toBeGreaterThan(Date.now() - 60_000);
   });
 });
 
