@@ -21,6 +21,18 @@ type Config struct {
 	MockMode                bool
 	WritebackEnabled        bool
 	WritebackAuthToken      string
+	// WorkflowActionsEnabled is WORKFLOW_ACTIONS_ENABLED (v2 Phase 2D kill switch). Off by
+	// default: no publisher pause / unpause is ever sent to Ringba or Retreaver.
+	WorkflowActionsEnabled bool
+	// WorkflowRingbaPauseVerified is WORKFLOW_RINGBA_PAUSE_VERIFIED. Off by default: Ringba
+	// pauses are refused until the sandbox proof shows PATCH {"enabled":false} equals the UI pause.
+	WorkflowRingbaPauseVerified bool
+}
+
+// EnvFlag reports whether an on/off env value is on. Only "true" and "1" enable; anything else,
+// including empty, is off.
+func EnvFlag(v string) bool {
+	return v == "true" || v == "1"
 }
 
 func Load() (Config, error) {
@@ -81,12 +93,15 @@ func Load() (Config, error) {
 		MockMode:                mockMode,
 		WritebackEnabled:        writebackEnabled,
 		WritebackAuthToken:      os.Getenv("WRITEBACK_INTERNAL_TOKEN"),
+
+		WorkflowActionsEnabled:      EnvFlag(os.Getenv("WORKFLOW_ACTIONS_ENABLED")),
+		WorkflowRingbaPauseVerified: EnvFlag(os.Getenv("WORKFLOW_RINGBA_PAUSE_VERIFIED")),
 	}, nil
 }
 
 const (
-	devCredKey    = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	devWriteback  = "dev_writeback_internal_token_change_me"
+	devCredKey   = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	devWriteback = "dev_writeback_internal_token_change_me"
 )
 
 func refuseProductionPlaceholders() error {

@@ -80,12 +80,12 @@ func main() {
 	}
 
 	type tally struct {
-		rows, distinct                                      int
-		hcAbsent, hcTrue, hcFalse                          int
-		hcAbsentDur0, hcAbsentBlocked, hcAbsentDurPos      int
-		wbAbsent, wbTrue, wbFalse                          int
-		wbAbsentWithReason, wbAbsentConnected              int
-		adjTrue, convTrueAmt                               int
+		rows, distinct                                int
+		hcAbsent, hcTrue, hcFalse                     int
+		hcAbsentDur0, hcAbsentBlocked, hcAbsentDurPos int
+		wbAbsent, wbTrue, wbFalse                     int
+		wbAbsentWithReason, wbAbsentConnected         int
+		adjTrue, convTrueAmt                          int
 	}
 	var t tally
 	ids := map[string]struct{}{}

@@ -17,7 +17,12 @@ import { getToken } from '@/lib/auth';
 import { useDateFilter } from '@/lib/date-filter';
 import { formatPlatformLabel } from '@/lib/platform-options';
 import { formatLastSuccess, isSyncStale } from '@/lib/sync-health';
+import { isFeatureEnabled } from '@/lib/v1-features';
+import { RecordingAccessControl } from './RecordingAccessControl';
 import { useState } from 'react';
+
+/** v2 Phase 2B: Ringba Recording Access credentials (only with transcription on). */
+const SHOW_RECORDING_ACCESS = isFeatureEnabled('transcription');
 
 interface IntegrationsListProps {
   integrations: IntegrationRecord[];
@@ -312,6 +317,9 @@ export function IntegrationsList({
                       <span className="whitespace-nowrap text-[10px]" data-testid="last-success">
                         Last successful sync: {formatLastSuccess(item.last_success_at)}
                       </span>
+                      {SHOW_RECORDING_ACCESS && item.platform === 'ringba' && (
+                        <RecordingAccessControl integrationId={item.id} isSet={item.recording_access_set === true} onChanged={onUpdated} />
+                      )}
                     </div>
                   ) : (
                     '—'

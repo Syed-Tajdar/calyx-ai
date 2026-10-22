@@ -110,17 +110,6 @@ export interface PlatformMixRow {
   percent: number;
 }
 
-export interface AlertRule {
-  id: string;
-  tenant_id: string;
-  name: string;
-  condition: Record<string, unknown>;
-  threshold: number;
-  channels: string[];
-  actions: Record<string, unknown>[];
-  is_active: boolean;
-}
-
 export interface IntegrationRecord {
   id: string;
   platform: string;
@@ -134,6 +123,8 @@ export interface IntegrationRecord {
   last_sync_error: string | null;
   /** Last fully successful sync (ISO time; null until the first one). Moves only on success. */
   last_success_at?: string | null;
+  /** v2 2B: Ringba Recording Access credentials are stored (write-only; never returned). */
+  recording_access_set?: boolean;
   created_at: string;
   supports_api_sync: boolean;
   supports_webhook: boolean;
@@ -364,6 +355,10 @@ export interface PingFetchFilters {
   from?: string;
   to?: string;
   search?: string;
+  /** Exact publisher id (e.g. from an alert link). */
+  publisher?: string;
+  /** Exact campaign id. */
+  campaign?: string;
   /** Include mock `apisync-%` rows. Default false (API hides them). */
   show_demo?: boolean;
   /** Conversion state. Omitted = no conversion filtering. */
@@ -388,6 +383,8 @@ export async function fetchPings(
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.search) params.set('search', filters.search);
+  if (filters.publisher) params.set('publisher', filters.publisher);
+  if (filters.campaign) params.set('campaign', filters.campaign);
   if (filters.show_demo) params.set('show_demo', 'true');
   if (filters.conversion) params.set('conversion', filters.conversion);
   if (filters.raw) params.set('raw', 'true');
@@ -404,6 +401,8 @@ export async function downloadPingsExport(
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.search) params.set('search', filters.search);
+  if (filters.publisher) params.set('publisher', filters.publisher);
+  if (filters.campaign) params.set('campaign', filters.campaign);
   if (filters.show_demo) params.set('show_demo', 'true');
   if (filters.conversion) params.set('conversion', filters.conversion);
   if (filters.raw) params.set('raw', 'true');
@@ -526,20 +525,6 @@ export async function fetchPlatformMix(
   if (filters.v1_platforms) params.set('v1_platforms', 'true');
   const qs = params.toString();
   return fetchWithAuth<PlatformMixRow[]>(token, `/analytics/platform-mix${qs ? `?${qs}` : ''}`);
-}
-
-export async function fetchAlertRules(token: string): Promise<{ data: AlertRule[] }> {
-  return fetchWithAuth<{ data: AlertRule[] }>(token, '/alerts/rules');
-}
-
-export async function createAlertRule(
-  token: string,
-  body: { name: string; condition: Record<string, unknown>; threshold: number },
-): Promise<AlertRule> {
-  return fetchWithAuth<AlertRule>(token, '/alerts/rules', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
 }
 
 export async function fetchIntegrations(token: string): Promise<IntegrationRecord[]> {
@@ -996,10 +981,6 @@ export async function deleteScorecard(token: string, id: string): Promise<void> 
   return fetchWithAuthNoContent(token, `/scorecards/${id}`, { method: 'DELETE' });
 }
 
-export async function deleteAlertRule(token: string, id: string): Promise<void> {
-  return fetchWithAuthNoContent(token, `/alerts/rules/${id}`, { method: 'DELETE' });
-}
-
 export async function pauseIntegration(
   token: string,
   id: string,
@@ -1048,4 +1029,341 @@ export async function testProviderBinding(
     `/providers/bindings/${id}/test?${params.toString()}`,
     { method: 'POST' },
   );
+}
+
+// ---- v2 Phase 2D: Workflows (alerts → publisher pause). Routes 404 unless FEATURE_WORKFLOWS. ----
+
+export interface WorkflowRuleRecord {
+  id: string;
+  name: string;
+  trigger_type: string;
+  params: Record<string, unknown>;
+  window_hours: number;
+  min_calls: number;
+  scope: 'publisher' | 'campaign' | 'tenant';
+  platform: 'ringba' | 'retreaver' | null;
+  notify_email: boolean;
+  action_mode: 'notify' | 'suggest' | 'auto';
+  suggest_since: string | null;
+  pause_hours: number | null;
+  cooldown_hours: number;
+  is_active: boolean;
+  auto_block_reason?: string | null;
+  suggested_last_7d?: number;
+}
+
+export type WorkflowRuleInput = Omit<
+  WorkflowRuleRecord,
+  'id' | 'suggest_since' | 'auto_block_reason' | 'suggested_last_7d'
+>;
+
+export interface WorkflowMatch {
+  platform: string;
+  entity_id: string;
+  entity_name: string;
+  numbers: Record<string, number | string | null>;
+}
+
+export interface WorkflowDryRun {
+  window: { from: string; to: string; timezone: string };
+  matches: WorkflowMatch[];
+  below_min_calls: number;
+  evaluated: number;
+  skipped_reason?: string;
+}
+
+export interface WorkflowAlert {
+  id: string;
+  rule_id: string | null;
+  rule_name: string | null;
+  trigger_type: string;
+  scope: string;
+  platform: string | null;
+  entity_id: string;
+  entity_name: string;
+  integration_id: string | null;
+  numbers: Record<string, unknown>;
+  window_from: string | null;
+  window_to: string | null;
+  status: 'open' | 'acknowledged' | 'actioned' | 'resolved';
+  action: 'none' | 'suggested' | 'paused' | 'pause_blocked' | 'pause_failed' | 'unpaused';
+  action_detail: Record<string, unknown>;
+  emailed: boolean;
+  created_at: string;
+  pause_id: string | null;
+  pause_confirmation: string | null;
+  ringba_link: string | null;
+  can_pause: boolean;
+}
+
+export interface WorkflowStatus {
+  actions_enabled: boolean;
+  ringba_pause_verified: boolean;
+  max_auto_pauses_daily: number;
+  auto_pauses_today: number;
+  email_enabled: boolean;
+  ringba_publishers_url: string;
+  open_alerts: number;
+}
+
+export interface WorkflowIntegration {
+  id: string;
+  name: string;
+  platform: string;
+  sync_mode: string | null;
+  is_active: boolean;
+  sync_status: string;
+  allow_publisher_pause: boolean;
+  live: boolean;
+}
+
+export interface ProtectedPublisher {
+  platform: 'ringba' | 'retreaver';
+  publisher_id: string;
+  name: string;
+  created_at?: string;
+}
+
+export interface PublisherActionAudit {
+  id: string;
+  user_id: string | null;
+  platform: string;
+  publisher_id: string;
+  action: 'pause' | 'unpause';
+  mode: 'manual' | 'auto' | 'timer';
+  outcome: string;
+  read_back: string;
+  message: string | null;
+  created_at: string;
+}
+
+export interface PublisherImpact {
+  platform: string;
+  publisher_id: string;
+  publisher_name: string;
+  calls: number;
+  revenue: number;
+  from: string;
+  to: string;
+  warning: string;
+}
+
+const jsonBody = (method: string, body?: unknown): RequestInit => ({
+  method,
+  ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+});
+
+export function fetchWorkflowStatus(token: string): Promise<WorkflowStatus> {
+  return fetchWithAuth<WorkflowStatus>(token, '/workflows/status');
+}
+
+export function fetchWorkflowRules(token: string): Promise<{ data: WorkflowRuleRecord[] }> {
+  return fetchWithAuth(token, '/workflows/rules');
+}
+
+export function createWorkflowRule(token: string, input: WorkflowRuleInput): Promise<WorkflowRuleRecord> {
+  return fetchWithAuth(token, '/workflows/rules', jsonBody('POST', input));
+}
+
+export function updateWorkflowRule(
+  token: string,
+  id: string,
+  patch: Partial<WorkflowRuleInput>,
+): Promise<WorkflowRuleRecord> {
+  return fetchWithAuth(token, `/workflows/rules/${encodeURIComponent(id)}`, jsonBody('PATCH', patch));
+}
+
+export function deleteWorkflowRule(token: string, id: string): Promise<void> {
+  return fetchWithAuthNoContent(token, `/workflows/rules/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function dryRunWorkflowRule(token: string, input: WorkflowRuleInput): Promise<WorkflowDryRun> {
+  return fetchWithAuth(token, '/workflows/rules/dry-run', jsonBody('POST', input));
+}
+
+export function fetchWorkflowAlerts(
+  token: string,
+  status?: string,
+): Promise<{ data: WorkflowAlert[]; open_count: number }> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  return fetchWithAuth(token, `/workflows/alerts${qs}`);
+}
+
+export function acknowledgeWorkflowAlert(token: string, id: string): Promise<{ id: string; status: string }> {
+  return fetchWithAuth(token, `/workflows/alerts/${encodeURIComponent(id)}/ack`, { method: 'POST' });
+}
+
+export function pauseFromAlert(
+  token: string,
+  id: string,
+): Promise<{ status: string; outcome: string; read_back: string; message: string }> {
+  return fetchWithAuth(token, `/workflows/alerts/${encodeURIComponent(id)}/pause`, { method: 'POST' });
+}
+
+export function unpausePublisher(token: string, pauseId: string): Promise<{ status: string; message: string }> {
+  return fetchWithAuth(token, `/workflows/pauses/${encodeURIComponent(pauseId)}/unpause`, { method: 'POST' });
+}
+
+export function fetchPublisherImpact(token: string, platform: string, publisherId: string): Promise<PublisherImpact> {
+  const qs = new URLSearchParams({ platform, publisher_id: publisherId });
+  return fetchWithAuth(token, `/workflows/publisher-impact?${qs.toString()}`);
+}
+
+export function fetchPublisherAudit(token: string): Promise<{ data: PublisherActionAudit[] }> {
+  return fetchWithAuth(token, '/workflows/audit');
+}
+
+export function fetchProtectedPublishers(token: string): Promise<{ data: ProtectedPublisher[] }> {
+  return fetchWithAuth(token, '/workflows/protected-publishers');
+}
+
+export function addProtectedPublisher(token: string, p: ProtectedPublisher): Promise<ProtectedPublisher> {
+  return fetchWithAuth(token, '/workflows/protected-publishers', jsonBody('POST', p));
+}
+
+export function removeProtectedPublisher(token: string, platform: string, publisherId: string): Promise<void> {
+  return fetchWithAuthNoContent(
+    token,
+    `/workflows/protected-publishers/${encodeURIComponent(platform)}/${encodeURIComponent(publisherId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function fetchWorkflowIntegrations(token: string): Promise<{ data: WorkflowIntegration[] }> {
+  return fetchWithAuth(token, '/workflows/integrations');
+}
+
+export function setAllowPublisherPause(token: string, id: string, allow: boolean): Promise<WorkflowIntegration> {
+  return fetchWithAuth(token, `/workflows/integrations/${encodeURIComponent(id)}/allow-pause`, jsonBody('PATCH', { allow }));
+}
+
+// ---- v2 Phase 2B — transcription and the recording archive (behind NEXT_PUBLIC_FEATURE_TRANSCRIPTION) ----
+
+export interface CallTranscriptView {
+  platform: string;
+  external_call_id: string;
+  state: string;
+  no_recording_reason: string | null;
+  error: string | null;
+  reason: string | null;
+  recording: null | {
+    archive_state: string;
+    sha256: string;
+    bytes: number;
+    duration_seconds: number | null;
+    downloaded_at: string;
+  };
+  transcript: null | {
+    version: number;
+    language: string | null;
+    model: string;
+    deepgram_request_id: string | null;
+    redaction: string;
+    created_at: string;
+    utterances: Array<{ idx: number; speaker: number | null; role: string; start_ms: number; end_ms: number; text: string }>;
+  };
+}
+
+const enc = encodeURIComponent;
+
+export async function fetchCallTranscript(token: string, platform: string, callId: string): Promise<CallTranscriptView> {
+  return fetchWithAuth<CallTranscriptView>(token, `/transcription/calls/${enc(platform)}/${enc(callId)}`);
+}
+
+export async function requestTranscription(
+  token: string,
+  platform: string,
+  callId: string,
+): Promise<{ state: string; retried: boolean }> {
+  return fetchWithAuth(token, `/transcription/calls/${enc(platform)}/${enc(callId)}/transcribe`, { method: 'POST' });
+}
+
+/**
+ * Admin-only audio / evidence pack, through the API proxy (verified against its SHA-256, audit-logged).
+ * Returns a Blob; the page plays it from a blob: URL — never a bucket or signed URL.
+ */
+export async function fetchRecordingBlob(
+  token: string,
+  platform: string,
+  callId: string,
+  kind: 'play' | 'download' | 'evidence',
+): Promise<Blob> {
+  const path =
+    kind === 'evidence'
+      ? `/transcription/calls/${enc(platform)}/${enc(callId)}/evidence`
+      : `/transcription/calls/${enc(platform)}/${enc(callId)}/audio${kind === 'download' ? '?download=1' : ''}`;
+  const res = await fetch(`${API_URL}${path}`, { credentials: 'include', headers: authHeaders(token) });
+  if (res.status === 401) {
+    clearToken();
+    throw new ApiError('Session expired', 401);
+  }
+  if (!res.ok) throw new ApiError(await errorMessage(res, path), res.status);
+  return res.blob();
+}
+
+export interface TranscriptionUsage {
+  month: string;
+  minutes_month: number;
+  calls_month: number;
+  estimated_usd_month: number;
+  minutes_today: number;
+  daily_cap_minutes: number;
+  archive: { recordings: number; bytes: number; estimated_usd_month: number; not_archived: number; expired: number };
+  queue: Record<string, number>;
+  worker: {
+    reachable: boolean;
+    enabled: boolean;
+    deepgram_key_set: boolean;
+    archive_configured: boolean;
+    retention_months: number | null;
+  };
+  settings: { should_convert: boolean; min_seconds: number; archive_all: boolean };
+}
+
+export async function fetchTranscriptionUsage(token: string): Promise<TranscriptionUsage> {
+  return fetchWithAuth<TranscriptionUsage>(token, '/transcription/usage');
+}
+
+export async function setTranscriptionArchiveAll(token: string, archiveAll: boolean): Promise<{ archive_all: boolean }> {
+  return fetchWithAuth(token, '/transcription/settings', {
+    method: 'PUT',
+    body: JSON.stringify({ archive_all: archiveAll }),
+  });
+}
+
+export interface BackfillEstimate {
+  days: number;
+  calls: number;
+  already_queued_or_done: number;
+  minutes: number;
+  estimated_usd: number;
+  price_per_minute: number;
+  daily_cap_minutes: number;
+  days_at_cap: number | null;
+  includes_should_convert: boolean;
+}
+
+export async function fetchBackfillEstimate(token: string, days: number): Promise<BackfillEstimate> {
+  return fetchWithAuth<BackfillEstimate>(token, `/transcription/backfill/estimate?days=${days}`);
+}
+
+export async function startBackfill(token: string, days: number): Promise<{ days: number; queued: number }> {
+  return fetchWithAuth(token, '/transcription/backfill', { method: 'POST', body: JSON.stringify({ days }) });
+}
+
+/** Ringba Recording Access credentials: write-only (stored encrypted, never shown again). */
+export async function setRecordingAccess(
+  token: string,
+  integrationId: string,
+  username: string,
+  password: string,
+): Promise<{ recording_access_set: boolean }> {
+  return fetchWithAuth(token, `/transcription/integrations/${enc(integrationId)}/recording-access`, {
+    method: 'PUT',
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export async function clearRecordingAccess(token: string, integrationId: string): Promise<{ recording_access_set: boolean }> {
+  return fetchWithAuth(token, `/transcription/integrations/${enc(integrationId)}/recording-access`, { method: 'DELETE' });
 }

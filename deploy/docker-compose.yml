@@ -272,6 +272,23 @@
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       ASK_AI_TOKEN_BUDGET_DAILY: ${ASK_AI_TOKEN_BUDGET_DAILY:-}
+      # Workflows (Phase 2D). Kill switch off by default: rules alert/suggest, never pause.
+      WORKFLOW_ACTIONS_ENABLED: ${WORKFLOW_ACTIONS_ENABLED:-false}
+      WORKFLOW_RINGBA_PAUSE_VERIFIED: ${WORKFLOW_RINGBA_PAUSE_VERIFIED:-false}
+      WORKFLOW_MAX_AUTO_PAUSES_DAILY: ${WORKFLOW_MAX_AUTO_PAUSES_DAILY:-}
+      # Alert email. Off while SMTP_HOST is empty; the in-app bell works without it.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      # Transcription (Phase 2B), needs FEATURE_TRANSCRIPTION above. Which calls the API queues; the
+      # worker in platform-sync enforces the daily cap. Defaults in code: 20 s, off, 800, $0.0063/min.
+      TRANSCRIBE_MIN_SECONDS: ${TRANSCRIBE_MIN_SECONDS:-}
+      TRANSCRIBE_SHOULD_CONVERT: ${TRANSCRIBE_SHOULD_CONVERT:-false}
+      TRANSCRIBE_DAILY_MINUTES_CAP: ${TRANSCRIBE_DAILY_MINUTES_CAP:-}
+      TRANSCRIBE_PRICE_PER_MINUTE: ${TRANSCRIBE_PRICE_PER_MINUTE:-}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-callloom_dev}
       POSTGRES_API_PASSWORD: ${POSTGRES_API_PASSWORD:-api_dev}
       POSTGRES_INGESTION_PASSWORD: ${POSTGRES_INGESTION_PASSWORD:-ingestion_dev}
@@ -464,6 +481,25 @@
       WRITEBACK_SETTLE_SECONDS: "20"
       WRITEBACK_SETTLE_SECONDS_RETREAVER: ${WRITEBACK_SETTLE_SECONDS_RETREAVER:-20}
       WRITEBACK_INTERNAL_TOKEN: ${WRITEBACK_INTERNAL_TOKEN:-dev_writeback_internal_token_change_me}
+      # Workflows (Phase 2D) publisher pause: kill switch + Ringba proof flag, both off by default.
+      WORKFLOW_ACTIONS_ENABLED: ${WORKFLOW_ACTIONS_ENABLED:-false}
+      WORKFLOW_RINGBA_PAUSE_VERIFIED: ${WORKFLOW_RINGBA_PAUSE_VERIFIED:-false}
+      # Transcription worker (Phase 2B). Off unless FEATURE_TRANSCRIPTION=true: then it fetches each
+      # recording once, archives it and sends the same bytes to Deepgram (mip_opt_out=true). Production
+      # refuses to start with it on and no Deepgram key or no archive bucket. DEEPGRAM_BASE_URL is for the
+      # laptop fake only and is refused in production.
+      FEATURE_TRANSCRIPTION: ${FEATURE_TRANSCRIPTION:-}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      DEEPGRAM_BASE_URL: ${DEEPGRAM_BASE_URL:-}
+      TRANSCRIBE_DAILY_MINUTES_CAP: ${TRANSCRIBE_DAILY_MINUTES_CAP:-}
+      TRANSCRIBE_MAX_ATTEMPTS: ${TRANSCRIBE_MAX_ATTEMPTS:-}
+      TRANSCRIBE_SPANISH_CAMPAIGN_PATTERN: ${TRANSCRIBE_SPANISH_CAMPAIGN_PATTERN:-}
+      RECORDING_RETENTION_MONTHS: ${RECORDING_RETENTION_MONTHS:-}
+      ARCHIVE_S3_ENDPOINT: ${ARCHIVE_S3_ENDPOINT:-}
+      ARCHIVE_S3_REGION: ${ARCHIVE_S3_REGION:-}
+      ARCHIVE_S3_BUCKET: ${ARCHIVE_S3_BUCKET:-}
+      ARCHIVE_S3_KEY_ID: ${ARCHIVE_S3_KEY_ID:-}
+      ARCHIVE_S3_SECRET_KEY: ${ARCHIVE_S3_SECRET_KEY:-}
       SYNC_INTERVAL_SEC: "120"
       DEDUP_TTL_HOURS: "240"
     depends_on:

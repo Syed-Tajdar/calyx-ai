@@ -47,11 +47,10 @@ jobs:
     - name: Build
       run: go build ./...
 
-    # cmd/probe-* are one-off investigation tools, not services. Three old platform-sync probes
-    # still discard a context cancel func on main; the fix (b1f6310) lands with 2D, after which
-    # this exclusion can go.
+    # Every package, the cmd/probe-* tools included: the three old platform-sync probes that
+    # discarded a context cancel func were fixed in b1f6310, which came to main with 2D.
     - name: Vet
-      run: go vet $(go list ./... | grep -v '/cmd/probe-')
+      run: go vet ./...
 
     # Database-backed tests skip themselves when DATABASE_URL is not set.
     - name: Test

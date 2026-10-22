@@ -30,20 +30,47 @@ function PingsPageContent(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('search') ?? '';
-  const { startDate, platform, showDemo, conversion } = useDateFilter();
+  const publisherQuery = searchParams.get('publisher') ?? '';
+  const campaignQuery = searchParams.get('campaign') ?? '';
+  const urlPlatform = searchParams.get('platform') ?? '';
+  const { startDate, platform, showDemo, conversion, setPlatform } = useDateFilter();
+  const [publisherInput, setPublisherInput] = useState(publisherQuery);
+  const [campaignInput, setCampaignInput] = useState(campaignQuery);
+
+  // An alert link carries ?platform=…: apply it once so the list matches the alert.
+  useEffect(() => {
+    if (urlPlatform) setPlatform(urlPlatform);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlPlatform]);
+
+  useEffect(() => setPublisherInput(publisherQuery), [publisherQuery]);
+  useEffect(() => setCampaignInput(campaignQuery), [campaignQuery]);
+
+  /** Replace one URL query key (empty value removes it); keeps the others. */
+  function setQueryParam(updates: Record<string, string>): void {
+    const next = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(updates)) {
+      if (v.trim()) next.set(k, v.trim());
+      else next.delete(k);
+    }
+    const qs = next.toString();
+    router.replace(qs ? `/pings?${qs}` : '/pings');
+  }
   const [offset, setOffset] = useState(0);
   const [exporting, setExporting] = useState(false);
 
   const filters = useMemo(() => {
     const base = dateFilterToQuery(startDate, platform, showDemo, conversion);
     if (searchQuery) base.search = searchQuery;
+    if (publisherQuery) base.publisher = publisherQuery;
+    if (campaignQuery) base.campaign = campaignQuery;
     return base;
-  }, [startDate, platform, searchQuery, showDemo, conversion]);
+  }, [startDate, platform, searchQuery, publisherQuery, campaignQuery, showDemo, conversion]);
 
   // Reset pagination when a filter that changes the result set changes
   useEffect(() => {
     setOffset(0);
-  }, [showDemo, conversion]);
+  }, [showDemo, conversion, publisherQuery, campaignQuery]);
 
   const { pings, total, displayTotal, loaded, loading, error, newRowKeys, isLive, isPollingFallback } =
     useHybridPingFeed({
@@ -114,6 +141,67 @@ function PingsPageContent(): JSX.Element {
           {exporting ? 'Exporting…' : 'Export CSV'}
         </Button>
       </div>
+
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setQueryParam({ publisher: publisherInput, campaign: campaignInput });
+        }}
+      >
+        <label className="flex flex-col gap-1 text-xs text-calyx-muted">
+          Publisher id
+          <input
+            name="publisher"
+            value={publisherInput}
+            onChange={(e) => setPublisherInput(e.target.value)}
+            placeholder="e.g. ID27"
+            maxLength={200}
+            className="h-8 w-44 rounded-md border border-calyx-border bg-calyx-surface px-2 text-sm text-calyx-text"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-calyx-muted">
+          Campaign id
+          <input
+            name="campaign"
+            value={campaignInput}
+            onChange={(e) => setCampaignInput(e.target.value)}
+            placeholder="e.g. 42141"
+            maxLength={200}
+            className="h-8 w-44 rounded-md border border-calyx-border bg-calyx-surface px-2 text-sm text-calyx-text"
+          />
+        </label>
+        <Button type="submit" variant="outline" size="sm">
+          Filter
+        </Button>
+        {(publisherQuery || campaignQuery) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setQueryParam({ publisher: '', campaign: '' })}
+          >
+            Clear
+          </Button>
+        )}
+      </form>
+
+      {(publisherQuery || campaignQuery) && (
+        <p className="text-xs text-calyx-muted">
+          Filtering by{publisherQuery && (
+            <>
+              {' '}publisher <span className="font-mono text-calyx-text">{publisherQuery}</span>
+            </>
+          )}
+          {publisherQuery && campaignQuery && ' and'}
+          {campaignQuery && (
+            <>
+              {' '}campaign <span className="font-mono text-calyx-text">{campaignQuery}</span>
+            </>
+          )}
+          {platform && <> on {platform}</>}
+        </p>
+      )}
 
       {searchQuery && (
         <p className="text-xs text-calyx-muted">

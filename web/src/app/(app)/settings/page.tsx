@@ -3,26 +3,25 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AddIntegrationForm } from '@/components/settings/AddIntegrationForm';
-import { AlertRulesSection } from '@/components/settings/AlertRulesSection';
 import { IntegrationsList } from '@/components/settings/IntegrationsList';
 import { ProviderBindingsSection } from '@/components/settings/ProviderBindingsSection';
+import { WorkflowAlertsSection } from '@/components/settings/WorkflowAlertsSection';
+import { TranscriptionProvidersSection } from '@/components/settings/TranscriptionProvidersSection';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  AlertRule,
-  ApiError,
-  fetchAlertRules,
-  fetchIntegrations,
-  IntegrationRecord,
-} from '@/lib/api';
+import { ApiError, fetchIntegrations, IntegrationRecord } from '@/lib/api';
 import { getToken } from '@/lib/auth';
-import { V1_ONLY } from '@/lib/v1-features';
+import { isFeatureEnabled, V1_ONLY } from '@/lib/v1-features';
+
+/** Alerts tab = v2 Phase 2D Workflows (replaces the old mock alert rules). */
+const SHOW_ALERTS = isFeatureEnabled('workflows');
+/** Providers tab = v2 Phase 2B: Deepgram and the recording archive (V1_ONLY=false also shows the old bindings). */
+const SHOW_PROVIDERS = isFeatureEnabled('transcription') || !V1_ONLY;
 
 export default function SettingsPage(): JSX.Element {
   const router = useRouter();
   const [integrations, setIntegrations] = useState<IntegrationRecord[]>([]);
-  const [rules, setRules] = useState<AlertRule[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -30,18 +29,8 @@ export default function SettingsPage(): JSX.Element {
     const token = getToken();
     if (!token) return;
 
-    const loads = V1_ONLY
-      ? fetchIntegrations(token).then((integrationsRes) => {
-          setIntegrations(integrationsRes);
-          setRules([]);
-        })
-      : Promise.all([fetchIntegrations(token), fetchAlertRules(token)]).then(
-          ([integrationsRes, rulesRes]) => {
-            setIntegrations(integrationsRes);
-            setRules(rulesRes.data);
-          },
-        );
-    loads
+    fetchIntegrations(token)
+      .then((integrationsRes) => setIntegrations(integrationsRes))
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
           router.replace('/login');
@@ -51,14 +40,6 @@ export default function SettingsPage(): JSX.Element {
       })
       .finally(() => setLoading(false));
   }, [router]);
-
-  function handleRuleCreated(rule: AlertRule): void {
-    setRules((prev) => [rule, ...prev]);
-  }
-
-  function handleRuleDeleted(id: string): void {
-    setRules((prev) => prev.filter((r) => r.id !== id));
-  }
 
   function handleIntegrationDeleted(id: string): void {
     setIntegrations((prev) => prev.filter((i) => i.id !== id));
@@ -85,7 +66,9 @@ export default function SettingsPage(): JSX.Element {
         title="Settings"
         description={
           V1_ONLY
-            ? 'Integrations for your tenant.'
+            ? SHOW_ALERTS
+              ? 'Integrations and alert rules for your tenant.'
+              : 'Integrations for your tenant.'
             : 'Integrations, alert rules, and provider bindings for your tenant.'
         }
       />
@@ -97,8 +80,8 @@ export default function SettingsPage(): JSX.Element {
         <Tabs defaultValue="integrations">
           <TabsList>
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
-            {!V1_ONLY && <TabsTrigger value="alerts">Alerts</TabsTrigger>}
-            {!V1_ONLY && <TabsTrigger value="providers">Providers</TabsTrigger>}
+            {SHOW_ALERTS && <TabsTrigger value="alerts">Alerts</TabsTrigger>}
+            {SHOW_PROVIDERS && <TabsTrigger value="providers">Providers</TabsTrigger>}
           </TabsList>
           <TabsContent value="integrations" className="space-y-6">
             <AddIntegrationForm onCreated={handleIntegrationCreated} />
@@ -108,18 +91,15 @@ export default function SettingsPage(): JSX.Element {
               onUpdated={() => void refreshIntegrations()}
             />
           </TabsContent>
-          {!V1_ONLY && (
+          {SHOW_ALERTS && (
             <TabsContent value="alerts">
-              <AlertRulesSection
-                rules={rules}
-                onCreated={handleRuleCreated}
-                onDeleted={handleRuleDeleted}
-              />
+              <WorkflowAlertsSection />
             </TabsContent>
           )}
-          {!V1_ONLY && (
-            <TabsContent value="providers">
-              <ProviderBindingsSection />
+          {SHOW_PROVIDERS && (
+            <TabsContent value="providers" className="space-y-6">
+              {isFeatureEnabled('transcription') && <TranscriptionProvidersSection />}
+              {!V1_ONLY && <ProviderBindingsSection />}
             </TabsContent>
           )}
         </Tabs>

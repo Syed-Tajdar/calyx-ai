@@ -92,4 +92,3 @@ func TestSanitizeErrRedactsTokenAuthorizationHeader(t *testing.T) {
 		t.Fatalf("expected Authorization: Token [REDACTED], got: %s", out)
 	}
 }
-

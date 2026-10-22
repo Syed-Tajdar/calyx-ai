@@ -15,6 +15,8 @@ const listQuerySchema = z.object({
   from: optionalIsoDate,
   to: optionalIsoDate,
   search: z.string().optional(),
+  publisher: z.string().trim().min(1).max(200).optional(),
+  campaign: z.string().trim().min(1).max(200).optional(),
   show_demo: z
     .union([z.literal('true'), z.literal('1'), z.literal('false'), z.literal('0')])
     .optional()
@@ -47,6 +49,8 @@ export class PingsController {
       from: parsed.from,
       to: parsed.to,
       search: parsed.search,
+      publisher: parsed.publisher,
+      campaign: parsed.campaign,
       show_demo: parsed.show_demo,
       conversion: parsed.conversion,
       raw: parsed.raw,
@@ -68,6 +72,8 @@ export class PingsController {
       from: parsed.from,
       to: parsed.to,
       search: parsed.search,
+      publisher: parsed.publisher,
+      campaign: parsed.campaign,
       show_demo: parsed.show_demo,
       conversion: parsed.conversion,
       raw: parsed.raw,

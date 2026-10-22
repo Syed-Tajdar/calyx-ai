@@ -28,8 +28,13 @@ import {
 import { getToken } from '@/lib/auth';
 import { buildPlatformCallUrl, platformDeepLinkCopiesCallId } from '@/lib/platform-deep-links';
 import { formatPlatformLabel } from '@/lib/platform-options';
-import { SHOW_MOCK_PANELS } from '@/lib/v1-features';
+import { CallTranscriptPanel } from '@/components/transcription/CallTranscriptPanel';
+import { isFeatureEnabled, SHOW_MOCK_PANELS } from '@/lib/v1-features';
+
 import { toast } from 'sonner';
+
+/** v2 Phase 2B: real transcripts (Deepgram) — separate from the mock panels. */
+const SHOW_TRANSCRIPTION = isFeatureEnabled('transcription');
 
 function CallDetailContent(): JSX.Element {
   const params = useParams();
@@ -233,6 +238,9 @@ function CallDetailContent(): JSX.Element {
                 onChanged={() => setReloadKey((k) => k + 1)}
               />
               <CallDeepViewPanel view={deepView} />
+              {SHOW_TRANSCRIPTION && (platform === 'ringba' || platform === 'retreaver') && (
+                <CallTranscriptPanel platform={platform} callId={callId} />
+              )}
               {SHOW_MOCK_PANELS && <ScoreCard score={displayScore} />}
             </div>
             {SHOW_MOCK_PANELS && (

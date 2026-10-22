@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 // Live Ringba write-back RESEARCH probes only.
 // Writes use a verified non-existent call ID. Token never printed.
@@ -292,12 +292,12 @@ func step4(client *http.Client, base, token string) {
 	fmt.Println("Annotate showed clean ID validation â€” probing remaining endpoints with SAME fake ID")
 
 	voidBody := map[string]interface{}{
-		"inboundCallId":      fakeID,
-		"voidReason":         "Calyx probe nonexistent id",
-		"voidConversion":     true,
-		"voidPayout":         true,
+		"inboundCallId":       fakeID,
+		"voidReason":          "Calyx probe nonexistent id",
+		"voidConversion":      true,
+		"voidPayout":          true,
 		"voidConverionAmount": 0.01,
-		"voidPayoutAmount":   0.01,
+		"voidPayoutAmount":    0.01,
 	}
 	st, loc, raw, _ = do(client, http.MethodPost, base+"/calls/void", token, voidBody)
 	fmt.Printf("POST /calls/void â†’ status=%d location=%q class=%s body=%s\n", st, loc, classify(st, loc, raw), snip(raw, 400))
@@ -308,12 +308,12 @@ func step4(client *http.Client, base, token string) {
 	time.Sleep(300 * time.Millisecond)
 
 	payBody := map[string]interface{}{
-		"inboundCallId":          fakeID,
-		"reason":                 "Calyx probe nonexistent id",
-		"adjustConversion":       true,
-		"adjustPayout":           true,
+		"inboundCallId":           fakeID,
+		"reason":                  "Calyx probe nonexistent id",
+		"adjustConversion":        true,
+		"adjustPayout":            true,
 		"adjustConverionByAmount": -0.01,
-		"adjustPayoutByAmount":   0.01,
+		"adjustPayoutByAmount":    0.01,
 	}
 	st, loc, raw, _ = do(client, http.MethodPost, base+"/calls/payments", token, payBody)
 	fmt.Printf("POST /calls/payments â†’ status=%d location=%q class=%s body=%s\n", st, loc, classify(st, loc, raw), snip(raw, 400))
@@ -523,4 +523,3 @@ func must(err error) {
 		panic(err)
 	}
 }
-

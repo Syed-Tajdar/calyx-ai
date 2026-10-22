@@ -27,6 +27,7 @@ describe('route gating', () => {
     '/scoring/scorecards',
     '/intelligence',
     '/ask',
+    '/alerts',
     '/compliance',
     '/attribution',
   ];
@@ -45,8 +46,9 @@ describe('route gating', () => {
     assert.equal(featureForRoute('/scoringx'), null);
   });
 
-  it('lists exactly the five out-of-scope prefixes', () => {
+  it('lists exactly the six out-of-scope prefixes', () => {
     assert.deepEqual([...NON_V1_ROUTES].sort(), [
+      '/alerts',
       '/ask',
       '/attribution',
       '/compliance',

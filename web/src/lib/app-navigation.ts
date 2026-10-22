@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import { isRouteVisible } from '@/lib/v1-features';
 import {
   BarChart3,
+  Bell,
   Brain,
   MessageSquareText,
   LayoutDashboard,
@@ -45,7 +46,10 @@ const ALL_NAV_GROUPS: NavGroup[] = [
   {
     id: 'ai',
     label: 'Intelligence',
-    items: [{ href: '/ask', label: 'Ask AI', icon: MessageSquareText }],
+    items: [
+      { href: '/ask', label: 'Ask AI', icon: MessageSquareText },
+      { href: '/alerts', label: 'Alerts', icon: Bell },
+    ],
   },
   {
     id: 'system',

@@ -31,6 +31,10 @@ export interface PingListFilters {
   from?: string;
   to?: string;
   search?: string;
+  /** Exact publisher id (Ringba publisherId / Retreaver afid), e.g. from an alert link. */
+  publisher?: string;
+  /** Exact campaign id. */
+  campaign?: string;
   /** When true, include mock `apisync-%` external_call_id rows. Default: hide. */
   show_demo?: boolean;
   /** Conversion state. Omitted = no conversion filtering. */
@@ -78,6 +82,15 @@ export function buildPingWhereClause(filters: PingListFilters): {
         )`,
     );
     params.search = filters.search;
+  }
+
+  if (filters.publisher) {
+    parts.push('AND publisher_id = {publisher:String}');
+    params.publisher = filters.publisher;
+  }
+  if (filters.campaign) {
+    parts.push('AND campaign_id = {campaign:String}');
+    params.campaign = filters.campaign;
   }
 
   return { clause: parts.join('\n        '), params };
