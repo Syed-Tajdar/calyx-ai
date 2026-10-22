@@ -1237,6 +1237,9 @@ not an open door. Suggested fix, as its own small v1 migration later: `REVOKE AL
     a B2 application key limited to one private bucket;
   - `TRANSCRIBE_SHOULD_CONVERT=false`, `TRANSCRIBE_DAILY_MINUTES_CAP` (800), `TRANSCRIBE_MIN_SECONDS` (20),
     `RECORDING_RETENTION_MONTHS` (24).
+  - `TRANSCRIBE_AUTO=false` and `TRANSCRIBE_BACKFILL=false` (added at the main merge, 2026-10-22): with the flag
+    on, only the admin Transcribe button queues calls until `TRANSCRIBE_AUTO=true`; Start backfill is refused
+    (409) until `TRANSCRIBE_BACKFILL=true`; the estimate always works. Settings → Providers shows both.
   - **`DEEPGRAM_BASE_URL` must stay unset.**
 - **Production refusal:** with `APP_ENV=production` and the flag on, platform-sync **refuses to start** with an empty,
   placeholder or `fake…` key, any `DEEPGRAM_BASE_URL`, or a missing bucket, endpoint, key id or secret.

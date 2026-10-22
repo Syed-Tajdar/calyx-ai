@@ -28,7 +28,8 @@ export interface EnqueueSummary {
  * with TRANSCRIBE_SHOULD_CONVERT=true, should-have-converted — since the last TRANSCRIBE_LOOKBACK_HOURS.
  * A call is queued once (UNIQUE), so re-seeing it in the next window is harmless. With "Archive all
  * recorded calls" on, recorded calls that are not transcribed are queued archive-only. Idle while
- * FEATURE_TRANSCRIPTION is off. One instance at a time (advisory lock).
+ * FEATURE_TRANSCRIPTION or TRANSCRIBE_AUTO is off (the Transcribe button works without it). One
+ * instance at a time (advisory lock).
  */
 @Injectable()
 export class TranscriptionEnqueuerService implements OnModuleInit, OnModuleDestroy {
@@ -59,6 +60,7 @@ export class TranscriptionEnqueuerService implements OnModuleInit, OnModuleDestr
   async tick(now = new Date()): Promise<EnqueueSummary> {
     const summary: EnqueueSummary = { ran: false, tenants: 0, candidates: 0, queued: 0 };
     if (!transcriptionEnabled()) return { ...summary, reason: 'FEATURE_TRANSCRIPTION is off' };
+    if (!transcriptionSettings().auto) return { ...summary, reason: 'TRANSCRIBE_AUTO is off (button only)' };
     if (this.running) return { ...summary, reason: 'previous tick still running' };
     const pool = this.pg.getPool?.();
     if (!pool) return { ...summary, reason: 'no pool' };

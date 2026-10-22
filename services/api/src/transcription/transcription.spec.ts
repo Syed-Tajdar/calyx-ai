@@ -21,6 +21,8 @@ beforeAll(() => {
 afterEach(() => {
   delete process.env.FEATURE_TRANSCRIPTION;
   delete process.env.TRANSCRIBE_SHOULD_CONVERT;
+  delete process.env.TRANSCRIBE_AUTO;
+  delete process.env.TRANSCRIBE_BACKFILL;
   delete process.env.V1_ONLY;
 });
 
@@ -176,8 +178,19 @@ describe('queue', () => {
     expect(pg.state.jobs.map((j) => j.external_call_id)).toEqual(['c1', 'c2', 'c3']);
   });
 
+  it('with the flag on but TRANSCRIBE_AUTO off (the default) the job queues nothing; the button still works', async () => {
+    process.env.FEATURE_TRANSCRIPTION = 'true';
+    const { svc, ctl, pg } = build();
+    const e = new TranscriptionEnqueuerService({ getPool: () => { throw new Error('must not touch the DB'); } } as never,
+      fakeCandidates([cand('c1')]), svc);
+    expect((await e.tick()).reason).toBe('TRANSCRIBE_AUTO is off (button only)');
+    await expect(ctl.transcribe(TENANT, ADMIN as never, 'ringba', 'RGB1')).resolves.toEqual({ state: 'queued', retried: false });
+    expect(pg.state.jobs).toHaveLength(1);
+  });
+
   it('the enqueue job queues the candidates of every tenant, should-convert off by default', async () => {
     process.env.FEATURE_TRANSCRIPTION = 'true';
+    process.env.TRANSCRIBE_AUTO = 'true';
     const { svc, pg } = build();
     const cands = fakeCandidates([cand('c1'), cand('c2', { platform: 'ringba' })]);
     const lock = { query: async (sql: string) => (sql.includes('list_transcription_tenants') ? { rows: [{ tenant_id: TENANT }] } : { rows: [{ locked: true }] }), release: () => undefined };
@@ -190,6 +203,7 @@ describe('queue', () => {
 
   it('TRANSCRIBE_SHOULD_CONVERT=true widens the scan', async () => {
     process.env.FEATURE_TRANSCRIPTION = 'true';
+    process.env.TRANSCRIBE_AUTO = 'true';
     process.env.TRANSCRIBE_SHOULD_CONVERT = 'true';
     const { svc } = build();
     const cands = fakeCandidates([]);
@@ -216,7 +230,15 @@ describe('on demand', () => {
 });
 
 describe('backfill', () => {
+  it('is refused while TRANSCRIBE_BACKFILL is off (the default); the estimate still works', async () => {
+    const { ctl, pg } = build([cand('c1', { duration_seconds: 600 })]);
+    await expect(ctl.backfillEstimate(TENANT, ADMIN as never, '7')).resolves.toMatchObject({ calls: 1 });
+    await expect(ctl.backfill(TENANT, ADMIN as never, { days: 7 })).rejects.toThrow('TRANSCRIBE_BACKFILL');
+    expect(pg.state.jobs).toHaveLength(0);
+  });
+
   it('shows calls, minutes and $ before anything is queued; then queues them', async () => {
+    process.env.TRANSCRIBE_BACKFILL = 'true';
     const { ctl, pg } = build([cand('c1', { duration_seconds: 600 }), cand('c2', { duration_seconds: 0 }), cand('c3', { duration_seconds: 120 })]);
     pg.state.jobs.push({ id: 'old', platform: 'retreaver', external_call_id: 'c3', reason: 'converted', state: 'done', integration_id: RT_INT });
     const est = await ctl.backfillEstimate(TENANT, ADMIN as never, '7');

@@ -51,7 +51,7 @@ export interface UsageView {
     archive_configured: boolean;
     retention_months: number | null;
   };
-  settings: { should_convert: boolean; min_seconds: number; archive_all: boolean };
+  settings: { auto: boolean; backfill: boolean; should_convert: boolean; min_seconds: number; archive_all: boolean };
 }
 
 const PLATFORMS: readonly Platform[] = ['ringba', 'retreaver'];
@@ -168,6 +168,9 @@ export class TranscriptionService {
   }
 
   async backfillStart(tenantId: string, userId: string, days: number, now = new Date()) {
+    if (!transcriptionSettings().backfill) {
+      throw new ConflictException('Backfill is switched off on the server (TRANSCRIBE_BACKFILL). The estimate still works.');
+    }
     const d = this.backfillDays(days);
     const calls = await this.backfillCandidates(tenantId, d, now);
     const queued = await this.enqueue(tenantId, calls.filter((c) => c.reason !== 'archive_only'), 'backfill', userId);
@@ -296,7 +299,7 @@ export class TranscriptionService {
           archive_configured: worker.archive_configured,
           retention_months: worker.retention_months,
         },
-        settings: { should_convert: s.shouldConvert, min_seconds: s.minSeconds, archive_all: st?.archive_all ?? false },
+        settings: { auto: s.auto, backfill: s.backfill, should_convert: s.shouldConvert, min_seconds: s.minSeconds, archive_all: st?.archive_all ?? false },
       };
     });
   }

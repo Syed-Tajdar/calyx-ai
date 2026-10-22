@@ -16,6 +16,10 @@ export function transcriptionEnabled(env: Env = process.env): boolean {
 }
 
 export interface TranscriptionSettings {
+  /** The 15-minute job that queues converted calls by itself (TRANSCRIBE_AUTO, default off: button only). */
+  auto: boolean;
+  /** Admins may start a backfill (TRANSCRIBE_BACKFILL, default off; the estimate always works). */
+  backfill: boolean;
   /** Calls shorter than this are never transcribed (TRANSCRIBE_MIN_SECONDS, default 20). */
   minSeconds: number;
   /** Also auto-transcribe "should have converted" calls (TRANSCRIBE_SHOULD_CONVERT, default off). */
@@ -35,6 +39,8 @@ export interface TranscriptionSettings {
 
 export function transcriptionSettings(env: Env = process.env): TranscriptionSettings {
   return {
+    auto: env.TRANSCRIBE_AUTO === 'true',
+    backfill: env.TRANSCRIBE_BACKFILL === 'true',
     minSeconds: num(env.TRANSCRIBE_MIN_SECONDS, 20),
     shouldConvert: env.TRANSCRIBE_SHOULD_CONVERT === 'true',
     dailyCapMinutes: num(env.TRANSCRIBE_DAILY_MINUTES_CAP, 800),

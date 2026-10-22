@@ -137,8 +137,10 @@ export function TranscriptionProvidersSection(): JSX.Element {
           </div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-calyx-muted">Which calls</span>
-            <span className="text-xs">
-              converted{usage.settings.should_convert ? ' + should have converted' : ''} · ≥ {usage.settings.min_seconds}s
+            <span className="text-xs" data-testid="transcription-auto">
+              {usage.settings.auto
+                ? `automatic: converted${usage.settings.should_convert ? ' + should have converted' : ''} · ≥ ${usage.settings.min_seconds}s`
+                : 'Transcribe button only (automatic off)'}
             </span>
           </div>
         </div>
@@ -198,12 +200,17 @@ export function TranscriptionProvidersSection(): JSX.Element {
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void preview()}>
             Show estimate
           </Button>
-          {estimate && (
+          {estimate && usage?.settings.backfill && (
             <Button type="button" size="sm" disabled={busy || estimate.calls === 0} onClick={() => void start()}>
               Start backfill
             </Button>
           )}
         </div>
+        {usage && !usage.settings.backfill && (
+          <p className="mt-2 text-xs text-calyx-muted" data-testid="backfill-off">
+            Backfill is switched off on the server (TRANSCRIBE_BACKFILL). The estimate still works.
+          </p>
+        )}
         {estimate && (
           <p className="mt-3 text-sm" data-testid="backfill-estimate">
             {plural(estimate.calls, 'call')} · about {estimate.minutes} minutes · ≈ {formatUsd(estimate.estimated_usd)}

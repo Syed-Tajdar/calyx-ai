@@ -285,6 +285,10 @@
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
       # Transcription (Phase 2B), needs FEATURE_TRANSCRIPTION above. Which calls the API queues; the
       # worker in platform-sync enforces the daily cap. Defaults in code: 20 s, off, 800, $0.0063/min.
+      # TRANSCRIBE_AUTO: the 15-minute job queues converted calls by itself (off = Transcribe button only).
+      # TRANSCRIBE_BACKFILL: admins may start a backfill (off = estimate only).
+      TRANSCRIBE_AUTO: ${TRANSCRIBE_AUTO:-false}
+      TRANSCRIBE_BACKFILL: ${TRANSCRIBE_BACKFILL:-false}
       TRANSCRIBE_MIN_SECONDS: ${TRANSCRIBE_MIN_SECONDS:-}
       TRANSCRIBE_SHOULD_CONVERT: ${TRANSCRIBE_SHOULD_CONVERT:-false}
       TRANSCRIBE_DAILY_MINUTES_CAP: ${TRANSCRIBE_DAILY_MINUTES_CAP:-}
