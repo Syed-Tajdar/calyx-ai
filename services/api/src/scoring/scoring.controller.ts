@@ -1,27 +1,17 @@
-import { Body, Controller, Get, Headers, Post, Query, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { randomUUID } from 'crypto';
-import { z } from 'zod';
 import { FeatureGate } from '../common/feature-gate';
 import { CurrentTenant } from '../common/tenant.decorator';
-import { loadEnv } from '../config/env';
-import { KafkaService } from '../kafka/kafka.service';
 import { ScoreRecord, ScoringService, TranscriptRecord } from './scoring.service';
 
-const callbackSchema = z.object({
-  tenant_id: z.string().uuid(),
-  call_id: z.string().min(1),
-  platform: z.string().optional(),
-  transcript_text: z.string().min(1),
-  duration_seconds: z.number().optional(),
-});
-
+/**
+ * Mock scoring reads (behind the qa / transcription flags). The old POST /scoring/deepgram/callback
+ * (plain-string secret, skipped in mock mode, a made-up payload) was removed in v2 Phase 2B: Deepgram
+ * is called synchronously by the platform-sync worker, so no public callback exists.
+ */
 @Controller('scoring')
 export class ScoringController {
-  constructor(
-    private readonly scoringService: ScoringService,
-    private readonly kafka: KafkaService,
-  ) {}
+  constructor(private readonly scoringService: ScoringService) {}
 
   @Get('scores')
   @FeatureGate('qa')
@@ -55,33 +45,5 @@ export class ScoringController {
     @Query('callId') callId: string,
   ): Promise<TranscriptRecord | null> {
     return this.scoringService.getTranscript(tenantId, callId);
-  }
-
-  @Post('deepgram/callback')
-  @FeatureGate('transcription')
-  async deepgramCallback(
-    @Headers('x-deepgram-callback-secret') secret: string | undefined,
-    @Body() body: unknown,
-  ): Promise<{ status: string }> {
-    const env = loadEnv();
-    if (!env.MOCK_MODE) {
-      if (!secret || secret !== env.DEEPGRAM_CALLBACK_SECRET) {
-        throw new UnauthorizedException('invalid callback secret');
-      }
-    }
-
-    const parsed = callbackSchema.parse(body);
-    await this.kafka.publish(env.KAFKA_TOPIC_CALL_TRANSCRIPT_READY, parsed.tenant_id, {
-      schema_version: '1',
-      event_id: randomUUID(),
-      tenant_id: parsed.tenant_id,
-      call_id: parsed.call_id,
-      platform: parsed.platform ?? 'ringba',
-      transcript_text: parsed.transcript_text,
-      duration_seconds: parsed.duration_seconds ?? 0,
-      received_at_unix_ms: Date.now(),
-    });
-
-    return { status: 'ok' };
   }
 }
