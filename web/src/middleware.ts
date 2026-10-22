@@ -35,6 +35,9 @@ export function middleware(request: NextRequest): NextResponse {
     `script-src ${scriptSrc}`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob:`,
+    // Recording playback (2B): the audio is fetched with the session and played from a blob: URL,
+    // so no recording ever has a URL of its own.
+    `media-src 'self' blob:`,
     `font-src 'self' data:`,
     `connect-src 'self' ${api} ${ws} ${wsOrigin}`,
     `frame-ancestors 'none'`,

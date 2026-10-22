@@ -6,6 +6,7 @@ import { AddIntegrationForm } from '@/components/settings/AddIntegrationForm';
 import { IntegrationsList } from '@/components/settings/IntegrationsList';
 import { ProviderBindingsSection } from '@/components/settings/ProviderBindingsSection';
 import { WorkflowAlertsSection } from '@/components/settings/WorkflowAlertsSection';
+import { TranscriptionProvidersSection } from '@/components/settings/TranscriptionProvidersSection';
 import { ErrorBanner, PageLoader } from '@/components/ui/PageStatus';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,6 +16,8 @@ import { isFeatureEnabled, V1_ONLY } from '@/lib/v1-features';
 
 /** Alerts tab = v2 Phase 2D Workflows (replaces the old mock alert rules). */
 const SHOW_ALERTS = isFeatureEnabled('workflows');
+/** Providers tab = v2 Phase 2B: Deepgram and the recording archive (V1_ONLY=false also shows the old bindings). */
+const SHOW_PROVIDERS = isFeatureEnabled('transcription') || !V1_ONLY;
 
 export default function SettingsPage(): JSX.Element {
   const router = useRouter();
@@ -78,7 +81,7 @@ export default function SettingsPage(): JSX.Element {
           <TabsList>
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
             {SHOW_ALERTS && <TabsTrigger value="alerts">Alerts</TabsTrigger>}
-            {!V1_ONLY && <TabsTrigger value="providers">Providers</TabsTrigger>}
+            {SHOW_PROVIDERS && <TabsTrigger value="providers">Providers</TabsTrigger>}
           </TabsList>
           <TabsContent value="integrations" className="space-y-6">
             <AddIntegrationForm onCreated={handleIntegrationCreated} />
@@ -93,9 +96,10 @@ export default function SettingsPage(): JSX.Element {
               <WorkflowAlertsSection />
             </TabsContent>
           )}
-          {!V1_ONLY && (
-            <TabsContent value="providers">
-              <ProviderBindingsSection />
+          {SHOW_PROVIDERS && (
+            <TabsContent value="providers" className="space-y-6">
+              {isFeatureEnabled('transcription') && <TranscriptionProvidersSection />}
+              {!V1_ONLY && <ProviderBindingsSection />}
             </TabsContent>
           )}
         </Tabs>

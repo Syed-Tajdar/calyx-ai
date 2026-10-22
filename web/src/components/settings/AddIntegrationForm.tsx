@@ -11,6 +11,7 @@ import {
   type CreateIntegrationInput,
   type IntegrationRecord,
   type PlatformConnectionOption,
+  setRecordingAccess,
   syncIntegration,
   testIntegration,
 } from '@/lib/api';
@@ -22,7 +23,10 @@ import {
 } from '@/lib/platform-credentials';
 import { formatPlatformLabel } from '@/lib/platform-options';
 import { useDateFilter } from '@/lib/date-filter';
-import { platformsForV1, V1_ONLY } from '@/lib/v1-features';
+import { isFeatureEnabled, platformsForV1, V1_ONLY } from '@/lib/v1-features';
+
+/** v2 Phase 2B: Ringba Recording Access credentials (only with transcription on). */
+const SHOW_RECORDING_ACCESS = isFeatureEnabled('transcription');
 
 interface AddIntegrationFormProps {
   onCreated: (record: IntegrationRecord) => void;
@@ -37,6 +41,9 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
   const [syncMode, setSyncMode] = useState<'mock' | 'real'>('mock');
   const [webhookSecret, setWebhookSecret] = useState('');
   const [credValues, setCredValues] = useState<Record<string, string>>({});
+  // v2 2B: optional Ringba Recording Access credentials (sent separately, stored encrypted, never shown again).
+  const [recUser, setRecUser] = useState('');
+  const [recPass, setRecPass] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -119,11 +126,21 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
     setSaving(true);
     try {
       const created = await createIntegration(token, body);
+      if (SHOW_RECORDING_ACCESS && platform === 'ringba' && connectionMode === 'api_sync' && recUser.trim() && recPass) {
+        try {
+          await setRecordingAccess(token, created.id, recUser.trim(), recPass);
+          created.recording_access_set = true;
+        } catch {
+          toast.error('Integration saved, but the Recording Access credentials were not — set them in the list');
+        }
+      }
       onCreated(created);
       toast.success('Integration saved');
       setName('');
       setWebhookSecret('');
       setCredValues({});
+      setRecUser('');
+      setRecPass('');
       if (connectionMode === 'api_sync') {
         const test = await testIntegration(token, created.id);
         if (test.ok) {
@@ -279,6 +296,18 @@ export function AddIntegrationForm({ onCreated }: AddIntegrationFormProps): JSX.
               />
             </div>
           ))}
+          {SHOW_RECORDING_ACCESS && platform === 'ringba' && (
+            <div className="space-y-1.5 rounded-md border border-calyx-border/60 p-3" data-testid="recording-access-fields">
+              <p className="text-xs text-calyx-muted">
+                Recording access (optional) — the Ringba Recording Access user Calyx uses to fetch recordings for transcription.
+                Stored encrypted; never shown again.
+              </p>
+              <Input id="rec-user" aria-label="Recording access username" autoComplete="off" value={recUser}
+                onChange={(e) => setRecUser(e.target.value)} placeholder="Recording access username" />
+              <Input id="rec-pass" aria-label="Recording access password" type="password" autoComplete="new-password" value={recPass}
+                onChange={(e) => setRecPass(e.target.value)} placeholder="Recording access password" />
+            </div>
+          )}
           <p className="text-[11px] text-calyx-muted">
             Calyx pulls calls on a schedule. You do not need to configure a webhook URL.
           </p>

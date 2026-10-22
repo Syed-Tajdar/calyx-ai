@@ -123,6 +123,8 @@ export interface IntegrationRecord {
   last_sync_error: string | null;
   /** Last fully successful sync (ISO time; null until the first one). Moves only on success. */
   last_success_at?: string | null;
+  /** v2 2B: Ringba Recording Access credentials are stored (write-only; never returned). */
+  recording_access_set?: boolean;
   created_at: string;
   supports_api_sync: boolean;
   supports_webhook: boolean;
@@ -1233,4 +1235,135 @@ export function fetchWorkflowIntegrations(token: string): Promise<{ data: Workfl
 
 export function setAllowPublisherPause(token: string, id: string, allow: boolean): Promise<WorkflowIntegration> {
   return fetchWithAuth(token, `/workflows/integrations/${encodeURIComponent(id)}/allow-pause`, jsonBody('PATCH', { allow }));
+}
+
+// ---- v2 Phase 2B — transcription and the recording archive (behind NEXT_PUBLIC_FEATURE_TRANSCRIPTION) ----
+
+export interface CallTranscriptView {
+  platform: string;
+  external_call_id: string;
+  state: string;
+  no_recording_reason: string | null;
+  error: string | null;
+  reason: string | null;
+  recording: null | {
+    archive_state: string;
+    sha256: string;
+    bytes: number;
+    duration_seconds: number | null;
+    downloaded_at: string;
+  };
+  transcript: null | {
+    version: number;
+    language: string | null;
+    model: string;
+    deepgram_request_id: string | null;
+    redaction: string;
+    created_at: string;
+    utterances: Array<{ idx: number; speaker: number | null; role: string; start_ms: number; end_ms: number; text: string }>;
+  };
+}
+
+const enc = encodeURIComponent;
+
+export async function fetchCallTranscript(token: string, platform: string, callId: string): Promise<CallTranscriptView> {
+  return fetchWithAuth<CallTranscriptView>(token, `/transcription/calls/${enc(platform)}/${enc(callId)}`);
+}
+
+export async function requestTranscription(
+  token: string,
+  platform: string,
+  callId: string,
+): Promise<{ state: string; retried: boolean }> {
+  return fetchWithAuth(token, `/transcription/calls/${enc(platform)}/${enc(callId)}/transcribe`, { method: 'POST' });
+}
+
+/**
+ * Admin-only audio / evidence pack, through the API proxy (verified against its SHA-256, audit-logged).
+ * Returns a Blob; the page plays it from a blob: URL — never a bucket or signed URL.
+ */
+export async function fetchRecordingBlob(
+  token: string,
+  platform: string,
+  callId: string,
+  kind: 'play' | 'download' | 'evidence',
+): Promise<Blob> {
+  const path =
+    kind === 'evidence'
+      ? `/transcription/calls/${enc(platform)}/${enc(callId)}/evidence`
+      : `/transcription/calls/${enc(platform)}/${enc(callId)}/audio${kind === 'download' ? '?download=1' : ''}`;
+  const res = await fetch(`${API_URL}${path}`, { credentials: 'include', headers: authHeaders(token) });
+  if (res.status === 401) {
+    clearToken();
+    throw new ApiError('Session expired', 401);
+  }
+  if (!res.ok) throw new ApiError(await errorMessage(res, path), res.status);
+  return res.blob();
+}
+
+export interface TranscriptionUsage {
+  month: string;
+  minutes_month: number;
+  calls_month: number;
+  estimated_usd_month: number;
+  minutes_today: number;
+  daily_cap_minutes: number;
+  archive: { recordings: number; bytes: number; estimated_usd_month: number; not_archived: number; expired: number };
+  queue: Record<string, number>;
+  worker: {
+    reachable: boolean;
+    enabled: boolean;
+    deepgram_key_set: boolean;
+    archive_configured: boolean;
+    retention_months: number | null;
+  };
+  settings: { should_convert: boolean; min_seconds: number; archive_all: boolean };
+}
+
+export async function fetchTranscriptionUsage(token: string): Promise<TranscriptionUsage> {
+  return fetchWithAuth<TranscriptionUsage>(token, '/transcription/usage');
+}
+
+export async function setTranscriptionArchiveAll(token: string, archiveAll: boolean): Promise<{ archive_all: boolean }> {
+  return fetchWithAuth(token, '/transcription/settings', {
+    method: 'PUT',
+    body: JSON.stringify({ archive_all: archiveAll }),
+  });
+}
+
+export interface BackfillEstimate {
+  days: number;
+  calls: number;
+  already_queued_or_done: number;
+  minutes: number;
+  estimated_usd: number;
+  price_per_minute: number;
+  daily_cap_minutes: number;
+  days_at_cap: number | null;
+  includes_should_convert: boolean;
+}
+
+export async function fetchBackfillEstimate(token: string, days: number): Promise<BackfillEstimate> {
+  return fetchWithAuth<BackfillEstimate>(token, `/transcription/backfill/estimate?days=${days}`);
+}
+
+export async function startBackfill(token: string, days: number): Promise<{ days: number; queued: number }> {
+  return fetchWithAuth(token, '/transcription/backfill', { method: 'POST', body: JSON.stringify({ days }) });
+}
+
+/** Ringba Recording Access credentials: write-only (stored encrypted, never shown again). */
+export async function setRecordingAccess(
+  token: string,
+  integrationId: string,
+  username: string,
+  password: string,
+): Promise<{ recording_access_set: boolean }> {
+  return fetchWithAuth(token, `/transcription/integrations/${enc(integrationId)}/recording-access`, {
+    method: 'PUT',
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export async function clearRecordingAccess(token: string, integrationId: string): Promise<{ recording_access_set: boolean }> {
+  return fetchWithAuth(token, `/transcription/integrations/${enc(integrationId)}/recording-access`, { method: 'DELETE' });
 }
