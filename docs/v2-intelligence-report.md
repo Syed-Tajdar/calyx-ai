@@ -1260,13 +1260,19 @@ not an open door. Suggested fix, as its own small v1 migration later: `REVOKE AL
 - **2C:** the `call_transcript_ready` event, caller/agent role labelling and the QA part of the evidence pack.
 - `GET /scoring/transcript` (old mock) is still behind the transcription flag. It is untouched, and 2C replaces it.
 
-**Laptop note (Docker Desktop on this Windows Insider build, 26300):**
-- **Symptom:** after every Docker stop, its Unix-socket files can't be opened or deleted ("The file cannot be
-  accessed by the system", even with `fsutil`), and the next start fails.
-- **Workaround used today:** rename `%LOCALAPPDATA%\Docker\run` and `%LOCALAPPDATA%\docker-secrets-engine` aside
-  (`*.stale-20261022*`), then start Docker normally. Nothing was reset and no container, image or volume was
-  touched.
-- **Long-term fix:** expected from a Windows or Docker update.
+**Laptop note — Docker Desktop locks its socket files after a restart** (Docker Desktop 4.88.1, engine 29.7.2,
+Windows 11 Insider build 26300):
+- **Symptom:** after Docker stops (a Windows reboot included), its Unix-socket files in `%LOCALAPPDATA%\Docker\run\`
+  and `%LOCALAPPDATA%\docker-secrets-engine\engine.sock` can no longer be opened or deleted ("The file cannot be
+  accessed by the system", error 1920, even with `fsutil`). The next start fails with "An unexpected error occurred".
+- **Workaround (used 2026-10-22, owner-approved):** click **Quit** in the error dialog, rename the two socket folders
+  aside (`run` → `run.stale-<date>`, `docker-secrets-engine` → `docker-secrets-engine.stale-<date>`), then start
+  Docker Desktop normally. **Nothing is deleted**, nothing is reset, and no container, image or volume is touched.
+  Never "Reset to factory defaults".
+- **Recommendation: update Docker Desktop.** If a newer version still shows it on this Insider build, report it to
+  Docker with "Gather diagnostics" (the owner decides whether to send it).
+
+**Owner (2026-10-22): 2B approved as built; not merged yet.**
 
 **STOP.** Phase 2B is built and gated with fake providers. It is **not** merged. Nothing touches a real key, bucket,
 recording or the server until the owner approves.
