@@ -1,9 +1,9 @@
 # Calyx — deploy pack: migration 000037 (function grants) — after the 2D + 2B deploy
 
 **Server:** `calyx.ridgerisemedia.com` · `~/deployments/calyx-ai` · compose project **`deploy`**
-**Code:** target = **`FINAL_MAIN`, pinned** (the final main: 000037 plus `TRANSCRIBE_AUTO_SINCE`). The server must
+**Code:** target = **`6a34fd1`, pinned** (the final main: 000037 plus `TRANSCRIBE_AUTO_SINCE`). The server must
 already run **`6a8ad8a`** (2D + 2B, `docs/deploy-v2-2d-2b.md` Steps 0–6(c)) at migration **`36 | f`**. Do not start
-before that deploy is finished and checked. Every later step works from this `FINAL_MAIN` checkout **without another
+before that deploy is finished and checked. Every later step works from this `6a34fd1` checkout **without another
 pull** (`docs/aryan-run-order-2026-10-23.md`).
 **People:** **Aryan** (server terminal) · **Syed** (browser)
 
@@ -15,7 +15,7 @@ pull** (`docs/aryan-run-order-2026-10-23.md`).
   platform-sync does.
 - **No image rebuild and no restart.** The `migrate` service applies the SQL file straight from the repo, and the
   grants apply to the next call.
-  - `FINAL_MAIN` also holds two code changes that this pack does **not** build:
+  - `6a34fd1` also holds two code changes that this pack does **not** build:
     - `services/platform-sync/cmd/fake-providers/main.go`: laptop only, and not built into the platform-sync image
       (which builds `./cmd/server` only);
     - the `TRANSCRIBE_AUTO_SINCE` change in `services/api` and `web`: built later by `docs/deploy-v2-2d-2b.md` 6(d),
@@ -43,8 +43,8 @@ DC="docker compose -p deploy -f deploy/docker-compose.yml"
 git status --short                       # must be empty
 git log --oneline -1                     # 6a8ad8a (the 2D + 2B deploy)
 git fetch origin
-git log --oneline -1 FINAL_MAIN         # the pinned target
-git merge-base --is-ancestor HEAD FINAL_MAIN && echo "target is ahead: OK" || echo "target does not contain the server commit - stop"
+git log --oneline -1 6a34fd1         # the pinned target
+git merge-base --is-ancestor HEAD 6a34fd1 && echo "target is ahead: OK" || echo "target does not contain the server commit - stop"
 $DC exec -T postgres psql -U callloom -d callloom -c "SELECT version, dirty FROM schema_migrations;"   # 36 | f
 docker ps -a --filter name=deploy- --format '{{.Names}}  {{.Status}}' | sort                       # the 9 v1 services Up
 # Functions that PUBLIC may run today (expect 13: the older ones this migration fixes)
@@ -72,8 +72,8 @@ ls -lh "$BK"      # the dump must be larger than 0; commit-before.txt holds 6a8a
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"
 BK=~/calyx-backups/deploy-37-grants
-git fetch origin && git merge --ff-only FINAL_MAIN     # pinned; NOT a plain pull
-git log --oneline -1                                   # FINAL_MAIN
+git fetch origin && git merge --ff-only 6a34fd1     # pinned; NOT a plain pull
+git log --oneline -1                                   # 6a34fd1
 ls db/postgres/migrations | tail -2                    # 000037_function_grants.down.sql / .up.sql
 git diff --name-only "$(cat $BK/commit-before.txt)" HEAD -- services web packages
 # expect: services/api, services/platform-sync (cmd/fake-providers only) and web — none is built in this pack:

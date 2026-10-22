@@ -539,8 +539,8 @@ Send the row.
 
 ### 6(d) Automatic transcription of converted calls (only after 6(c) passes AND the 37 pack is done; Syed says go)
 
-**This step runs on the final main `FINAL_MAIN`, not on `6a8ad8a`.** By then `docs/deploy-37-grants.md` has moved the
-checkout there. `FINAL_MAIN` adds `TRANSCRIBE_AUTO_SINCE`, a code change in `api` (and the Providers line in `web`).
+**This step runs on the final main `6a34fd1`, not on `6a8ad8a`.** By then `docs/deploy-37-grants.md` has moved the
+checkout there. `6a34fd1` adds `TRANSCRIBE_AUTO_SINCE`, a code change in `api` (and the Providers line in `web`).
 The 37 pack does not rebuild images, so **6(d) rebuilds `api` and `web`**. platform-sync is unchanged.
 
 **What switching on queues:** only converted calls whose latest version arrives **after** the switch-on moment
@@ -552,8 +552,8 @@ look back `TRANSCRIBE_LOOKBACK_HOURS` (48 h) on the first tick.
 cd ~/deployments/calyx-ai
 DC="docker compose -p deploy -f deploy/docker-compose.yml"; ENVF=.env; umask 077
 set_env() { grep -v "^$1=" "$ENVF" > "$ENVF.new" && printf '%s=%s\n' "$1" "$2" >> "$ENVF.new" && mv "$ENVF.new" "$ENVF" && chmod 600 "$ENVF"; echo "$1=$2"; }
-git log --oneline -1                                                   # FINAL_MAIN (from the 37 pack) — else stop
-grep -c 'TRANSCRIBE_AUTO_SINCE' services/api/src/transcription/transcription-config.ts   # 2 — 0 means the checkout is not FINAL_MAIN: stop
+git log --oneline -1                                                   # 6a34fd1 (from the 37 pack) — else stop
+grep -c 'TRANSCRIBE_AUTO_SINCE' services/api/src/transcription/transcription-config.ts   # 2 — 0 means the checkout is not 6a34fd1: stop
 grep -E '^(TRANSCRIBE_DAILY_MINUTES_CAP|TRANSCRIBE_SHOULD_CONVERT|TRANSCRIBE_BACKFILL|NEXT_PUBLIC_FEATURE_TRANSCRIPTION)=' "$ENVF" | sort
 # expect: NEXT_PUBLIC_FEATURE_TRANSCRIPTION=true, TRANSCRIBE_BACKFILL=false, TRANSCRIBE_DAILY_MINUTES_CAP=800, TRANSCRIBE_SHOULD_CONVERT=false
 $DC build api web                                                      # the TRANSCRIBE_AUTO_SINCE code (web keeps its flags)

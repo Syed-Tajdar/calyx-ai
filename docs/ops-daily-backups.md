@@ -56,12 +56,12 @@ password manager (never in chat, never in the off-server bucket in plain text).
 
 ## 1. One-time manual run (📤 send output)
 
-Run it from the server's current checkout. On 2026-10-23 that is `FINAL_MAIN`, after `docs/deploy-37-grants.md`. **No
+Run it from the server's current checkout. On 2026-10-23 that is `6a34fd1`, after `docs/deploy-37-grants.md`. **No
 pull**: the checkout is pinned (`docs/aryan-run-order-2026-10-23.md`).
 
 ```bash
 cd ~/deployments/calyx-ai
-git log --oneline -1                                   # FINAL_MAIN (the pinned checkout)
+git log --oneline -1                                   # 6a34fd1 (the pinned checkout)
 ls scripts/backup-calyx.sh                             # present (on main since 5cdb46e)
 df -h ~ | tail -1                                      # free space before (expect ~37 GB)
 bash scripts/backup-calyx.sh; echo "exit=$?"
