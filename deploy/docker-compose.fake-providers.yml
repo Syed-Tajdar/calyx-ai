@@ -1,6 +1,6 @@
-# LAPTOP ONLY — never on the server. v2 Phase 2B demo / screenshots with fake providers:
-# a fake Deepgram and a fake S3 archive (services/platform-sync/cmd/fake-providers), and the
-# transcription flags switched on for this run only. Test-mode (mock) integrations get a generated
+# LAPTOP ONLY — never on the server. v2 demo / checks with fake providers: a fake Deepgram, a fake
+# S3 archive and a fake OpenAI Responses API (services/platform-sync/cmd/fake-providers), with Ask AI,
+# workflows (alerts only; publisher actions stay off) and transcription switched on for this run only. Test-mode (mock) integrations get a generated
 # recording, so nothing real is fetched, transcribed or stored.
 #
 #   docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml \
@@ -39,10 +39,17 @@ services:
   api:
     environment:
       FEATURE_TRANSCRIPTION: "true"
+      FEATURE_ASK_AI: "true"
+      FEATURE_WORKFLOWS: "true"
+      WORKFLOW_ACTIONS_ENABLED: "false"
+      OPENAI_API_KEY: fake-openai-laptop-key
+      OPENAI_BASE_URL: http://fake-providers:8099
   web:
     build:
       args:
         NEXT_PUBLIC_FEATURE_TRANSCRIPTION: "true"
+        NEXT_PUBLIC_FEATURE_ASK_AI: "true"
+        NEXT_PUBLIC_FEATURE_WORKFLOWS: "true"
 
 volumes:
   fake_providers_gocache:

@@ -1217,14 +1217,16 @@ layout, no transcription variables set (`printenv` empty in `api` and `platform-
 
 ## 2B.8 Pre-existing finding, not changed in 2B 🙋
 
-[PROVEN] on the laptop database: **14 older `SECURITY DEFINER` functions are executable by `callloom_api` and
-`callloom_ingestion`**, because no earlier migration revoked PUBLIC. Among them:
-- `get_api_sync_integration` / `_any`, which return the *encrypted* credential blob;
+[PROVEN] on the laptop database: **13 older `SECURITY DEFINER` functions are executable by `callloom_api` and
+`callloom_ingestion`**, because no earlier migration revoked PUBLIC. (An earlier draft said 14: the 14th was 2B's
+own `list_transcription_tenants`, which the API is meant to call.) Among them:
+- `get_api_sync_integration` / `_any` and `get_publisher_pause_integration`, which return the *encrypted*
+  credential blob;
 - `update_integration_sync_state`, `insert_writeback_audit`, `insert_publisher_action_audit`.
 
 Each service still needs its own database password, and the blobs are encrypted. This is least-privilege hygiene,
-not an open door. Suggested fix, as its own small v1 migration later: `REVOKE ALL ... FROM PUBLIC` +
-`GRANT EXECUTE ... TO <the one role>` for each. Owner decides.
+not an open door. **Fixed by migration `000037_function_grants`** on `v2/hardening-grants`; see "v1 hardening —
+function grants" below.
 
 ## 2B.9 Deploy note (later; owner decides)
 
@@ -1279,3 +1281,109 @@ Windows 11 Insider build 26300):
 
 **STOP.** Phase 2B is built and gated with fake providers. It is **not** merged. Nothing touches a real key, bucket,
 recording or the server until the owner approves.
+
+# v1 hardening — function grants (migration 000037)
+
+Branch `v2/hardening-grants`, first cut from `v2/2b-transcription` @ `ba757f1`, **rebased onto `main` @ `6a8ad8a`** (2D + 2B). Migration **`000037_function_grants`**
+(after 2D's 000035 and 2B's 000036; it must ship in the same deploy). Commit prefix `v1-hardening:`. Not merged.
+
+**What changed:** `REVOKE ALL ... FROM PUBLIC` on the 13 older `SECURITY DEFINER` functions (§2B.8), and a re-asserted
+`GRANT EXECUTE` to the one role that calls each. No data change, no function body change, no table grant change.
+The owner role `callloom` (used by `migrate` and by the `psql -U callloom` verify scripts) keeps EXECUTE as owner.
+
+**Callers, proven by code read (file:line):**
+
+| Function | Only role after 000037 | Caller |
+|---|---|---|
+| `authenticate_user` | `callloom_api` | `services/api/src/auth/auth.service.ts:26` |
+| `list_workflow_tenants` | `callloom_api` | `services/api/src/workflows/workflow-evaluator.service.ts:118` |
+| `lookup_integration_by_token` | `callloom_ingestion` | `services/ingestion/internal/store/integrations.go:45` |
+| `list_api_sync_integrations` | `callloom_sync` | `services/platform-sync/internal/store/integrations.go:22` |
+| **`get_api_sync_integration`** 🔑 | `callloom_sync` | `services/platform-sync/internal/store/integrations.go:39` |
+| **`get_api_sync_integration_any`** 🔑 | `callloom_sync` | `services/platform-sync/internal/store/integrations.go:44` |
+| `insert_writeback_audit` | `callloom_sync` | `services/platform-sync/internal/store/integrations.go:84` |
+| `insert_writeback_audit_v2` | `callloom_sync` | `services/platform-sync/internal/store/integrations.go:95` |
+| `update_integration_sync_state` | `callloom_sync` | `services/platform-sync/internal/store/integrations.go:205` |
+| `update_integration_sync_status` | `callloom_sync` | `services/platform-sync/internal/store/integrations.go:214` |
+| `record_integration_sync_failure` | `callloom_sync` | `services/platform-sync/internal/store/integrations.go:226` |
+| **`get_publisher_pause_integration`** 🔑 | `callloom_sync` | `services/platform-sync/internal/store/publisher_pause.go:26` |
+| `insert_publisher_action_audit` | `callloom_sync` | `services/platform-sync/internal/store/publisher_pause.go:74` |
+
+🔑 = returns the encrypted `api_credentials_blob`. After 000037 **only `callloom_sync` can call it**.
+
+**How the roles were mapped:**
+- Each service's role comes from its `DATABASE_URL` in `deploy/docker-compose.yml`:
+  - ingestion → `callloom_ingestion`;
+  - api, providerconfig, ask-ai → `callloom_api`;
+  - platform-sync → `callloom_sync`;
+  - migrate → `callloom`.
+- The platform-sync probes (`cmd/probe-*`, `cmd/verify-retreaver-call`) also call the 🔑 functions. They read
+  platform-sync's own `DATABASE_URL` (report §2D.6), so they run as `callloom_sync` too.
+- providerconfig and ask-ai call none of the 13.
+- The SQL verify scripts (`verify-degraded-scheduling.sql`, `verify-pause-scheduling.sql`) run as `psql -U callloom`,
+  the owner.
+
+**Tests [PROVEN]**
+
+`bash scripts/verify-migration-37-function-grants.sh` (throwaway Postgres 16, removed after):
+- every migration up to 36 (grants saved) → **37 up** → checks → **down** (grants identical to 36) → **up** again →
+  checks;
+- no `SECURITY DEFINER` function in `public` is executable by PUBLIC (2B's 13 included);
+- an exact role matrix: 15 functions × 3 app roles (the 13, plus 2B's `list_transcription_tenants` and
+  `claim_transcription_job` as controls);
+- real calls:
+  - `callloom_sync` reads its integration through both 🔑 functions, updates sync status and lists integrations;
+  - `callloom_api` logs in and lists workflow tenants, but gets **permission denied** on
+    `get_api_sync_integration` and on the token lookup;
+  - `callloom_ingestion` looks up a token, but gets **permission denied** on `get_api_sync_integration_any` and on
+    `authenticate_user`.
+
+**Laptop stack, done 2026-10-22 [PROVEN]:**
+
+Laptop: Windows, Docker Desktop 4.88.1, dev `.env`, Test-mode integrations only. There was **no Live integration, no
+platform API call and no real key**. The laptop stack ran `main` `6a8ad8a` images with 000037 applied.
+
+- **Throwaway Postgres** (`bash scripts/verify-migration-37-function-grants.sh`):
+  - every migration up to 36 → **37** → **down** (grants identical to 36) → **up**;
+  - no `SECURITY DEFINER` function executable by PUBLIC;
+  - the exact role matrix for **all 26** `SECURITY DEFINER` functions on main (2D's and 2B's included), with a count
+    check so an unlisted new function fails;
+  - real calls allowed and refused per role.
+- **Laptop stack at 37, every flag off:**
+  - `verify-system.ps1 -V1`: **SYSTEM VERIFY PASS** (Docker 9/9, Healthz 5/5, LiveStatus, API v1, presentation
+    20/20, Web routes 13/13, WebSocket, SmokePrefix, BrowserCSP, unit tests 356/356, web build, pipeline 4/4).
+    LiveStatus failed once in a run started 15 s after an API restart: the live-feed Kafka consumer took 27 s to
+    rejoin its group. A rerun passed; Postgres is not involved;
+  - `verify-ingestion-slice.ps1`: **INGESTION SLICE VERIFY PASS**;
+  - `verify-api-sync.ps1`: **PASS**.
+- **Admin login** in the browser; **Settings → Integrations → Save integration** (Test-mode Retreaver) → 201.
+- **Sync button** → a Test-mode sync tick through `list_api_sync_integrations` / `update_integration_sync_state`:
+  `sync_status ok`, fresh `last_success_at`, 0 failures. That integration was paused again afterwards.
+- **Flags on, against the laptop fakes** (`deploy/docker-compose.fake-providers.yml`, now also a fake OpenAI):
+  - **Ask AI:** a fake OpenAI tool call → `metrics` on ClickHouse → an answer (HTTP 201; `no_data`, because every
+    laptop call has a test prefix);
+  - **Alerts:** a dry run in Settings → Alerts (200; publisher actions off) and `/alerts` (200);
+  - **Settings → Providers:** "Transcribe button only (automatic off)";
+  - **Transcribe button:** HTTP 202 → worker `claim` → Test-mode recording → fake S3 (SSE) + the same 8,096 bytes to
+    the fake Deepgram (`redact=pci,ssn`) → transcript **Ready** with `[REDACTED]`; then **Play** (200) and the
+    **evidence pack** (4 files), each with an audit row `served`.
+- **The detector works:** one deliberate call as `callloom_api` to `get_api_sync_integration` logged
+  `ERROR: permission denied for function get_api_sync_integration`.
+- **Postgres log** from just after that deliberate call (14:07:21 UTC) through every check above and the down/up
+  (17:42 UTC): **0 `permission denied`, 0 ERROR lines**.
+- **Up / down / up on the real laptop stack:** 37 (0 PUBLIC-executable) → down → `36 | f` (13, the exact old state) →
+  up → `37 | f` (0).
+
+`get_transcription_archive_all()` (from 000036) has no caller; it is executable by `callloom_sync` only and is left as is.
+
+**Deploy note:** `docs/deploy-37-grants.md`, after the 2D + 2B deploy (server at `6a8ad8a`, `36 | f`); applied by `migrate`. It needs no restart: the
+grants apply to the next call. If an unknown caller shows up after deploy, Postgres logs
+`permission denied for function <name>`. Rollback is `migrate down 1` for 000037 alone, which restores the PUBLIC
+grants exactly.
+
+**Optional, not done (owner decides):** `ALTER DEFAULT PRIVILEGES FOR ROLE callloom IN SCHEMA public REVOKE EXECUTE ON
+FUNCTIONS FROM PUBLIC`, so a function added (or dropped and re-created) in a later migration does not silently
+become PUBLIC again. Until then, the pattern in 000036 and 000037 (an explicit REVOKE + GRANT per function) is the
+rule for new migrations.
+
+Merged into `main` after these checks (owner-approved, 2026-10-22).
