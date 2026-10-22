@@ -1,0 +1,49 @@
+# LAPTOP ONLY — never on the server. v2 Phase 2B demo / screenshots with fake providers:
+# a fake Deepgram and a fake S3 archive (services/platform-sync/cmd/fake-providers), and the
+# transcription flags switched on for this run only. Test-mode (mock) integrations get a generated
+# recording, so nothing real is fetched, transcribed or stored.
+#
+#   docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml \
+#     -f deploy/docker-compose.fake-providers.yml up -d --build fake-providers platform-sync api web
+#
+# Afterwards run the normal dev-up again (flags back off) before the gates.
+services:
+  fake-providers:
+    image: golang:1.25.14-alpine
+    working_dir: /src
+    volumes:
+      - ../services/platform-sync:/src:ro
+      - fake_providers_gocache:/root/.cache
+      - fake_providers_gomod:/go/pkg/mod
+    command: ["go", "run", "./cmd/fake-providers"]
+    environment:
+      GOFLAGS: -mod=mod
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8099/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+  platform-sync:
+    environment:
+      FEATURE_TRANSCRIPTION: "true"
+      DEEPGRAM_API_KEY: fake-laptop-key
+      DEEPGRAM_BASE_URL: http://fake-providers:8099
+      ARCHIVE_S3_ENDPOINT: http://fake-providers:8099
+      ARCHIVE_S3_REGION: us-east-1
+      ARCHIVE_S3_BUCKET: calyx-fake-recordings
+      ARCHIVE_S3_KEY_ID: fake-key-id
+      ARCHIVE_S3_SECRET_KEY: fake-secret
+    depends_on:
+      fake-providers:
+        condition: service_healthy
+  api:
+    environment:
+      FEATURE_TRANSCRIPTION: "true"
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_FEATURE_TRANSCRIPTION: "true"
+
+volumes:
+  fake_providers_gocache:
+  fake_providers_gomod:
