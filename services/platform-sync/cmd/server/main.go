@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -25,6 +26,7 @@ import (
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/redishealth"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/store"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/syncer"
+	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/transcribe"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/internal/writeback"
 	"github.com/Syed-Tajdar/calyx-ai/services/platform-sync/pkg/kafka"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -197,6 +199,59 @@ func main() {
 	} else if cfg.WorkflowActionsEnabled {
 		logger.Error("WORKFLOW_ACTIONS_ENABLED is on but WRITEBACK_INTERNAL_TOKEN is empty — publisher routes not registered")
 	}
+
+	// v2 Phase 2B: transcription worker, archive cleanup and the internal recording routes. Nothing
+	// here starts unless FEATURE_TRANSCRIPTION=true; with it off no Deepgram, archive or recording
+	// request is ever made. Separate goroutines: the Live sync and the write-back are not touched.
+	tcfg, err := config.LoadTranscription()
+	if err != nil {
+		logger.Error("transcription config failed", "error", err)
+		os.Exit(1)
+	}
+	if tcfg.Enabled {
+		var archive transcribe.ObjectStore
+		if tcfg.ArchiveConfigured() {
+			archive = transcribe.NewS3Store(transcribe.S3Config{
+				Endpoint: tcfg.ArchiveEndpoint, Region: tcfg.ArchiveRegion, Bucket: tcfg.ArchiveBucket,
+				KeyID: tcfg.ArchiveKeyID, SecretKey: tcfg.ArchiveSecretKey,
+			})
+		}
+		spanish, perr := regexp.Compile(tcfg.SpanishPattern)
+		if perr != nil {
+			logger.Error("TRANSCRIBE_SPANISH_CAMPAIGN_PATTERN is not a valid regexp", "error", perr)
+			os.Exit(1)
+		}
+		tstore := transcribe.NewPGStore(pool)
+		worker := &transcribe.Worker{
+			Store:   tstore,
+			Decrypt: decryptor.DecryptMap,
+			Sources: map[string]transcribe.Source{
+				"ringba":    transcribe.NewRingbaSource(adapter.NewRingbaAdapter(adapter.NewHTTPClient())),
+				"retreaver": transcribe.NewRetreaverSource(adapter.NewRetreaverCallClient()),
+			},
+			Mock:    transcribe.MockSource{},
+			DG:      transcribe.NewDeepgram(tcfg.DeepgramBaseURL, tcfg.DeepgramAPIKey),
+			Archive: archive,
+			Cfg: transcribe.WorkerConfig{
+				DailyCapMinutes: tcfg.DailyCapMinutes, MaxAttempts: tcfg.MaxAttempts, SpanishPattern: spanish,
+				AllowMock: os.Getenv("APP_ENV") != "production",
+			},
+			Logger: logger,
+		}
+		go worker.Run(rootCtx)
+		go (&transcribe.Cleanup{Store: tstore, Archive: archive, RetentionMonths: tcfg.RetentionMonths, Logger: logger}).Run(rootCtx)
+		if cfg.WritebackAuthToken != "" {
+			rt := &transcribe.Routes{Store: tstore, Archive: archive, Logger: logger, Status: transcribe.StatusInfo{
+				Enabled: true, DeepgramKeySet: tcfg.DeepgramAPIKey != "", ArchiveConfigured: tcfg.ArchiveConfigured(),
+				DailyCapMinutes: tcfg.DailyCapMinutes, RetentionMonths: tcfg.RetentionMonths,
+			}}
+			mux.HandleFunc("GET /internal/transcription/status", writeback.RequireBearer(cfg.WritebackAuthToken, rt.StatusHandler))
+			mux.HandleFunc("GET /internal/recordings/audio", writeback.RequireBearer(cfg.WritebackAuthToken, rt.Audio))
+			mux.HandleFunc("GET /internal/recordings/evidence", writeback.RequireBearer(cfg.WritebackAuthToken, rt.Evidence))
+		}
+	}
+	logger.Info("transcription", "enabled", tcfg.Enabled, "archive_configured", tcfg.ArchiveConfigured(),
+		"deepgram_key_set", tcfg.DeepgramAPIKey != "", "daily_cap_minutes", tcfg.DailyCapMinutes)
 
 	server := &http.Server{Addr: ":" + cfg.Port, Handler: mux}
 	go func() {
