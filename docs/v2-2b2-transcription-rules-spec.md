@@ -1,6 +1,6 @@
 # Calyx v2 — Phase 2B.2: Transcription Rules and per-tenant usage limits (spec only, no code)
 
-**Status:** spec for owner review, 2026-10-23. Nothing here is built.
+**Status:** spec, owner answers recorded 2026-10-23 (end of document). Nothing here is built.
 **Builds on:** Phase 2B as deployed (`docs/v2-intelligence-report.md` §2B, `docs/deploy-v2-2d-2b.md`).
 **Migration:** **`000038_transcription_rules`**, the next after `000037_function_grants`.
 **Labels:** [PROVEN] = code or a run in this repo · [INFERRED] = follows from that evidence · [OWNER] = the owner's
@@ -86,7 +86,8 @@ is a separate, explicit admin action (out of scope here).
 2. **Sampling** (`sampling`). A percentage of converted calls in scope, with a per-publisher minimum.
    - **The sample is stable:** a call is in it when `cityHash64(platform, external_call_id) % 10000 < pct × 100`. That is
      the same answer every time, so re-scans never flip a call in or out, and it is reproducible in an audit.
-   - **Per-publisher minimum:** `min_calls_per_publisher_week` (default 5) keeps each publisher's quality measurable.
+   - **Per-publisher minimum:** `min_calls_per_publisher_week` (default **5 per week**, owner) keeps each publisher's
+     quality measurable.
      If a publisher has fewer than N transcribed calls (any reason) in the current ISO week (Eastern), its next converted
      calls in scope are added until it reaches N, even outside the percentage.
    - **Params:** `pct` (1–100, default 20), `min_calls_per_publisher_week`.
@@ -94,8 +95,8 @@ is a separate, explicit admin action (out of scope here).
 3. **Void / return trigger** (`void_return`). **Dispute evidence.** A call qualifies when one of its versions had
    `has_converted = 1 AND revenue > 0` and a **later** version has a lower revenue (to 0 or partly). The qualifying event
    is the `received_at` of the version where the revenue went down. Detection is in Part C.1.
-   - **Params:** `min_drop_usd` (default 1.00); `include_partial` (default true, so 57 → 21 counts as well as
-     13.77 → 0).
+   - **Params (owner defaults):** `min_drop_usd` **$1.00**; `include_partial` **true**, so a partial return such as
+     57 → 21 counts as well as a full void such as 13.77 → 0.
    - **Scope:** default all campaigns.
    - **Evidence:** the job stores `trigger_detail = {"from": 13.77, "to": 0, "version_received_at": …}`, and the
      evidence pack includes it.
@@ -111,15 +112,23 @@ is a separate, explicit admin action (out of scope here).
 5. **First N calls of a new publisher** (`new_publisher`). A publisher is new when its first call ever for the tenant
    and platform (`min(event_at)` over all versions) is at or after `active_since`. Its first `n` recorded calls
    ≥ `min_duration_seconds` are queued, converted or not.
-   - **Params:** `n` (default 10), `converted_only` (default false). The first calls are where quality problems show.
+   - **Params (owner defaults):** `n` **20**, `converted_only` **false** (any call, not only converted), with the normal
+     `min_duration_seconds` **20 s**. The first calls are where quality problems show.
    - **Scope:** default all campaigns.
 
 6. **2D alert trigger** (`alert_sample`). When an `alert_events` row is **created** with `scope = 'publisher'` and a
-   trigger type in the rule's list (default: `conversion_rate_below`, `short_call_share_above`,
-   `repeat_caller_share_above`), up to `k` recent calls of that publisher are queued.
-   - **Which calls:** inside the alert's `window_from`..`window_to`, recorded and ≥ `min_duration_seconds`, newest
-     first.
-   - **Params:** `k` (default 10), `trigger_types`, `converted_only` (default false).
+   trigger type in the rule's list, up to `k` recent calls of that publisher are queued.
+   - **Trigger types (owner): only these.**
+     - `conversion_rate_below`, `short_call_share_above` and `repeat_caller_share_above`;
+     - after 2C, the QA flag-rate trigger(s) (`qa_flag_rate_above`).
+     - **Never** `volume_change`, `revenue_drop`, `no_calls` or `integration_unhealthy`: the API refuses them in
+       `trigger_types`.
+   - **Which calls:** the **10 most recent** calls (`k` = 10) inside the alert's `window_from`..`window_to`, recorded
+     and ≥ `min_duration_seconds`.
+   - **Conversion drops:** for `conversion_rate_below`, **non-converted calls first**. They fill `k` before any
+     converted call is taken, because they show why the conversion fell.
+   - **Params (owner defaults):** `k` **10**, `trigger_types` as above, `prefer_non_converted` **true** for
+     `conversion_rate_below`.
    - **Limits:** once per alert (keyed on `alert_events.id`); alerts created before `active_since` never trigger.
    - **Order:** the alert's own calls usually already happened, so they qualify by the **alert's** `created_at`, not by
      the call time. This is the one sanctioned look-back, bounded by the alert window (≤ 720 h by the 2D schema) and by
@@ -187,12 +196,33 @@ the rule (no secrets in it). Limit changes (Part B) are audited the same way in 
 
 **`transcription_plans`** (seeded; platform-owned, not tenant-editable):
 
-| Plan | Included minutes / month | Default daily cap | Overage price (to decide, B.6) |
-|---|---:|---:|---|
-| Starter | 3,000 | 200 (= 3,000 / 30 × 2) | e.g. $0.03/min |
-| Growth | 15,000 | 1,000 | e.g. $0.025/min |
-| Scale | 50,000 | 3,333 | e.g. $0.02/min |
-| Enterprise | custom | custom | custom |
+**Owner proposal (2026-10-23).** Final prices are a management decision. Transcription **and AI QA (2C)** are included in
+the price.
+
+| Plan | Included minutes / month | Price / month | Overage | Default daily cap (monthly / 30 × 2) | `over_quota_mode` allowed |
+|---|---:|---:|---:|---:|---|
+| Starter | 3,000 | $69 | $0.03/min | 200 | `stop`, `overage` |
+| Growth | 15,000 | $299 | $0.03/min | 1,000 | `stop`, `overage` |
+| Scale | 50,000 | $899 | $0.025/min | 3,333 | `stop`, `overage` |
+| Enterprise | 100,000+ by contract | by contract (~$0.015/min) | by contract | 6,667 at 100,000 (by contract) | `stop`, `overage`, `notify_only` |
+| **Internal** | 25,000 | — (no billing) | — | 1,667 | `stop`, `overage`, `notify_only` |
+
+**Internal** is our own tenant, **instar.io**:
+- it is never billed, and the internal usage report shows its cost with a billed amount of $0;
+- its quota is 25,000 min/month, which is above both models at today's volume (rules ~6,100, global ~16,500; C.5).
+
+**Our cost if a plan's minutes are fully used [INFERRED]:**
+- **What goes into it:** transcription at $0.0063/min, plus AI QA at ~$0.0005/min. That is §6's ~$10 OpenAI QA for
+  ~3,600 calls a month, at ~6 min per call; it is re-checked when 2C is built.
+
+| Plan | Our cost (fully used) | Price | Gross margin |
+|---|---:|---:|---:|
+| Starter | ~$20 | $69 | ~70 % |
+| Growth | ~$102 | $299 | ~66 % |
+| Scale | ~$340 | $899 | ~62 % |
+| Enterprise at 100,000 min | ~$680 | ~$1,500 | ~55 % |
+
+- **Overage:** $0.03 or $0.025 against ~$0.0068 cost, about 4×.
 
 **`tenant_transcription_limits`** (one row per tenant):
 - `plan`;
@@ -200,7 +230,8 @@ the rule (no secrets in it). Limit changes (Part B) are audited the same way in 
 - `daily_cap_minutes` (default `monthly / 30 × 2`, overridable);
 - `monthly_budget_usd` (optional, set by the **tenant admin**: a ceiling below the plan);
 - `reserve_pct` (default 10);
-- `over_quota_mode` (`stop | overage | notify_only`) and `overage_limit_usd`;
+- `over_quota_mode` (`stop | overage | notify_only`; `notify_only` only on the **Enterprise** and **Internal**
+  plans, owner) and `overage_limit_usd`;
 - `deepgram_key_id` (optional, B.5);
 - `updated_by`, `updated_at`.
 
@@ -217,8 +248,10 @@ the rule (no secrets in it). Limit changes (Part B) are audited the same way in 
 |---|---|---|
 | `stop` | New jobs wait as `capped` until the 1st (Eastern) | Wait as `capped` until the next Eastern midnight (as today) |
 | `overage` | Continue, billed as overage, until `overage_limit_usd` this month; then as `stop` | As `stop` (the daily cap still protects a runaway day) |
-| `notify_only` | Continue; the bell and email say so; billed as overage with no ceiling (the platform safety limit, B.5, still applies) | As `stop` |
+| `notify_only` (**Enterprise and Internal plans only**; owner) | Continue; the bell and email say so; billed as overage with no ceiling (Internal: not billed). The platform safety limit (B.5) still applies | As `stop` |
 
+- **For other plans the API refuses `notify_only`:** Starter, Growth and Scale get `stop` or `overage` up to
+  `overage_limit_usd`.
 - `capped` jobs keep their place, their priority and their reason. Nothing is deleted.
 - When room returns (midnight, the 1st, a limit raised), they run in priority order (B.3).
 - A tenant `monthly_budget_usd` acts like `stop` at that $ amount, whatever the mode.
@@ -279,8 +312,9 @@ the rule (no secrets in it). Limit changes (Part B) are audited the same way in 
     price) and the margin;
   - our cost: English **$0.0063/min** (Nova-3 $0.0043 + redaction $0.0020) and Spanish **~$0.0072/min** (multi
     $0.0052 + redaction).
-  - **Access:** first as a SQL view plus `GET /internal/transcription/usage-report?month=` behind an internal token
-    (there is no platform-operator UI role yet); later, a page.
+  - **Access (owner):** for now, a SQL view plus `GET /internal/transcription/usage-report?month=` (JSON) and `.csv`,
+    behind an internal token (there is no platform-operator UI role yet). **An operator page comes when the second
+    paying company is onboarded.**
 
 ### B.6 Market reference for pricing [OWNER — not re-checked here]
 
@@ -414,29 +448,30 @@ HAVING max_conv_rev > 0
   | Trigger | Assumption at 1× | How it scales | 1× (min/day) |
   |---|---|---|---:|
   | Void / return | 3 % of converted calls | with volume | 16.5 |
-  | New publisher | ~1 new publisher/week × 10 calls × 6 min | ×3 at 5×, ×10 at 20× | 8.6 |
+  | New publisher | ~1 new publisher/week × 20 calls (owner N = 20) × 6 min | ×3 at 5×, ×10 at 20× | 17.1 |
   | Alert samples | ~0.5 alert/day × 10 calls × 6 min | ×3 / ×10 | 30 |
   | Per-publisher top-up | — | ×5 / ×20 | ~30 |
 - **The button** (~60 min/day) is the same in both models, so it is left out of the comparison.
 
 | Size | Global: all converted (min/day → $/month) | Rules: sampling 20 % + triggers (min/day → $/month) | Rules vs global |
 |---|---|---|---|
-| **1× (today)** | 550 → **$104** | 110 + 16.5 + 8.6 + 30 + 30 = **195** → **$37** | 35 % |
-| **5×** | 2,750 → **$520** | 550 + 82.5 + 26 + 90 + 150 = **899** → **$170** | 33 % |
-| **20×** | 11,000 → **$2,079** | 2,200 + 330 + 86 + 300 + 600 = **3,516** → **$664** | 32 % |
+| **1× (today)** | 550 → **$104** | 110 + 16.5 + 17.1 + 30 + 30 = **204** → **$38** | 37 % |
+| **5×** | 2,750 → **$520** | 550 + 82.5 + 51.4 + 90 + 150 = **924** → **$175** | 34 % |
+| **20×** | 11,000 → **$2,079** | 2,200 + 330 + 171.4 + 300 + 600 = **3,601** → **$681** | 33 % |
 
 (Monthly $ = minutes/day × 30 × $0.0063. With ~10 % Spanish, multiply by ~1.015.)
 
-**Plan fit [INFERRED]:**
-- **1×:** rules use ~5,850 min/month → **Growth** (15,000) with room; global (16,500) would exceed it.
-- **5×:** rules use ~27,000 → **Scale** (50,000); global (82,500) would be over Scale.
-- **20×:** rules use ~105,000 → **Enterprise**.
+**Plan fit [INFERRED], at the owner's proposed plans (B.1):**
+- **1×:** rules use ~6,100 min/month → **Growth** (15,000, $299) with room; global (16,500) would be over Growth.
+  - **Our own tenant (Internal, 25,000 min):** both fit.
+- **5×:** rules use ~27,700 → **Scale** (50,000, $899); global (82,500) would be over Scale.
+- **20×:** rules use ~108,000 → **Enterprise** (100,000+).
 
 **Throughput [INFERRED]:**
 - **Volume:** at 20× global, ~1,830 calls/day, about 180/hour over a 10-hour business day and maybe ~300/hour at peak.
 - **Today's single worker:** at ~10–30 s per job it handles roughly 120–360 per hour. That is borderline, and the reason
   B.5 has a worker pool and per-tenant concurrency.
-- **Rules at 20×:** ~590 calls/day, comfortable.
+- **Rules at 20×:** ~600 calls/day, comfortable.
 
 **Measure before deciding** (one server query each, added to the implementation's Step 0):
 - the void/return rate (C.1's SQL over 30 days);
@@ -495,21 +530,47 @@ HAVING max_conv_rev > 0
 
 1. Implementation on a branch, with the fake providers only; the server is not touched.
 2. Server **Step 0**, read-only: the C.5 measurements and the should-convert query (Aryan, GET / SELECT only).
-3. Deploy with every flag off. Migration 000038 makes each existing tenant `Growth` with `stop`, the cap carried over
-   from today's env value, and `reserve_pct` 10. `TRANSCRIBE_AUTO` stays `false`.
+3. Deploy with every flag off. Migration 000038 sets:
+   - every existing tenant → **Growth**, `stop`, `reserve_pct` 10;
+   - then **our tenant (instar.io) → Internal**: 25,000 min/month, daily cap 1,667, `over_quota_mode` `stop` (the owner
+     may switch it to `notify_only`), `reserve_pct` 10. The deploy pack sets this by its **tenant id**, confirmed by Syed;
+     the migration never guesses a tenant by name.
+
+   The env `TRANSCRIBE_DAILY_MINUTES_CAP` becomes the platform-wide limit. `TRANSCRIBE_AUTO` stays `false`.
 4. The owner creates the first rules in the UI, estimate first: for example `void_return` (all campaigns) and
    `sampling` 20 % on two campaigns.
 5. `TRANSCRIBE_AUTO=true` (the platform switch for rules) only after that, with a check after 20 minutes, like
    today's 6(d) stop rule.
 6. Usage page and alerts reviewed after one week, before widening.
 
-### Open questions for the owner 🙋
+### Owner answers (2026-10-23) — recorded in the sections above
 
-1. **Plan prices** and the included minutes per plan (B.1, B.6), and the default plan for existing tenants.
-2. **Void / return:** `min_drop_usd` default ($1?), and whether partial returns count (default yes).
-3. **Per-publisher minimum:** N per **week** (default 5) or per month?
-4. **New publisher:** N = 10, and converted or any calls (default any)?
-5. **Alert trigger:** which 2D trigger types, and `k` = 10?
-6. **`notify_only` mode:** allowed for every plan, or Enterprise only?
-7. **Is the internal usage report enough as an internal route plus CSV at first**, or is a platform-operator page
-   needed now?
+1. **Plans** (a proposal; final prices are a management decision; transcription + AI QA included):
+   - **Starter:** 3,000 min, $69/month, overage $0.03/min;
+   - **Growth:** 15,000 min, $299/month, overage $0.03/min;
+   - **Scale:** 50,000 min, $899/month, overage $0.025/min;
+   - **Enterprise:** 100,000+ by contract (~$0.015/min);
+   - **Internal**, our own tenant **instar.io**: no billing, 25,000 min/month.
+
+   See B.1.
+2. **Void / return:** `min_drop_usd` default **$1**; partial returns **count**. (A.2 (3))
+3. **Per-publisher minimum:** **5 per week**. (A.2 (2))
+4. **New publisher:** **N = 20**, **any** calls (not only converted), normal minimum duration **20 s**. (A.2 (5); C.5
+   recomputed)
+5. **Alert trigger:**
+   - only `conversion_rate_below`, `short_call_share_above`, `repeat_caller_share_above` and the QA flag-rate
+     trigger(s) after 2C;
+   - **not** volume, revenue, `no_calls` or `integration_unhealthy`;
+   - `k` = **10** most recent calls in the alert window;
+   - for conversion drops, **non-converted calls first**. (A.2 (6))
+6. **`notify_only`:** only the **Enterprise** and **Internal** plans. Other plans get `stop` or `overage` up to $X.
+   (B.1, B.2)
+7. **Internal usage report:** an internal route + CSV for now; **an operator page when the second paying company is
+   onboarded**. (B.5)
+
+**Tests added by these answers** (on top of C.7):
+- the API refuses `notify_only` for Starter, Growth and Scale;
+- the API refuses `alert_sample` with `volume_change`, `revenue_drop`, `no_calls` or `integration_unhealthy`;
+- `conversion_rate_below` samples fill `k` with non-converted calls first;
+- `new_publisher` queues the first 20 calls ≥ 20 s, converted or not;
+- the Internal tenant has a billed amount of $0 in the usage report.
